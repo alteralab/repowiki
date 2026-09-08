@@ -1,0 +1,11 @@
+id: java-entity-relation
+language: java
+message: entity.relation
+rule:
+  any:
+    - kind: annotation
+    - kind: marker_annotation
+  has:
+    field: name
+    kind: identifier
+    regex: "^(OneToMany|ManyToOne|OneToOne|ManyToMany|JoinColumn)$"

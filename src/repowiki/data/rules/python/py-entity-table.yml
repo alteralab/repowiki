@@ -1,0 +1,9 @@
+id: py-entity-table
+language: python
+message: entity.table
+rule:
+  kind: assignment
+  has:
+    field: left
+    kind: identifier
+    regex: "^__tablename__$"

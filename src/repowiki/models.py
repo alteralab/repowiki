@@ -220,6 +220,58 @@ class HistoryFacts(BaseModel):
     hotspots: list[dict]
     couplings: list[dict]
     issue_keys: dict
+    periods: list[dict] = Field(default_factory=list)
+
+
+class PageType(StrEnum):
+    """페이지 종류. frontmatter의 `type`과 같은 값이다(PLAN §2.4)."""
+
+    QUICKSTART = "quickstart"
+    ARCHITECTURE_OVERVIEW = "architecture-overview"
+    SUBSYSTEM = "subsystem"
+    MODULE = "module"
+    FLOWS = "flows"
+    HISTORY = "history"
+
+
+class Evidence(BaseModel):
+    """페이지가 인용할 수 있는 근거 하나. `id`로 가리키고 `span`이 자리다."""
+
+    id: str
+    span: Span
+    note: str
+
+
+class PageJob(BaseModel):
+    """페이지 하나를 쓰는 작업. LLM은 이 안의 사실만 읽는다(PLAN §2.1, §4)."""
+
+    id: str
+    path: str
+    type: PageType
+    title: str
+    purpose: str
+    facts: dict
+    evidence: list[Evidence]
+    diagrams: list[Diagram] = Field(default_factory=list)
+    input_hash: str
+
+
+class PageOutput(BaseModel):
+    """세션이나 SDK가 낸 페이지. `submit`이 이 형태로 검증한다."""
+
+    job_id: str
+    title: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+    body_markdown: str
+    citations: list[str] = Field(default_factory=list)
+
+
+class EntityFacts(BaseModel):
+    """데이터 모델 사실. 계산은 `analyze/entities.py`가 한다."""
+
+    entities: list[dict] = Field(default_factory=list)
+    relations: list[dict] = Field(default_factory=list)
 
 
 class RepoFacts(BaseModel):
@@ -236,4 +288,5 @@ class RepoFacts(BaseModel):
     flows: list[CrossModuleFlow]
     diagrams: list[Diagram]
     history: HistoryFacts | None = None
+    entities: EntityFacts | None = None
     unresolved: list[str] = Field(default_factory=list)

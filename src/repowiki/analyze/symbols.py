@@ -210,6 +210,10 @@ def _take_import(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
         )
 
 
+def _ignore(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
+    """다른 분석기가 가져가는 매치. 이 층에서는 아무것도 하지 않는다."""
+
+
 def _take_entry(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
     # 테스트 소스의 진입점은 제품 표면이 아니다(PLAN §2.8 scope 분리).
     if ctx.is_test:
@@ -219,19 +223,34 @@ def _take_entry(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
         out.entry_points.append(entry)
 
 
+# 다른 분석기가 원본 매치에서 직접 읽는 message. 여기서는 흘려보내되 미상으로 세지 않는다.
+_CONSUMED_ELSEWHERE = ("entity.",)
+
+
+# message에서 핸들러로 가는 표. 분기 대신 표로 고른다(C-BRANCH-1).
+# `entity.*`는 다른 분석기가 원본 매치에서 직접 읽으므로 여기서는 흘려보낸다.
+_PREFIX_HANDLERS: tuple[tuple[str, object], ...] = (
+    ("ref.", "_take_ref"),
+    ("entry.", "_take_entry"),
+    ("entity.", "_ignore"),
+)
+
+_EXACT_HANDLERS: dict[str, str] = {
+    "package": "_take_package",
+    "import": "_take_import",
+    "import.from": "_take_import",
+}
+
+
 def _handler_for(message: str):
-    """message에서 핸들러로. 분기 대신 표로 고른다(C-BRANCH-1)."""
+    """message에 대응하는 핸들러. 없으면 `None`이고 호출자가 미상으로 센다."""
+    table = globals()
     if message in _DEF_MESSAGES:
         return _take_def
-    if message.startswith("ref."):
-        return _take_ref
-    if message == "package":
-        return _take_package
-    if message in ("import", "import.from"):
-        return _take_import
-    if message.startswith("entry."):
-        return _take_entry
-    return None
+    name = _EXACT_HANDLERS.get(message)
+    if name is None:
+        name = next((handler for prefix, handler in _PREFIX_HANDLERS if message.startswith(prefix)), None)
+    return table[name] if name else None
 
 
 def extract(matches: list[AstMatch], roots: list[str], facts: DomainFacts) -> Extraction:

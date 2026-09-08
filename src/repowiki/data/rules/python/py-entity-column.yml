@@ -1,0 +1,12 @@
+id: py-entity-column
+language: python
+message: entity.column
+rule:
+  kind: assignment
+  has:
+    field: right
+    kind: call
+    has:
+      field: function
+      kind: identifier
+      regex: "^(mapped_column|Column)$"

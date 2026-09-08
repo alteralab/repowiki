@@ -9,10 +9,21 @@ import argparse
 import sys
 from pathlib import Path
 
+from repowiki.adapters.jobs import JobError
 from repowiki.adapters.node import DiagramSource, parse_diagrams
 from repowiki.gate.evidence import check_evidence
 from repowiki.gate.mermaid import check_limits
 from repowiki.pipeline.analyze_run import analyze_repo, load_limits, write_facts
+from repowiki.pipeline.write_run import (
+    Workspace,
+    bundle,
+    load_facts,
+    next_job,
+    prepare,
+    status,
+    submit,
+    write_manifest,
+)
 
 
 def _cmd_analyze(args: argparse.Namespace) -> int:
@@ -64,6 +75,67 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     return 1 if violations or parse_failures or evidence_violations else 0
 
 
+def _cmd_write(args: argparse.Namespace) -> int:
+    out = Path(args.out).resolve()
+    facts = load_facts(out)
+    workspace, count = prepare(out, facts)
+    write_manifest(workspace, facts)
+    print(f"작업 {count}개를 만들었다: {workspace.base}")
+    print("세션 드라이버로 쓰려면 `repowiki job next --out <이 디렉토리>`부터 시작한다")
+    return 0
+
+
+def _cmd_job_next(args: argparse.Namespace) -> int:
+    workspace = Workspace(root=str(Path(args.out).resolve()))
+    job = next_job(workspace, args.worker)
+    if job is None:
+        counts = status(workspace)
+        print(f"대기 중인 작업이 없다. 상태 {counts}")
+        return 0
+    print(f"작업 {job.id}")
+    print(f"  지시문 {job.payload}/brief.md")
+    print(f"  사실   {job.payload}/job.json")
+    print(f"  제출   repowiki job submit {job.payload}/page.json --out {args.out}")
+    return 0
+
+
+def _cmd_job_submit(args: argparse.Namespace) -> int:
+    workspace = Workspace(root=str(Path(args.out).resolve()))
+    try:
+        violations = submit(workspace, Path(args.page).resolve(), args.worker)
+    except (JobError, FileNotFoundError) as error:
+        # 진입점은 실패를 종료 상태로 말한다. 역추적을 사용자에게 보이지 않는다.
+        print(f"제출 거부: {error}", file=sys.stderr)
+        return 1
+    for violation in violations:
+        print(f"게이트 거부 {violation.rule}: {violation.detail}", file=sys.stderr)
+    if violations:
+        return 1
+    counts = status(workspace)
+    print(f"받았다. 상태 {counts}")
+    return 0
+
+
+def _cmd_bundle(args: argparse.Namespace) -> int:
+    out = Path(args.out).resolve()
+    workspace = Workspace(root=str(out))
+    facts = load_facts(out)
+    wiki, count = bundle(workspace, out, facts)
+    counts = status(workspace)
+    print(f"페이지 {count}개를 {wiki}에 냈다. 작업 상태 {counts}")
+    if counts.get("pending"):
+        print(f"아직 쓰지 않은 작업이 {counts['pending']}개 있다", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _cmd_status(args: argparse.Namespace) -> int:
+    workspace = Workspace(root=str(Path(args.out).resolve()))
+    counts = status(workspace)
+    print(f"작업 상태 {counts}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="repowiki", description="저장소에서 아키텍처 위키를 만든다")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -75,6 +147,32 @@ def main(argv: list[str] | None = None) -> int:
         "--skip-parse", action="store_true", help="Mermaid 파서 게이트를 건너뛴다(Node 없는 환경)"
     )
     analyze.set_defaults(handler=_cmd_analyze)
+
+    write = sub.add_parser("write", help="사실에서 페이지 작업을 만든다")
+    write.add_argument("--out", default="out", help="사실 파일이 있는 디렉토리")
+    write.set_defaults(handler=_cmd_write)
+
+    job = sub.add_parser("job", help="세션 드라이버의 작업 교환")
+    job_sub = job.add_subparsers(dest="job_command", required=True)
+
+    job_next = job_sub.add_parser("next", help="대기 중인 작업 하나를 받는다")
+    job_next.add_argument("--out", default="out")
+    job_next.add_argument("--worker", default="session")
+    job_next.set_defaults(handler=_cmd_job_next)
+
+    job_submit = job_sub.add_parser("submit", help="쓴 페이지를 제출한다")
+    job_submit.add_argument("page", help="page.json 경로")
+    job_submit.add_argument("--out", default="out")
+    job_submit.add_argument("--worker", default="session")
+    job_submit.set_defaults(handler=_cmd_job_submit)
+
+    job_status = job_sub.add_parser("status", help="작업 상태를 본다")
+    job_status.add_argument("--out", default="out")
+    job_status.set_defaults(handler=_cmd_status)
+
+    bundle_cmd = sub.add_parser("bundle", help="제출된 페이지를 위키로 낸다")
+    bundle_cmd.add_argument("--out", default="out")
+    bundle_cmd.set_defaults(handler=_cmd_bundle)
 
     args = parser.parse_args(argv)
     return args.handler(args)

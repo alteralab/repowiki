@@ -554,3 +554,26 @@ def test_nested_and_static_imports_resolve_to_the_declaring_module() -> None:
     edges, unresolved = module_edges(imports, {"org.x": {"clients"}}, scope=scope)
     assert [(e.src, e.dst, e.weight) for e in edges] == [("core", "clients", 2)]
     assert unresolved == 1
+
+
+def test_er_diagram_is_absent_without_entities() -> None:
+    """엔티티가 없으면 ER 다이어그램을 만들지 않는다. 없는 모델을 지어내지 않는다."""
+    from repowiki.bundle.diagrams import entity_diagram
+
+    limit = DiagramLimit(level="ER", max_nodes=10, max_source_chars=2000, max_blocks_per_page=50)
+    assert entity_diagram([], [], limit) is None
+
+
+def test_flow_diagram_needs_a_module_boundary() -> None:
+    """모듈을 넘지 않는 흐름은 시퀀스로 그리지 않는다. 보여 줄 경계가 없다."""
+    from repowiki.analyze.graph import flows
+    from repowiki.models import EntryPoint, EntryPointKind
+
+    symbols = [_type("Entry", "a", "a/Entry.java"), _type("Near", "a", "a/Near.java")]
+    symbols[0].span.end_line = 50
+    index = type_index(symbols)
+    edges = [_flow_edge("Entry", "Near", "a", "a", 10)]
+    entry = EntryPoint(
+        kind=EntryPointKind.MAIN, name="main", span=_span("a/Entry.java", 5), module="a"
+    )
+    assert flows([entry], edges, index, limit=5) == []

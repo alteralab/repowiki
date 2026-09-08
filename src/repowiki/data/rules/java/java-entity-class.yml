@@ -1,0 +1,11 @@
+id: java-entity-class
+language: java
+message: entity.table
+rule:
+  any:
+    - kind: annotation
+    - kind: marker_annotation
+  has:
+    field: name
+    kind: identifier
+    regex: "^(Entity|Table)$"

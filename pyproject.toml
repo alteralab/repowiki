@@ -1,4 +1,7 @@
-# 프로젝트 의존 선언. 정확한 버전 고정은 uv.lock이 소유한다(PLAN §12 1).
+# 프로젝트 의존 선언. 버전은 여기서 `==`로 고정한다(사용자 판정 2026-09-09).
+# 락 파일도 같은 값을 갖지만, 락 없이 설치하는 경로(반입 이미지의 `pip install .`)에서도
+# 같은 판이 들어오게 하려면 선언 자체가 못 박혀 있어야 한다. 판을 올릴 때는 이 파일과
+# uv.lock을 같은 커밋에서 함께 고친다.
 # 런타임 직접 의존은 PLAN §8의 상한(파이썬 12, 네이티브 휠 15) 안에 있어야 하고,
 # 추가는 §8의 검사 목록 여덟 항목을 통과해야 한다.
 [project]
@@ -6,25 +9,25 @@ name = "repowiki"
 version = "0.0.0"
 requires-python = ">=3.12"
 dependencies = [
-    "ast-grep-cli>=0.45.1",          # 심볼, import, 진입점, def/ref 태그, HCL 속성 스팬
-    "networkx>=3.6",                 # PageRank, HITS, SCC, Louvain
-    "pydantic>=2.13",                # 상태, 출력 스키마, frontmatter 정본
-    "PyYAML>=6.0.3",                 # compose_all 마크 기반 YAML 스팬
-    "python-hcl2>=8.1.4",            # Terraform 블록과 속성 스팬
-    "dockerfile-parse>=2.0.1",       # Dockerfile 스팬
-    "langgraph>=1.2",                # 조율 그래프 (사용자 결정 2026-09-09)
-    "langgraph-checkpoint-sqlite>=3.1",
-    "langchain-core>=1.6",
+    "ast-grep-cli==0.45.3",          # 심볼, import, 진입점, def/ref 태그, HCL 속성 스팬
+    "networkx==3.6.1",                 # PageRank, HITS, SCC, Louvain
+    "pydantic==2.13.5",                # 상태, 출력 스키마, frontmatter 정본
+    "PyYAML==6.0.3",                 # compose_all 마크 기반 YAML 스팬
+    "python-hcl2==8.1.4",            # Terraform 블록과 속성 스팬
+    "dockerfile-parse==2.0.1",       # Dockerfile 스팬
+    "langgraph==1.2.11",                # 조율 그래프 (사용자 결정 2026-09-09)
+    "langgraph-checkpoint-sqlite==3.1.1",
+    "langchain-core==1.6.2",
 ]
 
 [project.optional-dependencies]
 # API 드라이버를 쓰는 배치만 설치한다. 기본 경로는 Claude Code 세션 드라이버다(PLAN §4).
-api = ["anthropic>=1.4"]
+api = ["anthropic==1.4.0"]
 # Terraform 평가 그래프 스파이크(PLAN §3, Phase 2b 통과 전에는 기본 락 밖).
-terraform-eval = ["tfparse>=0.6.21"]
+terraform-eval = ["tfparse==0.6.21"]
 # 평가 전용이며 런타임 SBOM 밖이다(PLAN §8). Leiden 도전자와 군집 비교 지표.
 # ARI 같은 표준 지표는 직접 만들지 않는다(C-LIB-1).
-evals = ["scikit-network>=0.33", "scikit-learn>=1.7"]
+evals = ["scikit-network==0.33.5", "scikit-learn==1.9.0"]
 
 [project.scripts]
 repowiki = "repowiki.cli:main"
@@ -71,20 +74,19 @@ include_external_packages = true
 [[tool.importlinter.contracts]]
 name = "계층 순서"
 type = "layers"
-# write 층은 Phase 3(LLM 층)에서 생긴다. 없는 모듈을 계약에 적으면 계약이 실패한다.
-layers = ["repowiki.cli", "repowiki.pipeline", "repowiki.analyze | repowiki.gate | repowiki.bundle", "repowiki.adapters"]
+layers = ["repowiki.cli", "repowiki.pipeline", "repowiki.analyze | repowiki.write | repowiki.gate | repowiki.bundle", "repowiki.adapters"]
 
 # 계약 2 — 형제 독립. analyze, write, gate, bundle은 서로를 부르지 않는다.
 [[tool.importlinter.contracts]]
 name = "형제 독립"
 type = "independence"
-modules = ["repowiki.analyze", "repowiki.gate", "repowiki.bundle"]
+modules = ["repowiki.analyze", "repowiki.write", "repowiki.gate", "repowiki.bundle"]
 
 # 계약 3 — 서드파티는 adapters 안에서만. adapters 파일 목록이 곧 서드파티 목록이다(PLAN §8 2).
 [[tool.importlinter.contracts]]
 name = "서드파티 격리"
 type = "forbidden"
-source_modules = ["repowiki.pipeline", "repowiki.analyze", "repowiki.gate", "repowiki.bundle"]
+source_modules = ["repowiki.pipeline", "repowiki.analyze", "repowiki.write", "repowiki.gate", "repowiki.bundle"]
 forbidden_modules = ["subprocess", "anthropic", "urllib", "http", "hcl2", "dockerfile_parse", "httpx", "httpx2", "requests"]
 # 어댑터를 거친 간접 임포트는 계약이 허용하는 경로다. 금지는 직접 임포트에만 건다.
 allow_indirect_imports = true

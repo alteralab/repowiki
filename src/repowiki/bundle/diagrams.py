@@ -16,6 +16,7 @@ from collections import Counter
 from pydantic import BaseModel
 
 from repowiki.models import (
+    CrossModuleFlow,
     Diagram,
     DiagramLimit,
     Module,
@@ -166,6 +167,139 @@ _EDGE_ARROW = {
     TypeEdgeKind.FIELD_TYPE: "..>",
     TypeEdgeKind.PARAM_TYPE: "..>",
 }
+
+
+_MAX_HOPS = 12
+
+
+def entity_diagram(entities: list[dict], relations: list[dict], limit: DiagramLimit) -> Diagram | None:
+    """데이터 모델을 erDiagram으로 그린다.
+
+    엔티티는 저장소가 스스로 테이블이라고 적어 둔 타입이고, 관계는 외래 키와 관계
+    애노테이션이다. 엔티티가 없으면 그리지 않는다 — 없는 모델을 지어내지 않는다.
+    """
+    if not entities:
+        return None
+    ordered = sorted(entities, key=lambda e: (-len(e.get("attributes", [])), e["table"]))
+    shown = ordered[: limit.max_nodes]
+    visible = {e["table"] for e in shown}
+    by_type = {e["type_name"]: e["table"] for e in shown}
+
+    lines = ["erDiagram"]
+    kept = 0
+    for relation in relations:
+        source = by_type.get(relation["src"])
+        target = relation["dst_table"]
+        if source is None or target not in visible or source == target:
+            continue
+        lines.append(f'  {_ID_SAFE.sub("_", target)} ||--o{{ {_ID_SAFE.sub("_", source)} : "{relation["kind"]}"')
+        kept += 1
+    for entity in shown:
+        name = _ID_SAFE.sub("_", entity["table"])
+        lines.append(f"  {name} {{")
+        for attribute in entity.get("attributes", [])[:8]:
+            lines.append(f'    field {_ID_SAFE.sub("_", attribute["name"])}')
+        lines.append("  }")
+
+    source_text = "\n".join(lines)
+    reasons = []
+    if len(entities) > limit.max_nodes:
+        reasons.append(f"엔티티 {len(entities)}개가 상한 {limit.max_nodes}개를 넘어 속성이 많은 순으로 그렸다")
+    while len(source_text) > limit.max_source_chars and len(shown) > 1:
+        shown = shown[:-1]
+        return entity_diagram(shown, relations, limit)
+    return Diagram(
+        id="ER-entities",
+        level="ER",
+        source=source_text,
+        node_count=len(shown),
+        edge_count=kept,
+        degraded_reason="; ".join(reasons) or None,
+    )
+_MAX_PERIODS = 12
+
+
+def history_diagram(periods: list[dict], limit: DiagramLimit) -> Diagram | None:
+    """이력을 timeline으로 그린다.
+
+    분기마다 커밋 수와 그 분기에 가장 많이 바뀐 파일 이름을 적는다. 사람은 이 그림에서
+    "최근에 어디가 움직였는가"를 먼저 본다. 기간이 없으면 그리지 않는다.
+    """
+    if not periods:
+        return None
+    shown = periods[-_MAX_PERIODS:]
+    lines = ["timeline", "  title 분기별 변경"]
+    for period in shown:
+        name = period.get("top_path", "").split("/")[-1]
+        detail = f"커밋 {period['commits']}건"
+        if name:
+            detail += f" : 최다 {_label(name)} {period['top_revisions']}회"
+        lines.append(f"  {period['label']} : {detail}")
+    source = "\n".join(lines)
+    reasons = []
+    if len(periods) > _MAX_PERIODS:
+        reasons.append(f"기간 {len(periods)}개가 상한 {_MAX_PERIODS}개를 넘어 최근만 그렸다")
+    while len(source) > limit.max_source_chars and len(lines) > 3:
+        lines.pop(2)
+        source = "\n".join(lines)
+        reasons.append("소스 상한을 맞추려고 앞 기간을 줄였다")
+    return Diagram(
+        id="TIME-history",
+        level="TIME",
+        source=source,
+        node_count=len(shown),
+        edge_count=0,
+        degraded_reason="; ".join(dict.fromkeys(reasons)) or None,
+    )
+
+
+def flow_diagram(flow: CrossModuleFlow, limit: DiagramLimit) -> Diagram | None:
+    """흐름 하나를 sequenceDiagram으로 그린다.
+
+    참가자는 모듈이고 메시지는 홉이다. 홉의 라벨은 지나가는 타입과 관계 종류이며,
+    사람은 이 그림에서 "요청이 어느 모듈을 거치는가"를 먼저 본다.
+
+    홉이 없거나 모듈이 하나뿐인 흐름은 그리지 않는다. 보여 줄 경계가 없기 때문이다.
+    """
+    if not flow.hops or len(flow.modules) < 2:
+        return None
+    participants = list(dict.fromkeys(flow.modules))[: limit.max_nodes]
+    visible = set(participants)
+    short = {name: f"P{position}" for position, name in enumerate(participants)}
+    lines = ["sequenceDiagram"]
+    for name in participants:
+        lines.append(f'  participant {short[name]} as {_label(name)}')
+    lines.append(f'  Note over {short[participants[0]]}: {_label(flow.entry.kind.value)} {_label(flow.entry.name)[:30]}')
+    kept = 0
+    for hop in flow.hops[:_MAX_HOPS]:
+        if hop.src_module not in visible or hop.dst_module not in visible:
+            continue
+        arrow = "->>" if hop.src_module != hop.dst_module else "-->>"
+        lines.append(
+            f"  {short[hop.src_module]}{arrow}{short[hop.dst_module]}:"
+            f" {_label(hop.symbol)} ({hop.kind.value})"
+        )
+        kept += 1
+    if kept == 0:
+        return None
+    source = "\n".join(lines)
+    reasons = []
+    if len(flow.hops) > _MAX_HOPS:
+        reasons.append(f"홉 {len(flow.hops)}개가 상한 {_MAX_HOPS}개를 넘어 앞쪽만 그렸다")
+    if len(flow.modules) > limit.max_nodes:
+        reasons.append(f"모듈 {len(flow.modules)}개가 상한 {limit.max_nodes}개를 넘었다")
+    while len(source) > limit.max_source_chars and len(lines) > 3:
+        lines.pop()
+        source = "\n".join(lines)
+        reasons.append("소스 상한을 맞추려고 홉을 줄였다")
+    return Diagram(
+        id=f"FLOW-{flow.id}",
+        level="FLOW",
+        source=source,
+        node_count=len(participants),
+        edge_count=kept,
+        degraded_reason="; ".join(dict.fromkeys(reasons)) or None,
+    )
 
 
 def type_diagram(

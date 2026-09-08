@@ -12,11 +12,11 @@ from pathlib import Path
 import yaml
 
 from repowiki.adapters import astgrep, git, githistory
-from repowiki.analyze import domain, graph, history, structure, symbols
+from repowiki.analyze import domain, entities, graph, history, structure, symbols
 from repowiki.bundle import diagrams
 from pydantic import BaseModel
 
-from repowiki.models import DiagramLimit, HistoryFacts, RepoFacts
+from repowiki.models import DiagramLimit, EntityFacts, HistoryFacts, RepoFacts
 
 _TOP_N = 20
 _MAX_FLOWS = 10
@@ -81,6 +81,7 @@ def _history(root: Path, kept: list[str], roots: list[str], facts: domain.Domain
             c.model_dump() for c in history.couplings(commits, facts, known, _TOP_COUPLINGS)
         ],
         issue_keys=history.issue_keys(commits, facts.issue_patterns).model_dump(),
+        periods=[p.model_dump() for p in history.periods(commits, facts, known)],
     )
 
 
@@ -114,6 +115,12 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     ranks = graph.file_ranks(type_edges, extraction.symbols)
 
     limits = load_limits()
+    history_facts = _history(root, kept, roots, facts)
+    model = entities.build(matches, extraction.symbols, roots, facts)
+    entity_facts = EntityFacts(
+        entities=[e.model_dump() for e in model.entities],
+        relations=[r.model_dump() for r in model.relations],
+    )
     groups = graph.subsystems(modules, edges)
     flows = graph.flows(extraction.entry_points, type_edges, types, _MAX_FLOWS)
 
@@ -122,13 +129,27 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     # 페이지를 몇 개 만드느냐가 아니다.
     for group in groups:
         compiled.append(diagrams.module_diagram(group, modules, edges, limits["L1"]))
+    for flow in flows:
+        diagram = diagrams.flow_diagram(flow, limits["FLOW"])
+        if diagram is not None:
+            compiled.append(diagram)
+    if history_facts is not None:
+        diagram = diagrams.history_diagram(history_facts.periods, limits["TIME"])
+        if diagram is not None:
+            compiled.append(diagram)
+    entity_diagram = diagrams.entity_diagram(
+        entity_facts.entities, entity_facts.relations, limits["ER"]
+    )
+    if entity_diagram is not None:
+        compiled.append(entity_diagram)
     for module in _busiest_modules(modules, _MAX_L2_MODULES):
         diagram = diagrams.type_diagram(module, type_edges, limits["L2"])
         if diagram is not None:
             compiled.append(diagram)
 
     facts_out = RepoFacts(
-        history=_history(root, kept, roots, facts),
+        history=history_facts,
+        entities=entity_facts,
         profile=profile,
         modules=modules,
         module_edges=edges,

@@ -62,7 +62,7 @@ llms.txt를 발행하는 문서 호스트: 10곳 (docs.langchain.com, platform.c
 원칙: 버전의 단일 진실 원천은 락 파일이다. `data/versions.yml` 같은 별도 버전 목록은 두지 않는다. 이 문서는 "어디서 읽는가"를 적는 레지스트리이지 버전 대장이 아니다.
 
 Python (uv)
-- `pyproject.toml`에는 하한만 적고(`>=`), 정확한 버전은 `uv.lock`이 가진다. CI와 로컬 모두 `uv sync --locked`로 설치해 락과 다르면 실패시킨다.
+- `pyproject.toml`에 `==`로 정확한 버전을 적는다(사용자 판정 2026-09-09). 락 파일도 같은 값을 갖지만, 락 없이 설치하는 경로(반입 이미지의 `pip install .`)에서도 같은 판이 들어오게 하려면 선언 자체가 못 박혀 있어야 한다. 두 자리가 어긋나면 `uv lock --check`가 실패시킨다. 판 올림은 두 파일을 같은 커밋에서 함께 고친다.
 - 런타임 락(리서치 15 §7과 17, 2026-09-09) 기본 직접 의존 9개 + `[api]` extra 1개(anthropic 1.4.0, API 드라이버를 쓰는 배치만). mkdocs와 mkdocs-material은 Fumadocs 채택으로 제거: ast-grep-cli 0.45.3, networkx 3.6.1, pydantic 2.13.5, PyYAML 6.0.3, python-hcl2 8.1.4, dockerfile-parse 2.0.1, mkdocs 1.6.1, mkdocs-material 9.7.7, langgraph 1.2.11, langgraph-checkpoint-sqlite 3.1.1, langchain-core 1.6.2(LangGraph 기본은 사용자 결정). 해석 72개, 네이티브 휠 15개(ast-grep-cli, pydantic-core, jiter, PyYAML, regex, markupsafe, watchdog, charset-normalizer, orjson, ormsgpack, sqlite-vec, uuid-utils, websockets, xxhash, zstandard). langsmith는 langchain-core 하드 의존이라 락에 있고 `LANGSMITH_TRACING=false`로 전송 0. httpx 0.28(langchain-core, langgraph-sdk)과 httpx2(anthropic, langsmith)가 공존한다. 상한은 PLAN §8(직접 12, 네이티브 15).
 - 스파이크 통과 시에만 락에 들어가는 것(extra 또는 별도 자산): codebase-memory-mcp 0.10.8 바이너리(`adapters/cbm.py`), tfparse 0.6.21(`[terraform-eval]`).
 - 테스트 전용 이미지 또는 dev 그룹(런타임 SBOM 밖): pytest, ruff, import-linter 2.15, hanlint 0.0.10(오라클), zensical 0.0.60(병행 빌드), scikit-network 0.33.5(`[evals]` Leiden 도전자), code-maat 1.0.4(Docker, GPL).

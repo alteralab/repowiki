@@ -16,6 +16,24 @@ levels:
     max_source_chars: 2000
     max_blocks_per_page: 50
     layout: elk
+  FLOW:
+    # 참가자는 흐름이 지나는 모듈이다. 시퀀스는 세로로 길어지므로 노드보다 홉이 상한이다.
+    max_nodes: 8
+    max_source_chars: 2000
+    max_blocks_per_page: 50
+    layout: dagre
+  TIME:
+    # timeline은 기간 수가 곧 노드 수다. 24개월 창이면 분기 여덟에서 아홉이다.
+    max_nodes: 12
+    max_source_chars: 2000
+    max_blocks_per_page: 50
+    layout: dagre
+  ER:
+    # 엔티티 상자는 속성까지 그려 넓다. 한 그림에 열 개가 상한이다.
+    max_nodes: 10
+    max_source_chars: 2000
+    max_blocks_per_page: 50
+    layout: dagre
   L2:
     max_nodes: 25
     max_source_chars: 2000

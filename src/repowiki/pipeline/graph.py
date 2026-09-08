@@ -59,12 +59,15 @@ PageGate = Callable[[str], tuple[bool, str | None]]
 
 
 def _run_one(store: JobStore, job: Job, writer: PageWriter, gate: PageGate, worker: str) -> PageResult:
-    """작업 하나를 쓴다. 저널을 먼저 쓰고 그다음에 끝낸다."""
+    """작업 하나를 쓴다. 저널을 먼저 쓰고, 게이트를 지난 뒤에 끝낸다.
+
+    끝내기를 게이트 뒤로 미루는 이유는 되돌리기 때문이다. 먼저 끝내면 게이트 실패로
+    되돌릴 때 이미 받은 작업을 취소하게 된다.
+    """
     body = store.response_of(job.id, job.generation)
     if body is None:
         body = writer(job)
         store.journal(job.id, job.generation, worker, body)
-    store.finish(job.id)
     passed, reason = gate(body)
     return PageResult(job_id=job.id, body=body, passed=passed, reason=reason)
 
@@ -92,9 +95,12 @@ def build_graph(
             if not had_response:
                 calls += 1
             if result.passed:
+                store.finish(job.id)
                 results.append(result)
                 continue
             if job.attempts + 1 >= MAX_ATTEMPTS:
+                # 상한까지 왔다. 사유와 함께 끝내고 페이지는 보고서가 받는다.
+                store.finish(job.id)
                 exhausted.append(job.id)
                 results.append(result)
                 continue

@@ -45,6 +45,15 @@ class Coupling(BaseModel):
     coupling: float
 
 
+class Period(BaseModel):
+    """분기 하나의 집계. timeline이 이 자료로 그려진다."""
+
+    label: str
+    commits: int
+    top_path: str
+    top_revisions: int
+
+
 class IssueKeys(BaseModel):
     """커밋 제목에서 뽑은 이슈 키의 분포. 값은 비율이 아니라 건수다."""
 
@@ -134,6 +143,37 @@ def couplings(
         )
     results.sort(key=lambda item: (-item.coupling, -item.shared, item.left, item.right))
     return results[:top]
+
+
+def periods(commits: list[Commit], facts: DomainFacts, known: set[str]) -> list[Period]:
+    """분기별 커밋 수와 그 분기에 가장 많이 바뀐 파일.
+
+    달 단위는 24개월 창에서 24칸이라 그림이 길어지고, 해 단위는 두 칸뿐이라 추이가
+    보이지 않는다. 분기가 그 사이다.
+    """
+    buckets: dict[str, Counter[str]] = defaultdict(Counter)
+    totals: Counter[str] = Counter()
+    for commit in commits:
+        parts = commit.date.split("-")
+        if len(parts) < 2:
+            continue
+        quarter = (int(parts[1]) - 1) // 3 + 1
+        label = f"{parts[0]} Q{quarter}"
+        totals[label] += 1
+        for path in _tracked(commit, facts, known):
+            buckets[label][path] += 1
+    result: list[Period] = []
+    for label in sorted(totals):
+        top = buckets[label].most_common(1)
+        result.append(
+            Period(
+                label=label,
+                commits=totals[label],
+                top_path=top[0][0] if top else "",
+                top_revisions=top[0][1] if top else 0,
+            )
+        )
+    return result
 
 
 def issue_keys(commits: list[Commit], patterns: dict[str, str]) -> IssueKeys:

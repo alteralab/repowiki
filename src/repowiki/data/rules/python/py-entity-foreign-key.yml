@@ -1,0 +1,9 @@
+id: py-entity-foreign-key
+language: python
+message: entity.foreign_key
+rule:
+  kind: call
+  has:
+    field: function
+    kind: identifier
+    regex: "^ForeignKey$"

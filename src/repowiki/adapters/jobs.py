@@ -144,12 +144,25 @@ class JobStore:
                 raise JobError(f"저널에 응답이 없다: {job_id}")
             conn.execute("UPDATE jobs SET state = ? WHERE id = ?", (STATE_DONE, job_id))
 
+    def state_of(self, job_id: str) -> str:
+        """작업의 현재 상태. 끝난 작업에 다시 손대지 않으려고 먼저 본다."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT state FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if row is None:
+            raise JobError(f"없는 작업이다: {job_id}")
+        return str(row["state"])
+
     def reject(self, job_id: str, reason: str) -> int:
-        """게이트 실패로 되돌린다. 세대를 올려 낡은 제출을 가린다."""
+        """게이트 실패로 되돌린다. 세대를 올려 낡은 제출을 가린다.
+
+        이미 끝난 작업은 되돌리지 않는다. 그렇게 하면 통과한 페이지가 취소된다.
+        """
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
             if row is None:
                 raise JobError(f"없는 작업이다: {job_id} ({reason})")
+            if row["state"] == STATE_DONE:
+                raise JobError(f"이미 끝난 작업은 되돌리지 않는다: {job_id} ({reason})")
             generation = row["generation"] + 1
             conn.execute(
                 "UPDATE jobs SET state = ?, generation = ?, attempts = attempts + 1,"
@@ -190,6 +203,14 @@ class JobStore:
                     (job_id, generation),
                 ).fetchone()
         return row["response"] if row is not None else None
+
+    def generation_of(self, job_id: str) -> int:
+        """작업의 현재 세대. 제출이 자기 세대를 확인할 때 쓴다."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT generation FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if row is None:
+            raise JobError(f"없는 작업이다: {job_id}")
+        return int(row["generation"])
 
     def counts(self) -> dict[str, int]:
         """상태별 작업 수. 진행 판정의 정본은 이 표다(C-REC-1)."""

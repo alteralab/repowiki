@@ -146,3 +146,15 @@ def test_source_read_failure_is_explicit(tmp_path: Path) -> None:
     facts = domain.load()
     with pytest.raises(SourceReadError, match="없는파일.py"):
         _line_counts(tmp_path, ["없는파일.py"], facts)
+
+
+def test_finished_job_is_not_resurrected_by_a_bad_submit(tmp_path: Path) -> None:
+    """이미 끝난 작업을 되돌리지 않는다. 되돌리면 통과한 페이지가 취소된다."""
+    store = _store(tmp_path, count=1)
+    job = store.lease("w1")
+    assert job is not None
+    store.journal(job.id, job.generation, "w1", "본문")
+    store.finish(job.id)
+    with pytest.raises(JobError, match="이미 끝난 작업은 되돌리지 않는다"):
+        store.reject(job.id, "게이트 실패")
+    assert store.counts() == {"done": 1}
