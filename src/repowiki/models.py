@@ -114,6 +114,9 @@ class TypeEdge(BaseModel):
     span: Span
     src_module: str
     dst_module: str | None = None
+    # 해석된 선언의 파일. 단순 이름만으로는 같은 이름의 다른 선언을 구분하지 못한다.
+    # 이 값이 대상의 식별자이자 위키가 링크할 자리다.
+    dst_path: str | None = None
 
 
 class EntryPointKind(StrEnum):

@@ -88,8 +88,9 @@ def analyze_repo(root: Path) -> AnalyzeResult:
         extraction.imports, index, owners=graph.type_owners(types)
     )
 
-    type_edges, resolution = graph.type_edges(extraction, types)
-    ranks = graph.file_ranks(type_edges, types, extraction.symbols)
+    scope = graph.build_scope(extraction)
+    type_edges, resolution = graph.type_edges(extraction, types, scope)
+    ranks = graph.file_ranks(type_edges, extraction.symbols)
 
     limits = load_limits()
     groups = graph.subsystems(modules, edges, limits["L0"].max_nodes)

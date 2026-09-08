@@ -8,7 +8,9 @@ from __future__ import annotations
 import pytest
 
 from repowiki.analyze.graph import (
+    build_scope,
     module_edges,
+    resolve_in_scope,
     package_index,
     python_index,
     resolve_dotted,
@@ -251,3 +253,86 @@ def test_import_resolves_by_declared_type_before_package() -> None:
     without_owners, _ = module_edges(imports, index)
     assert [(e.src, e.dst) for e in with_owners] == [("core", "clients")]
     assert without_owners == []
+
+
+def _package(path: str, name: str) -> PackageRecord:
+    return PackageRecord(name=name, path=path, module=path.split("/")[0], is_test=False)
+
+
+def _scope_extraction(symbols: list[Symbol], packages: list[PackageRecord], imports: list[ImportRecord]) -> Extraction:
+    return Extraction(
+        symbols=symbols, references=[], imports=imports, packages=packages, entry_points=[]
+    )
+
+
+def test_explicit_import_decides_which_declaration() -> None:
+    """파일이 임포트한 패키지의 선언이 이긴다. 모듈 지역 동명이인보다 강한 근거다."""
+    far = _type("Codec", "clients", "clients/src/main/java/org/x/Codec.java")
+    near = _type("Codec", "core", "core/src/main/java/org/y/Codec.java")
+    index = type_index([far, near])
+    scope = build_scope(
+        _scope_extraction(
+            [far, near],
+            [
+                _package("clients/src/main/java/org/x/Codec.java", "org.x"),
+                _package("core/src/main/java/org/y/Codec.java", "org.y"),
+                _package("core/src/main/java/org/y/User.java", "org.y"),
+            ],
+            [
+                ImportRecord(
+                    target="org.x.Codec",
+                    span=_span("core/src/main/java/org/y/User.java"),
+                    module="core",
+                    is_test=False,
+                )
+            ],
+        )
+    )
+    found = resolve_in_scope(
+        "Codec", "core/src/main/java/org/y/User.java", "core", index, scope
+    )
+    assert found is far
+
+
+def test_import_from_outside_the_repository_is_not_resolved() -> None:
+    """저장소에 없는 패키지를 임포트했으면 외부 타입이다. 동명 선언을 앉히지 않는다."""
+    local = _type("List", "core", "core/src/main/java/org/y/List.java")
+    index = type_index([local])
+    scope = build_scope(
+        _scope_extraction(
+            [local],
+            [
+                _package("core/src/main/java/org/y/List.java", "org.y"),
+                _package("core/src/main/java/org/y/User.java", "org.y"),
+            ],
+            [
+                ImportRecord(
+                    target="java.util.List",
+                    span=_span("core/src/main/java/org/y/User.java"),
+                    module="core",
+                    is_test=False,
+                )
+            ],
+        )
+    )
+    assert resolve_in_scope("List", "core/src/main/java/org/y/User.java", "core", index, scope) is None
+
+
+def test_same_package_declaration_needs_no_import() -> None:
+    """같은 패키지 안의 이름은 임포트 없이 보인다."""
+    sibling = _type("Helper", "core", "core/src/main/java/org/y/Helper.java")
+    other = _type("Helper", "tools", "tools/src/main/java/org/z/Helper.java")
+    index = type_index([sibling, other])
+    scope = build_scope(
+        _scope_extraction(
+            [sibling, other],
+            [
+                _package("core/src/main/java/org/y/Helper.java", "org.y"),
+                _package("core/src/main/java/org/y/User.java", "org.y"),
+                _package("tools/src/main/java/org/z/Helper.java", "org.z"),
+            ],
+            [],
+        )
+    )
+    found = resolve_in_scope("Helper", "core/src/main/java/org/y/User.java", "core", index, scope)
+    assert found is sibling

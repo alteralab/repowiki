@@ -166,6 +166,83 @@ def type_index(symbols: list[Symbol]) -> dict[str, list[Symbol]]:
     }
 
 
+class NameScope(BaseModel):
+    """이름을 선언으로 풀 때 쓰는 파일별 사실.
+
+    Java 계열에서 파일의 임포트와 패키지가 단순 이름의 뜻을 정한다. 이 자료 없이
+    이름만 보면 같은 이름의 다른 선언을 고를 수 있다.
+    """
+
+    file_package: dict[str, str] = {}
+    file_imports: dict[str, dict[str, str]] = {}
+    by_package: dict[str, dict[str, str]] = {}
+
+    def declared(self, package: str, name: str) -> str | None:
+        """그 패키지가 그 이름을 선언한 파일. 없으면 `None`."""
+        return self.by_package.get(package, {}).get(name)
+
+
+def build_scope(extraction: Extraction) -> NameScope:
+    """파일별 패키지와 임포트, 패키지별 선언 표를 만든다."""
+    scope = NameScope()
+    for record in sorted(extraction.packages, key=lambda r: r.path):
+        scope.file_package[record.path] = record.name
+    for record in sorted(extraction.imports, key=lambda r: (r.span.path, r.target)):
+        parts = record.target.rsplit(".", 1)
+        if len(parts) != 2:
+            continue
+        package, simple = parts
+        scope.file_imports.setdefault(record.span.path, {})[simple] = package
+    for symbol in sorted(extraction.symbols, key=lambda s: (s.span.path, s.name)):
+        if symbol.kind not in _TYPE_KINDS or symbol.is_test:
+            continue
+        package = scope.file_package.get(symbol.span.path)
+        if package is None:
+            continue
+        scope.by_package.setdefault(package, {}).setdefault(symbol.name, symbol.span.path)
+    return scope
+
+
+def _by_path(index: dict[str, list[Symbol]], name: str, path: str) -> Symbol | None:
+    for symbol in index.get(name, []):
+        if symbol.span.path == path:
+            return symbol
+    return None
+
+
+def resolve_in_scope(
+    name: str, ref_path: str, home: str, index: dict[str, list[Symbol]], scope: NameScope
+) -> Symbol | None:
+    """이름을 선언으로 푼다. 범위 순서는 넷이다.
+
+    1. 그 파일이 명시적으로 임포트한 이름이면 그 패키지의 선언. 임포트한 패키지가
+       저장소 안에 없으면 외부 타입이라 해석하지 않는다.
+    2. 같은 패키지 안의 선언(임포트 없이 보이는 이름).
+    3. 참조하는 모듈 안에서 유일한 선언.
+    4. 저장소 전체에서 유일한 선언.
+
+    앞 둘이 뒤 둘보다 강한 근거인 이유는 언어가 그렇게 정하기 때문이다. 모듈 지역
+    유일성은 언어의 규칙이 아니라 추정이므로 임포트가 말해 주는 자리에서는 쓰지 않는다.
+    """
+    imported = scope.file_imports.get(ref_path, {}).get(name)
+    if imported is not None:
+        # 그 파일이 이 이름을 명시적으로 임포트했다. 임포트한 패키지가 저장소 안에
+        # 없으면 외부 타입이므로 해석을 멈춘다. 여기서 다음 범위로 넘어가면 같은
+        # 이름의 저장소 안 선언을 외부 타입 자리에 앉히게 된다(`java.util.List`).
+        path = scope.declared(imported, name)
+        if path is None:
+            return None
+        return _by_path(index, name, path)
+    own_package = scope.file_package.get(ref_path)
+    if own_package is not None:
+        path = scope.declared(own_package, name)
+        if path is not None:
+            found = _by_path(index, name, path)
+            if found is not None:
+                return found
+    return resolve_type(name, home, index)
+
+
 def resolve_type(name: str, home: str, index: dict[str, list[Symbol]]) -> Symbol | None:
     """이름을 선언으로 푼다. 범위 순서는 모듈 지역, 그다음 저장소 전역 유일이다.
 
@@ -198,7 +275,9 @@ class ResolutionCounts(BaseModel):
 
 
 def type_edges(
-    extraction: Extraction, index: dict[str, list[Symbol]]
+    extraction: Extraction,
+    index: dict[str, list[Symbol]],
+    scope: NameScope | None = None,
 ) -> tuple[list[TypeEdge], ResolutionCounts]:
     """참조를 타입 엣지로 바꾼다.
 
@@ -227,7 +306,11 @@ def type_edges(
         if reference.owner is None:
             counts.no_owner += 1
             continue
-        target = resolve_type(reference.name, reference.module, index)
+        target = (
+            resolve_in_scope(reference.name, reference.span.path, reference.module, index, scope)
+            if scope is not None
+            else resolve_type(reference.name, reference.module, index)
+        )
         if target is None:
             if reference.name in index:
                 counts.ambiguous += 1
@@ -244,24 +327,22 @@ def type_edges(
                 span=reference.span,
                 src_module=reference.module,
                 dst_module=target.module,
+                dst_path=target.span.path,
             )
         )
     return edges, counts
 
 
-def file_ranks(
-    edges: list[TypeEdge], index: dict[str, list[Symbol]], symbols: list[Symbol]
-) -> list[FileRank]:
+def file_ranks(edges: list[TypeEdge], symbols: list[Symbol]) -> list[FileRank]:
     """타입 엣지를 파일 그래프로 접고 PageRank와 허브 점수를 RRF로 합친다."""
     graph = nx.DiGraph()
     file_module = {s.span.path: s.module for s in sorted(symbols, key=lambda s: s.span.path) if not s.is_test}
     for path, module in file_module.items():
         graph.add_node(path, module=module)
     for edge in edges:
-        target = resolve_type(edge.dst, edge.dst_module or edge.src_module, index)
-        if target is None:
+        if edge.dst_path is None:
             continue
-        src_path, dst_path = edge.span.path, target.span.path
+        src_path, dst_path = edge.span.path, edge.dst_path
         if src_path == dst_path:
             continue
         if graph.has_edge(src_path, dst_path):
@@ -350,7 +431,7 @@ def flows(
         start = _owner_type_at(entry, index)
         if start is None:
             continue
-        hops = _walk(start, by_owner, index)
+        hops = _walk(start, by_owner)
         modules = _ordered_modules(entry.module, hops)
         if len(modules) < 2:
             continue
@@ -379,9 +460,7 @@ def _owner_type_at(entry: EntryPoint, index: dict[str, list[Symbol]]) -> str | N
     return best[1] if best is not None else None
 
 
-def _walk(
-    start: str, by_owner: dict[str, list[TypeEdge]], index: dict[str, list[Symbol]]
-) -> list[FlowHop]:
+def _walk(start: str, by_owner: dict[str, list[TypeEdge]]) -> list[FlowHop]:
     hops: list[FlowHop] = []
     seen = {start}
     frontier = start
@@ -402,13 +481,12 @@ def _walk(
                 e.span.start_line,
             ),
         )[0]
-        target = resolve_type(edge.dst, edge.dst_module or edge.src_module, index)
-        if target is None:
+        if edge.dst_path is None:
             break
         hops.append(
             FlowHop(
                 src_module=edge.src_module,
-                dst_module=edge.dst_module or target.module,
+                dst_module=edge.dst_module or edge.src_module,
                 kind=edge.kind,
                 span=edge.span,
                 symbol=edge.dst,

@@ -5,8 +5,10 @@ rule:
   kind: decorator
   has:
     kind: call
-    field: function
     has:
-      field: attribute
-      kind: identifier
-      regex: "^(route|get|post|put|delete|patch|websocket|on_event)$"
+      field: function
+      kind: attribute
+      has:
+        field: attribute
+        kind: identifier
+        regex: "^(route|get|post|put|delete|patch|websocket|on_event)$"
