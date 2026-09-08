@@ -1,0 +1,10 @@
+import puppeteer from 'puppeteer-core';
+const base = process.argv[2];
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+const errs = [];
+p.on('pageerror', e => errs.push('pageerror: ' + String(e).slice(0, 3000)));
+p.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.type() + ': ' + m.text().slice(0, 3000)); });
+await p.goto(base + '/docs/2-broker/', { waitUntil: 'networkidle0', timeout: 120000 }); await new Promise(r => setTimeout(r, 3000));
+console.log(errs.join('\n---\n') || 'NO ERRORS');
+await b.close();

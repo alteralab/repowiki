@@ -1,0 +1,8 @@
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+.coverage
+traces/acceptance.xml
+.venv/
+node_modules/
+.claude/rules/

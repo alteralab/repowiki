@@ -1,0 +1,17 @@
+id: sw-topic-or-image-literal
+message: string literal that looks like a SkyWalking topic / image / service name
+severity: info
+language: java
+rule:
+  kind: string_literal
+  regex: '^"(skywalking-(segments|metrics|profilings|managements|meters|logs|json-logs)[\w-]*|(apache/)?skywalking-[a-z-]+|oap:1[12]800|skywalking-oap[\w-]*)"$'
+---
+id: sw-topic-or-image-literal-go
+message: string literal that looks like a SkyWalking topic / image / service name
+severity: info
+language: go
+rule:
+  any:
+    - kind: interpreted_string_literal
+    - kind: raw_string_literal
+  regex: '^["`](skywalking-(segments|metrics|profilings|managements|meters|logs|json-logs)[\w-]*|(apache/)?skywalking-[a-z-]+|oap:1[12]800|skywalking-oap[\w-]*)["`]$'

@@ -1,0 +1,26 @@
+beautifulsoup4==4.15.0
+    # via
+    #   markdownify
+    #   mkdocs-llmstxt
+markdown-it-py==3.0.0
+    # via mdformat
+markdownify==1.2.3
+    # via mkdocs-llmstxt
+mdformat==0.7.22
+    # via
+    #   mdformat-tables
+    #   mkdocs-llmstxt
+mdformat-tables==1.0.0
+    # via mkdocs-llmstxt
+mdurl==0.1.2
+    # via markdown-it-py
+mkdocs-llmstxt==0.5.0
+    # via -r clusters/llmstxt.in
+six==1.17.0
+    # via markdownify
+soupsieve==2.9.2
+    # via beautifulsoup4
+typing-extensions==4.16.0
+    # via beautifulsoup4
+wcwidth==0.8.3
+    # via mdformat-tables

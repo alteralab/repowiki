@@ -1,0 +1,179 @@
+<title>Repowiki SSG Verdict</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f6f7f5; --surface:#ffffff; --ink:#1b1f24; --muted:#5b6470; --rule:#d9ddd6;
+  --accent:#0f6e73; --accent-ink:#0b5257; --accent-soft:#e3f0f0;
+  --pass:#2f7d4a; --pass-soft:#e4f1e8; --strike:#b8741a; --strike-soft:#f7ecd9; --fail:#b23a3a; --fail-soft:#f6e3e3;
+  --code-bg:#eef0ec;
+  --font:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14171b; --surface:#1c2025; --ink:#e6e9ec; --muted:#9aa4ae; --rule:#2e353d;
+  --accent:#4fb3b8; --accent-ink:#8fd3d6; --accent-soft:#17303233;
+  --pass:#5fc27f; --pass-soft:#16301f; --strike:#e0a04a; --strike-soft:#3a2a12; --fail:#e07373; --fail-soft:#3a1c1c;
+  --code-bg:#242a31;
+}}
+:root[data-theme="dark"]{
+  --bg:#14171b; --surface:#1c2025; --ink:#e6e9ec; --muted:#9aa4ae; --rule:#2e353d;
+  --accent:#4fb3b8; --accent-ink:#8fd3d6; --accent-soft:#17303233;
+  --pass:#5fc27f; --pass-soft:#16301f; --strike:#e0a04a; --strike-soft:#3a2a12; --fail:#e07373; --fail-soft:#3a1c1c;
+  --code-bg:#242a31;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15.5px;line-height:1.6}
+main{max-width:76rem;margin:0 auto;padding:2.5rem 1.5rem 5rem}
+h1,h2,h3{line-height:1.25;text-wrap:balance;margin:0}
+h1{font-size:2rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.35rem;font-weight:600;margin-top:3rem;padding-top:1.25rem;border-top:1px solid var(--rule)}
+h3{font-size:1.05rem;font-weight:600;margin-top:1.75rem}
+p{max-width:72ch;margin:.75rem 0}
+ul,ol{max-width:76ch;padding-left:1.25rem}
+li{margin:.3rem 0}
+li p{margin:.2rem 0}
+code{font-family:var(--mono);font-size:.88em;background:var(--code-bg);padding:.08em .35em;border-radius:3px}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.meta{color:var(--muted);font-size:.9rem;margin-top:.5rem;max-width:none}
+.verdict{margin:2rem 0 0;padding:1.25rem 1.5rem;border-left:4px solid var(--accent);background:var(--surface);border-radius:0 6px 6px 0}
+.verdict .name{font-size:1.5rem;font-weight:700;color:var(--accent-ink)}
+.verdict p{max-width:78ch}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:1rem;margin:1rem 0}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:1rem 1.25rem}
+.card h3{margin-top:0}
+.scroll{overflow-x:auto;margin:1rem 0;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{padding:.5rem .7rem;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+th{font-weight:600;background:var(--code-bg);white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:.85rem;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.pill{display:inline-block;padding:.05em .55em;border-radius:999px;font-size:.78rem;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.pass{background:var(--pass-soft);color:var(--pass)} .strike{background:var(--strike-soft);color:var(--strike)} .fail{background:var(--fail-soft);color:var(--fail)}
+.score{font-family:var(--mono);font-weight:500}
+.tot{font-weight:700}
+.note{font-size:.88rem;color:var(--muted)}
+.win td{background:var(--accent-soft)}
+kbd{font-family:var(--mono);font-size:.85em}
+.paths{font-family:var(--mono);font-size:.8rem;line-height:1.5;word-break:break-all}
+details{margin:.75rem 0;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+summary{padding:.6rem 1rem;cursor:pointer;font-weight:600}
+details>div{padding:0 1rem 1rem}
+.unv{border-left:3px solid var(--strike);padding-left:.75rem}
+a{color:var(--accent-ink)}
+</style>
+<main>
+<div class="eyebrow">Hands-on re-evaluation · 2026-09-09 · same 300-page Korean sample wiki fed to four generators</div>
+<h1>Repowiki SSG Verdict</h1>
+<p class="meta">Criteria in the user's order: (1) reading UX for a diagram-heavy Korean architecture wiki, (2) air-gapped build as pass/fail, (3) maintenance/EOL. Added constraint: the built site must work when opened from <code>file://</code> with no server (a strike if it needs <code>python -m http.server</code>, not a disqualification). GitLab Pages considerations were dropped per scope change.</p>
+
+<div class="verdict">
+<div class="eyebrow">Verdict</div>
+<div class="name">MkDocs Material 9.7.7 (offline plugin, self-hosted Mermaid, panzoom) — with Zensical as the same-content successor</div>
+<p><strong>The measurement that decides it is the <code>file://</code> test, not air-gap cost.</strong> The previous conclusion ("MkDocs because air-gap") was wrong on its own terms: all four generators build with zero egress once dependencies are vendored (Fumadocs 10.4 s, Starlight 5.0 s, MkDocs 3.7 s, Zensical 2.3 s), and MkDocs actually needed the <em>most</em> workarounds to get there. What separates them is the deployment mode the user actually has: opened from the filesystem, MkDocs Material and Zensical work end-to-end (navigation, Mermaid, dark mode, search, 0 failed requests); Starlight needs a third-party plugin last released Dec 2024 and its Pagefind search is dead; Fumadocs does not work at all.</p>
+<p>On reading UX alone, served over HTTP, <strong>Starlight wins</strong> (lightest pages at 324 KB vs 1,114 KB, Korean search that handles particles, 0 axe violations, clearest hierarchy) and Fumadocs has the best diagram handling (native-size SVG with horizontal scroll). If the S3 / static-server path becomes the primary deployment, the verdict flips to Starlight; switching cost is the frontmatter/sidebar emitter in the generator, which already exists in <code>gen_wiki2.py</code>.</p>
+<p>The verdict carries an expiry date: Material is in its final maintenance window until <strong>2026-11-05</strong> (57 days). The identical <code>docs/</code> tree built under Zensical 0.0.60 with the same UX and the same <code>file://</code> pass, so the continuity path is verified, not assumed.</p>
+</div>
+
+<h2>1. Scored table</h2>
+<p>Scores are 1–5 per row; the number in brackets is the measurement behind it (heavy page = <code>2.2.1</code>, a 25-node/60-edge <code>flowchart LR</code> with subgraphs, a 12-hop <code>sequenceDiagram</code> and a state diagram; deep page = <code>3.2.4</code>; headless Chrome 143, 1440×900 unless noted, fresh profile per load, gzip by the static server).</p>
+<div class="scroll"><table>
+<thead><tr><th>Criterion 1 · Reading UX</th><th>MkDocs Material</th><th>Fumadocs 16.15.8</th><th>Starlight 0.42</th><th>Zensical 0.0.60</th></tr></thead>
+<tbody>
+<tr><td>25-node graph legibility at 1440 px</td><td><span class="score">3</span> — rendered 688 px of 3,791 px native (18 %), unreadable inline; <code>mkdocs-panzoom-plugin</code> gives Alt+wheel zoom, reset, fullscreen (verified: transform 1.0→1.25)</td><td><span class="score">4</span> — native 3,791 px with horizontal scroll in a 1,091 px <code>full: true</code> column, 16 px labels readable without action; click-to-zoom overlay (40 lines I wrote; verified 121 % after 2 wheel steps, Esc closes)</td><td><span class="score">3</span> — 1,060 px of 3,728 px (28 %) after widening the column with CSS; astro-mermaid forces <code>max-width:100%</code>; overlay zoom added by me via <code>head</code> script (verified)</td><td><span class="score">2</span> — same 688/3,791 px shrink as Material; panzoom plugin not in Zensical's supported list and not tested</td></tr>
+<tr><td>Same graph at 1920 px</td><td class="num">757 px</td><td class="num">1,102 px column</td><td class="num">1,408 px</td><td class="num">757 px</td></tr>
+<tr><td>Sidebar: 3 levels, numbering, current path</td><td><span class="score">4</span> — <code>navigation.sections</code> + <code>navigation.indexes</code>: section headings, subgroups collapsed, current path expanded, sidebar auto-scrolled to current; mobile drawer drills down to the current subsection only</td><td><span class="score">3</span> — folders open per <code>defaultOpenLevel</code>; index page duplicated as folder link + child (my <code>meta.json</code> listed <code>index</code>; fixable); depth not visually strong</td><td><span class="score">4</span> — explicit sidebar, groups collapsed by default, current path auto-expanded, bold group labels; group labels are not links so section pages need a duplicate child item</td><td><span class="score">4</span> — same as Material</td></tr>
+<tr><td>Right TOC follows scroll; breadcrumbs</td><td><span class="score">4</span> — TOC follows (active changed 목차→코드 on scroll); breadcrumbs via <code>navigation.path</code>, now in the public edition</td><td><span class="score">4</span> — clerk TOC follows; breadcrumbs built in; TOC removed on <code>full</code> pages by design</td><td><span class="score">3</span> — TOC follows; no breadcrumbs</td><td><span class="score">3</span> — TOC follows; breadcrumbs not tested</td></tr>
+<tr><td>Korean search (from static files, over HTTP)</td><td><span class="score">2</span> — lunr <code>ko</code>: exact tokens only. <code>컴포넌트</code> 0 hits, <code>퍼거토리</code> 0 hits (both occur with particles: 컴포넌트는/퍼거토리에서); <code>복제 관리자</code> 10, phrase query hits target page 3rd; 73–265 ms; index 2.6 MB (152 KB gz) loaded on every page</td><td><span class="score">4</span> — Orama multilingual: every query hits (cap 60), phrase query returns the exact page and sentence; 356–565 ms; index 12.3 MB (1.2 MB gz) fetched on first search</td><td><span class="score">5</span> — Pagefind extended (CJK segmentation): every query hits, phrase query → exactly 1 result (3.2.4) with the sentence highlighted, best snippets; 375–580 ms; 2.1 MB in 324 chunks, only needed chunks load</td><td><span class="score">2</span> — lunr, same tokenizer; 1,621 hits for 복제 관리자 (section-level results, noisy); UI lives in shadow DOM</td></tr>
+<tr><td>Page weight, heavy page (transferred / raw)</td><td><span class="score">2</span> — 1,114 KB / 6.6 MB; 965 KB is JS because the 3.4 MB <code>mermaid.min.js</code> must be loaded eagerly on every page (Material hard-codes unpkg for lazy load)</td><td><span class="score">3</span> — 749 KB / 2.8 MB; mermaid chunk lazy-loaded only on diagram pages</td><td><span class="score">5</span> — 324 KB / 1.2 MB</td><td><span class="score">2</span> — 1,115 KB / 6.2 MB</td></tr>
+<tr><td>Time to first paint / to 3 Mermaid SVGs in DOM (localhost)</td><td class="num">64 ms / 424 ms</td><td class="num">60 ms / 424 ms</td><td class="num">36 ms / 593 ms</td><td class="num">68 ms / 431 ms</td></tr>
+<tr><td>Dark mode restyles Mermaid; link contrast (dark)</td><td><span class="score">3</span> — yes, via CSS variables inside the closed shadow root (node fill rgba(226,228,233,.12)); link contrast 4.65:1 (AA, barely)</td><td><span class="score">4</span> — re-renders with <code>theme:'dark'</code>; links 15.7:1</td><td><span class="score">5</span> — astro-mermaid re-renders on theme change; links 10.6:1</td><td><span class="score">3</span> — same as Material; links 5.65:1</td></tr>
+<tr><td>axe-core (WCAG 2 A/AA, light, heavy page)</td><td><span class="score">3</span> — button-name ×9 (panzoom buttons), color-contrast ×2, link-in-text-block ×6 (citation links rely on colour)</td><td><span class="score">2</span> — color-contrast ×36 (muted text), scrollable-region-focusable ×2, svg-img-alt ×1; accordion title renders as h3 before first h2</td><td><span class="score">5</span> — 0 violations; heading order intact</td><td><span class="score">2</span> — aria-required-attr, aria-prohibited-attr, button-name, scrollable-region-focusable</td></tr>
+<tr><td>Copy-as-Markdown / LLM affordances; last-updated</td><td><span class="score">3</span> — <code>mkdocs-llmstxt</code> emits llms.txt + llms-full.txt (272 KB), no per-page button; no last-updated without git plugin (untested)</td><td><span class="score">4</span> — "Copy Markdown" + "Open" menu on every page, per-page <code>content.md</code>, llms.txt/llms-full.txt (but the per-page markdown contains <code>&lt;CalloutContainer&gt;</code> JSX from the directive transform); no last-updated</td><td><span class="score">3</span> — "마지막 업데이트" from frontmatter date, no git needed; no copy/LLM affordance built in</td><td><span class="score">2</span> — llmstxt plugin unsupported</td></tr>
+<tr><td>Content fidelity from plain <code>.md</code></td><td><span class="score">5</span> — admonition, collapsible <code>???</code> details, tables, citations all native</td><td><span class="score">3</span> — <code>.md</code> drops raw HTML (<code>&lt;details&gt;</code> vanished); needed <code>remark-directive</code> + a custom <code>:::details</code>→Accordion plugin; relative links only resolve with a <code>./</code> prefix (<code>resolveHref</code>)</td><td><span class="score">5</span> — asides, <code>&lt;details&gt;</code>, tables native; <code>lastUpdated</code> must be an unquoted YAML date</td><td><span class="score">5</span> — same dialect as Material</td></tr>
+<tr class="tot"><td>UX subtotal (10 scored rows, 50 max)</td><td class="score">32</td><td class="score">35</td><td class="score">42</td><td class="score">30</td></tr>
+</tbody></table></div>
+
+<div class="scroll"><table>
+<thead><tr><th>Constraints (pass/fail)</th><th>MkDocs Material</th><th>Fumadocs</th><th>Starlight</th><th>Zensical</th></tr></thead>
+<tbody>
+<tr><td>Air-gapped build (macOS sandbox denying all non-loopback egress + proxies to 127.0.0.1:9; vendored venv / npm cache)</td><td><span class="pill pass">PASS</span> 3.7 s, 59 MB, 387 files — but only after three workarounds: <code>font: false</code> (privacy plugin otherwise downloads Google Fonts at build and <code>--strict</code> aborts), <code>privacy.assets_exclude: unpkg.com/*</code> + <code>extra_javascript: js/mermaid.min.js</code> (the theme bundle hard-codes <code>unpkg.com/mermaid@11</code>; it skips the fetch only if <code>window.mermaid</code> already exists), and a vendored <code>iframe-worker</code> shim in <code>extra.polyfills</code> (the offline plugin otherwise injects an unpkg script)</td><td><span class="pill pass">PASS</span> 10.4 s real / 48 s CPU (Turbopack needs loopback sockets; a total network deny breaks the build), 217 MB / 2,225 files — 144 MB of that is Next 16 RSC <code>.txt</code> payloads (the 300-entry tree serialised into every page); stripping them gives 92 MB and client navigation silently falls back to full reloads (verified)</td><td><span class="pill pass">PASS</span> 5.0 s, 40 MB, 732 files, no config changes</td><td><span class="pill pass">PASS</span> 2.3 s, 54 MB, 313 files; needs <code>font = false</code> and the same self-hosted Mermaid trick (no privacy plugin exists)</td></tr>
+<tr><td>Zero external URLs in output</td><td><span class="pill pass">PASS</span> only informational links (squidfunk footer, license comments)</td><td><span class="pill pass">PASS</span> only the configurable "GitHub" nav link and library comments</td><td><span class="pill pass">PASS</span> only library comments</td><td><span class="pill pass">PASS</span> only zensical.org footer link</td></tr>
+<tr><td>Opened from <code>file://</code>, no server: index → section → 3.2.4 via sidebar, Mermaid, dark toggle, search</td><td><span class="pill pass">PASS</span> <code>offline</code> plugin: <code>use_directory_urls:false</code>, inlined 2.6 MB search index, vendored shim; all five checks pass, 0 failed requests, search returns "300개의 일치하는 문서"</td><td><span class="pill fail">FAIL</span> absolute <code>/_next/</code> assets and <code>/docs/…</code> links baked into HTML and RSC payloads (17 failed requests, unstyled page, first click lands on <code>file:///docs/3-replication/</code>); no supported config fixes it — would need a custom post-build rewriter</td><td><span class="pill strike">STRIKE</span> as built: fails like Fumadocs (10 failed requests, no CSS). With community <code>astro-relative-links@0.4.2</code> (last release 2024-12-15) + <code>build.format:'file'</code> + <code>trailingSlash:'never'</code>: navigation, CSS, all 3 diagrams and theme work, but Pagefind never loads (<code>/pagefind/pagefind.js</code> absolute) → search dead; mermaid sub-chunk preloads 404 (33 failed requests) though rendering succeeded</td><td><span class="pill pass">PASS</span> <code>offline</code> plugin supported since 0.0.3; navigation, Mermaid, dark toggle pass with 0 failed requests; search returns 1,621 results</td></tr>
+</tbody></table></div>
+
+<div class="scroll"><table>
+<thead><tr><th>Criterion 3 · Maintenance / EOL</th><th>MkDocs Material</th><th>Fumadocs</th><th>Starlight</th><th>Zensical</th></tr></thead>
+<tbody>
+<tr><td>Status today</td><td><span class="score">1</span> — "final maintenance period … critical bug fixes and security updates through November 5, 2026" (issue #8523; blog 2025-11-05). 9.7.0 was the last feature release; 9.7.7 (2026-07-17) is patch-only. After 2026-11-05: no fixes at all. The stated reason: upstream MkDocs "unmaintained since August 2024" (squidfunk's characterisation, not independently verified)</td><td><span class="score">2</span> — very active (16.15.8 on 2026-09-07, near-weekly patches) but bus factor 1: fuma-nama 5,222 commits vs next human 12. Fumadocs 16 (2025-10-22) requires <strong>Next.js 16 + React 19.2</strong>, removed the Sidebar API, moved server exports, no codemods. <code>@fumadocs/base-ui</code> is <em>not</em> a rename: it is a parallel Base-UI build of <code>fumadocs-ui</code> (created 2025-12-18); both are published at 16.15.8, neither deprecated</td><td><span class="score">4</span> — Astro core team + Astro Inc.; 0.42.0 on 2026-09-02, roughly monthly minors with breaking changes in 0.x (0.38 dropped Astro 5, 0.40 needs 6.4.5+, 0.41 dropped Astro 6 and old browsers, 0.42 needs Astro 7.2.10+). Astro majors: 4.0 Dec 2023 → 5.0 Dec 2024 → 6.0 Mar 2026 → 7.0 Jun 2026 (3.5 months). No 1.0 date</td><td><span class="score">2</span> — Zensical LLC (Donath, Voss, Lin, Mazzucotelli); 0.0.60 on 2026-09-08, "alpha"; roadmap has no dates and no 1.0; supports <code>offline</code>, <code>search</code>, <code>glightbox</code>, <code>redirects</code>, <code>tags</code>; <strong>no privacy plugin, no llmstxt, no panzoom</strong> in the compatibility list; plugin API being replaced by a module system</td></tr>
+</tbody></table></div>
+
+<h3>How the three criteria combine</h3>
+<ul>
+<li><strong>UX in the deployment mode the user has (file://):</strong> Starlight's 42 collapses because search — its biggest lead — does not work there and links need an unmaintained plugin; Fumadocs' 35 collapses to nothing. MkDocs (32) and Zensical (30) keep their full score. That is the decisive measurement.</li>
+<li><strong>UX served over HTTP (S3 later):</strong> Starlight 42 &gt; Fumadocs 35 &gt; MkDocs 32 &gt; Zensical 30. The diagram problem the user cares about most is a three-way tie at "shrunk to ~18–28 %, zoom required"; only Fumadocs renders at native size. MkDocs' zoom is a maintained plugin; the other two needed ~40 lines of custom code from me.</li>
+<li><strong>Air-gap:</strong> all pass; it never was a ranking axis, and MkDocs was the hardest to get through it.</li>
+<li><strong>Maintenance:</strong> MkDocs loses outright (EOL in 57 days), but the loss is bounded: a build-time tool with no server component, and the same <code>docs/</code> tree builds under its successor today with identical results in both constraints.</li>
+</ul>
+
+<h2>2. What the runner-up would cost to switch to later</h2>
+<div class="grid2">
+<div class="card"><h3>To Starlight (if served over HTTP)</h3><ul>
+<li>Generator: emit Starlight frontmatter (<code>sidebar.order</code>, unquoted <code>lastUpdated</code>, <code>tableOfContents:false</code> on diagram pages), <code>:::note[…]</code> asides, absolute links, and an explicit <code>sidebar.json</code> — all already in <code>gen_wiki2.py</code>; MkDocs' <code>???</code> details become <code>&lt;details&gt;</code>.</li>
+<li>Vendor: Node 22 (already in the image), <code>npm-cache</code> (~555 MB) with astro 7.3.1, @astrojs/starlight 0.42.0, astro-mermaid 2.1.0, mermaid 11.17.2, sharp.</li>
+<li>Carry: the 30-line zoom overlay + 4 CSS rules (or accept shrunk diagrams); no breadcrumbs; expect a breaking minor roughly monthly and an Astro major every 12–15 months (once 3.5).</li>
+<li>Do not expect <code>file://</code> search; if that matters, this path is closed.</li>
+</ul></div>
+<div class="card"><h3>To Zensical (same content, when it matures)</h3><ul>
+<li>Config only: <code>zensical.toml</code> with <code>nav</code>, <code>font = false</code>, <code>extra_javascript</code> Mermaid, <code>extra.polyfills</code> shim, <code>[project.plugins.offline]</code> — verified building the identical <code>docs/</code> tree.</li>
+<li>Lose until supported: <code>privacy</code> (irrelevant once fonts are off and Mermaid is self-hosted — output had zero external URLs), <code>llmstxt</code>, <code>panzoom</code> (untested; likely needs its markdown extension re-registered).</li>
+<li>Gain: Rust build (2.3 s), maintained successor with the same team.</li>
+</ul></div>
+</div>
+
+<h2>3. What each generator cannot do that matters for this purpose</h2>
+<div class="grid2">
+<div class="card"><h3>MkDocs Material cannot</h3><ul>
+<li>Widen a single page for a big diagram — there is no per-page <code>full</code>; the content column is 688 px at 1440 and 757 px at 1920 (global CSS override only).</li>
+<li>Find Korean words carrying particles: <code>컴포넌트</code> and <code>퍼거토리</code> returned 0 hits although they occur on dozens of pages; lunr indexes whole tokens (a custom <code>search.separator</code> could split particles — untested).</li>
+<li>Lazy-load Mermaid offline: its loader hard-codes unpkg, so the 3.4 MB library ships eagerly on all 300 pages (965 KB gz per page).</li>
+<li>Expose the rendered SVG: Material renders into a <em>closed</em> shadow root, so page scripts/CSS cannot reach nodes (I had to monkey-patch <code>attachShadow</code> to measure it).</li>
+<li>Offer per-page "copy as Markdown"; only site-level llms.txt files.</li>
+<li>Receive any fix after 2026-11-05.</li>
+</ul></div>
+<div class="card"><h3>Fumadocs / Starlight cannot</h3><ul>
+<li><strong>Fumadocs:</strong> open from <code>file://</code> at all; keep output small (217 MB for 300 pages; 243 KB HTML per page because the whole tree is serialised into each RSC payload); pass raw HTML through <code>.md</code>; resolve bare relative links (needs <code>./</code>); pass axe contrast on muted text; run on anything but Next 16 / React 19.2; survive its single maintainer leaving.</li>
+<li><strong>Starlight:</strong> search from <code>file://</code> (Pagefind fetches absolute paths); link relatively without a 2024 community plugin; show breadcrumbs; make a sidebar group label itself a link; render a 25-node graph at readable size (astro-mermaid pins <code>max-width:100%</code>; zoom is custom); keep a stable API across 0.x minors.</li>
+<li><strong>Both:</strong> ship without a Node toolchain in the build image (not a cost here) and without ~40 lines of bespoke zoom code for the diagrams this wiki is about.</li>
+</ul></div>
+</div>
+
+<h2>4. Measurement notes and setup</h2>
+<ul>
+<li>Sample: <code>gen_wiki2.py</code> → 300 pages (9 sections × 4 subsections × 7 leaves + index + 2 appendices), Korean prose, 3-level numbered titles, 36 heavy pages (25 nodes / 60 edges in 4 subgraphs + 12-hop sequence + state), other pages 1–2 smaller diagrams (module dependency graph, class, ER, state), GitHub citation links with <code>#L120-L160</code>, a "분석 커밋" callout, tables, Scala code. Identical semantic content; only frontmatter, callout/details syntax and link form differ per target.</li>
+<li>Configs: MkDocs <code>mkdocs-file.yml</code> (privacy + offline + llmstxt + panzoom, <code>navigation.sections/indexes/path</code>, <code>toc.follow</code>, pymdownx.details/superfences); Fumadocs <code>.md</code> pages, <code>full: true</code>, <code>defaultOpenLevel: 1</code>, clerk TOC, <code>trailingSlash</code>, OG-image route removed; Starlight explicit sidebar, astro-mermaid <code>autoTheme</code>, Pagefind default, <code>lang="ko"</code>; Zensical <code>zensical.toml</code> converted from the same nav.</li>
+<li>Egress block: <code>sandbox-exec</code> profile denying <code>network-outbound</code> except loopback/unix sockets, plus <code>HTTP(S)_PROXY=127.0.0.1:9</code>. Verified: <code>curl 1.1.1.1</code> fails, loopback connects.</li>
+<li>Browser: puppeteer-core 25 on system Chrome; per load a fresh incognito context (Material persists the palette in localStorage, which leaked the light choice into the first dark run); <code>prefers-color-scheme</code> emulated; Mermaid readiness by DOM polling every 100 ms; transferred bytes from CDP <code>Network.loadingFinished</code> (server gzip); axe-core 4 (wcag2a/aa).</li>
+<li>Search timing = ms from first keystroke to first visible result on a cold page.</li>
+</ul>
+
+<h2>5. Unverified or limited</h2>
+<div class="unv"><ul>
+<li>Zensical was a quick check only: no panzoom, no breadcrumbs, no axe on <code>file://</code>; its search UI (shadow DOM) was verified by screenshot and text scrape, not by result-count selectors.</li>
+<li>Starlight dark toggle under <code>file://</code>: my toggle test was inconclusive (page already dark from the emulated scheme); diagrams and links verified.</li>
+<li>Pagefind's docs list Korean under "specialized languages" with segmentation but demonstrate only Chinese; the measured Korean hits show segmentation working in practice.</li>
+<li>Material's <code>search.separator</code> as a Korean-particle mitigation is an idea, not tested.</li>
+<li>Fumadocs Next 15→16 migration doc: not found; the v16 blog states the Next 16 / React 19.2 requirement directly.</li>
+<li>"MkDocs unmaintained since August 2024" is squidfunk's statement; not independently verified.</li>
+<li>Timings are localhost; absolute values are not representative, only the ordering between generators.</li>
+</ul></div>
+
+<h2>6. Screenshots and artefacts</h2>
+<p class="note">All under <code>/private/tmp/claude-501/-Users-angyojun-workspace-repowiki/c8c8eb95-a5da-462c-94fd-c3d0a7a66103/scratchpad/docs-site/shots/</code>. Pattern: <code>{generator}-{index|deep|heavy}-{light|dark}-{desktop|mobile}.png</code> for mkdocs, fuma, starlight, zensical (48 files), plus <code>{generator}-{page}-mobile-drawer.png</code>, <code>{generator}-heavy-zoomed.png</code>, <code>{generator}-search.png</code>, <code>{generator}-file-file-deep.png</code> (file:// deep page), <code>zensical-file-search.png</code>.</p>
+<details><summary>Explicit list of the required 12 per generator</summary><div class="paths">
+mkdocs-index-light-desktop.png · mkdocs-index-dark-desktop.png · mkdocs-index-light-mobile.png · mkdocs-index-dark-mobile.png · mkdocs-deep-light-desktop.png · mkdocs-deep-dark-desktop.png · mkdocs-deep-light-mobile.png · mkdocs-deep-dark-mobile.png · mkdocs-heavy-light-desktop.png · mkdocs-heavy-dark-desktop.png · mkdocs-heavy-light-mobile.png · mkdocs-heavy-dark-mobile.png<br>
+fuma-index-light-desktop.png · fuma-index-dark-desktop.png · fuma-index-light-mobile.png · fuma-index-dark-mobile.png · fuma-deep-light-desktop.png · fuma-deep-dark-desktop.png · fuma-deep-light-mobile.png · fuma-deep-dark-mobile.png · fuma-heavy-light-desktop.png · fuma-heavy-dark-desktop.png · fuma-heavy-light-mobile.png · fuma-heavy-dark-mobile.png<br>
+starlight-index-light-desktop.png · starlight-index-dark-desktop.png · starlight-index-light-mobile.png · starlight-index-dark-mobile.png · starlight-deep-light-desktop.png · starlight-deep-dark-desktop.png · starlight-deep-light-mobile.png · starlight-deep-dark-mobile.png · starlight-heavy-light-desktop.png · starlight-heavy-dark-desktop.png · starlight-heavy-light-mobile.png · starlight-heavy-dark-mobile.png<br>
+zensical-index-light-desktop.png · zensical-index-dark-desktop.png · zensical-index-light-mobile.png · zensical-index-dark-mobile.png · zensical-deep-light-desktop.png · zensical-deep-dark-desktop.png · zensical-deep-light-mobile.png · zensical-deep-dark-mobile.png · zensical-heavy-light-desktop.png · zensical-heavy-dark-desktop.png · zensical-heavy-light-mobile.png · zensical-heavy-dark-mobile.png
+</div></details>
+<p class="note">Raw measurements: <code>report-{mkdocs,fuma,starlight,zensical}.json</code>; scripts: <code>tools/measure.mjs</code>, <code>tools/filetest.mjs</code>, <code>tools/zoomtest.mjs</code>, <code>tools/navtest.mjs</code>; builds: <code>mkdocs-test/site-file</code> (file:// build), <code>mkdocs-test/site</code>, <code>fuma-static/out</code>, <code>fuma-out-slim</code>, <code>starlight-test/dist</code>, <code>starlight-file/dist</code>, <code>zensical-test/proj{,-file}/site</code>; sandbox profile <code>sandbox-noegress.sb</code>.</p>
+</main>

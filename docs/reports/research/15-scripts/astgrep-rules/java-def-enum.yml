@@ -1,0 +1,9 @@
+id: java-def-enum
+language: java
+message: def.enum
+rule:
+  kind: enum_declaration
+  has:
+    field: name
+    kind: identifier
+    pattern: $NAME

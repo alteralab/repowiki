@@ -1,0 +1,9 @@
+{
+ "title": "2. 브로커 코어",
+ "pages": [
+  "2-1-kafkaapis",
+  "2-2-replicamanager",
+  "2-3-logmanager",
+  "2-4-socketserver"
+ ]
+}

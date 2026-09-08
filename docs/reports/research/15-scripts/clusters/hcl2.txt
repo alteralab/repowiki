@@ -1,0 +1,6 @@
+lark==1.3.1
+    # via python-hcl2
+python-hcl2==8.1.4
+    # via -r clusters/hcl2.in
+regex==2026.9.3
+    # via python-hcl2

@@ -1,0 +1,1207 @@
+{
+ "pages": {
+  "index": {
+   "url": "http://127.0.0.1:8003/",
+   "light-1440": {
+    "load": {
+     "loadMs": 50,
+     "svgReadyMs": 234,
+     "svgCount": 1,
+     "expectDiagrams": 1,
+     "paint": {
+      "first-paint": 40,
+      "first-contentful-paint": 40,
+      "domContentLoaded": 44,
+      "load": 45,
+      "htmlBytes": 11499
+     },
+     "transferredBytes": 285616,
+     "rawBytes": 1080118,
+     "byType": {
+      "Stylesheet": {
+       "n": 2,
+       "bytes": 13775
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 11552
+      },
+      "Script": {
+       "n": 34,
+       "bytes": 255717
+      },
+      "Other": {
+       "n": 1,
+       "bytes": 4572
+      }
+     }
+    },
+    "diagrams": {
+     "viewport": 1440,
+     "docScrollWidth": 1440,
+     "svgs": [
+      {
+       "renderedW": 700,
+       "renderedH": 467,
+       "viewBox": "0 0 3529.6875 2353.476806640625",
+       "nativeW": 3530,
+       "containerW": 732,
+       "containerScrollW": 732,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 25,
+       "edges": 60,
+       "fontSize": "16px",
+       "nodeFill": "rgb(255, 255, 222)",
+       "textColor": "rgb(53, 56, 65)",
+       "styleMaxWidth": "",
+       "styleW": "3529.6875"
+      }
+     ]
+    },
+    "sidebar": {
+     "found": true,
+     "totalLinks": 300,
+     "visibleLinks": 300,
+     "maxDepth": 3,
+     "current": {
+      "text": "홈",
+      "visible": true,
+      "inView": false,
+      "top": 80
+     },
+     "sample": [
+      "홈",
+      "1. 개요",
+      "1.1 목적과 범위",
+      "1.1.1 책임과 경계",
+      "1.1.2 핵심 자료구조",
+      "1.1.3 요청 흐름",
+      "1.1.4 오류 처리",
+      "1.1.5 동시성 모델"
+     ],
+     "sidebarWidth": 1440
+    },
+    "toc": {
+     "found": true,
+     "rightSide": true,
+     "left": 1080,
+     "links": 6,
+     "visible": true
+    },
+    "features": {
+     "hasBreadcrumb": false,
+     "copyMd": [],
+     "calloutTop": 203,
+     "h1Top": 104,
+     "headingLevels": [
+      2,
+      1,
+      2,
+      2
+     ],
+     "headingSkips": 0,
+     "h1Count": 1,
+     "hasLastUpdated": true,
+     "lang": "ko",
+     "bodyBg": "rgb(255, 255, 255)",
+     "pageBg": "rgba(0, 0, 0, 0)",
+     "linkContrast": null
+    },
+    "tocFollow": {
+     "before": "개요",
+     "after": "전체 모듈 의존 그래프",
+     "follows": true
+    },
+    "axe": []
+   },
+   "light-1920": {
+    "load": {
+     "loadMs": 46,
+     "svgReadyMs": 235,
+     "svgCount": 1,
+     "expectDiagrams": 1,
+     "paint": {
+      "first-paint": 44,
+      "first-contentful-paint": 44,
+      "domContentLoaded": 40,
+      "load": 42,
+      "htmlBytes": 11499
+     },
+     "transferredBytes": 281044,
+     "rawBytes": 1068493,
+     "byType": {
+      "Stylesheet": {
+       "n": 2,
+       "bytes": 13775
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 11552
+      },
+      "Script": {
+       "n": 34,
+       "bytes": 255717
+      }
+     }
+    },
+    "diagrams": {
+     "viewport": 1920,
+     "docScrollWidth": 1920,
+     "svgs": [
+      {
+       "renderedW": 940,
+       "renderedH": 627,
+       "viewBox": "0 0 3529.6875 2353.476806640625",
+       "nativeW": 3530,
+       "containerW": 972,
+       "containerScrollW": 972,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 25,
+       "edges": 60,
+       "fontSize": "16px",
+       "nodeFill": "rgb(255, 255, 222)",
+       "textColor": "rgb(53, 56, 65)",
+       "styleMaxWidth": "",
+       "styleW": "3529.6875"
+      }
+     ]
+    }
+   },
+   "dark-1440": {
+    "load": {
+     "loadMs": 43,
+     "svgReadyMs": 227,
+     "svgCount": 1,
+     "expectDiagrams": 1,
+     "paint": {
+      "first-paint": 36,
+      "first-contentful-paint": 36,
+      "domContentLoaded": 39,
+      "load": 39,
+      "htmlBytes": 11499
+     },
+     "transferredBytes": 281044,
+     "rawBytes": 1068493,
+     "byType": {
+      "Document": {
+       "n": 1,
+       "bytes": 11552
+      },
+      "Stylesheet": {
+       "n": 2,
+       "bytes": 13775
+      },
+      "Script": {
+       "n": 34,
+       "bytes": 255717
+      }
+     }
+    },
+    "diagrams": {
+     "viewport": 1440,
+     "docScrollWidth": 1440,
+     "svgs": [
+      {
+       "renderedW": 700,
+       "renderedH": 467,
+       "viewBox": "0 0 3529.6875 2353.476806640625",
+       "nativeW": 3530,
+       "containerW": 732,
+       "containerScrollW": 732,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 25,
+       "edges": 60,
+       "fontSize": "16px",
+       "nodeFill": "rgb(71, 73, 73)",
+       "textColor": "rgb(193, 195, 200)",
+       "styleMaxWidth": "",
+       "styleW": "3529.6875"
+      }
+     ]
+    },
+    "sidebar": {
+     "found": true,
+     "totalLinks": 300,
+     "visibleLinks": 300,
+     "maxDepth": 3,
+     "current": {
+      "text": "홈",
+      "visible": true,
+      "inView": false,
+      "top": 80
+     },
+     "sample": [
+      "홈",
+      "1. 개요",
+      "1.1 목적과 범위",
+      "1.1.1 책임과 경계",
+      "1.1.2 핵심 자료구조",
+      "1.1.3 요청 흐름",
+      "1.1.4 오류 처리",
+      "1.1.5 동시성 모델"
+     ],
+     "sidebarWidth": 1440
+    },
+    "toc": {
+     "found": true,
+     "rightSide": true,
+     "left": 1080,
+     "links": 6,
+     "visible": true
+    },
+    "features": {
+     "hasBreadcrumb": false,
+     "copyMd": [],
+     "calloutTop": 203,
+     "h1Top": 104,
+     "headingLevels": [
+      2,
+      1,
+      2,
+      2
+     ],
+     "headingSkips": 0,
+     "h1Count": 1,
+     "hasLastUpdated": true,
+     "lang": "ko",
+     "bodyBg": "rgb(23, 24, 28)",
+     "pageBg": "rgba(0, 0, 0, 0)",
+     "linkContrast": null
+    }
+   },
+   "mobile": {
+    "load": {
+     "loadMs": 49,
+     "svgReadyMs": 240,
+     "svgCount": 1,
+     "expectDiagrams": 1,
+     "paint": {
+      "first-paint": 32,
+      "first-contentful-paint": 32,
+      "domContentLoaded": 42,
+      "load": 43,
+      "htmlBytes": 11499
+     },
+     "transferredBytes": 281044,
+     "rawBytes": 1068493,
+     "byType": {
+      "Stylesheet": {
+       "n": 2,
+       "bytes": 13775
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 11552
+      },
+      "Script": {
+       "n": 34,
+       "bytes": 255717
+      }
+     }
+    },
+    "diagrams": {
+     "docScrollWidth": 390,
+     "viewport": 390,
+     "svgs": [
+      {
+       "renderedW": 326,
+       "containerW": 358,
+       "containerScrollW": 358,
+       "hscroll": false,
+       "clipped": false
+      }
+     ]
+    },
+    "drawer": {
+     "found": true,
+     "id": "starlight__sidebar",
+     "width": 390,
+     "left": 0,
+     "links": 300
+    }
+   }
+  },
+  "deep": {
+   "url": "http://127.0.0.1:8003/3-replication/3-2-b/3-2-4/",
+   "light-1440": {
+    "load": {
+     "loadMs": 53,
+     "svgReadyMs": 182,
+     "svgCount": 1,
+     "expectDiagrams": 1,
+     "paint": {
+      "first-paint": 36,
+      "first-contentful-paint": 36,
+      "domContentLoaded": 46,
+      "load": 48,
+      "htmlBytes": 12676
+     },
+     "transferredBytes": 288113,
+     "rawBytes": 1103097,
+     "byType": {
+      "Stylesheet": {
+       "n": 3,
+       "bytes": 18197
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 12729
+      },
+      "Script": {
+       "n": 35,
+       "bytes": 257187
+      },
+      "Image": {
+       "n": 2,
+       "bytes": 0
+      }
+     }
+    },
+    "diagrams": {
+     "viewport": 1440,
+     "docScrollWidth": 1440,
+     "svgs": [
+      {
+       "renderedW": 700,
+       "renderedH": 210,
+       "viewBox": "0 -35 1350.421875 405",
+       "nativeW": 1350,
+       "containerW": 732,
+       "containerScrollW": 732,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 10,
+       "edges": 18,
+       "fontSize": "16px",
+       "nodeFill": "rgb(236, 236, 255)",
+       "textColor": "rgb(51, 51, 51)",
+       "styleMaxWidth": "",
+       "styleW": "1350.421875"
+      }
+     ]
+    },
+    "sidebar": {
+     "found": true,
+     "totalLinks": 300,
+     "visibleLinks": 300,
+     "maxDepth": 3,
+     "current": {
+      "text": "3.2.4 오류 처리",
+      "visible": true,
+      "inView": false,
+      "top": 420
+     },
+     "sample": [
+      "홈",
+      "1. 개요",
+      "1.1 목적과 범위",
+      "1.1.1 책임과 경계",
+      "1.1.2 핵심 자료구조",
+      "1.1.3 요청 흐름",
+      "1.1.4 오류 처리",
+      "1.1.5 동시성 모델"
+     ],
+     "sidebarWidth": 1440
+    },
+    "toc": {
+     "found": true,
+     "rightSide": true,
+     "left": 1080,
+     "links": 22,
+     "visible": true
+    },
+    "features": {
+     "hasBreadcrumb": false,
+     "copyMd": [],
+     "calloutTop": 203,
+     "h1Top": 104,
+     "headingLevels": [
+      2,
+      1,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      3,
+      3,
+      2,
+      2
+     ],
+     "headingSkips": 0,
+     "h1Count": 1,
+     "hasLastUpdated": true,
+     "lang": "ko",
+     "linkColor": "rgb(61, 80, 245)",
+     "bodyBg": "rgb(255, 255, 255)",
+     "pageBg": "rgba(0, 0, 0, 0)",
+     "linkContrast": 5.73
+    },
+    "tocFollow": {
+     "before": "개요",
+     "after": "설정 표",
+     "follows": true
+    },
+    "axe": []
+   },
+   "light-1920": {
+    "load": {
+     "loadMs": 47,
+     "svgReadyMs": 177,
+     "svgCount": 1,
+     "expectDiagrams": 1,
+     "paint": {
+      "first-paint": 36,
+      "first-contentful-paint": 36,
+      "domContentLoaded": 43,
+      "load": 44,
+      "htmlBytes": 12676
+     },
+     "transferredBytes": 288113,
+     "rawBytes": 1103097,
+     "byType": {
+      "Stylesheet": {
+       "n": 3,
+       "bytes": 18197
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 12729
+      },
+      "Script": {
+       "n": 35,
+       "bytes": 257187
+      },
+      "Image": {
+       "n": 2,
+       "bytes": 0
+      }
+     }
+    },
+    "diagrams": {
+     "viewport": 1920,
+     "docScrollWidth": 1920,
+     "svgs": [
+      {
+       "renderedW": 940,
+       "renderedH": 282,
+       "viewBox": "0 -35 1350.421875 405",
+       "nativeW": 1350,
+       "containerW": 972,
+       "containerScrollW": 972,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 10,
+       "edges": 18,
+       "fontSize": "16px",
+       "nodeFill": "rgb(236, 236, 255)",
+       "textColor": "rgb(51, 51, 51)",
+       "styleMaxWidth": "",
+       "styleW": "1350.421875"
+      }
+     ]
+    }
+   },
+   "dark-1440": {
+    "load": {
+     "loadMs": 56,
+     "svgReadyMs": 193,
+     "svgCount": 1,
+     "expectDiagrams": 1,
+     "paint": {
+      "first-paint": 64,
+      "first-contentful-paint": 64,
+      "domContentLoaded": 51,
+      "load": 52,
+      "htmlBytes": 12676
+     },
+     "transferredBytes": 288113,
+     "rawBytes": 1103097,
+     "byType": {
+      "Stylesheet": {
+       "n": 3,
+       "bytes": 18197
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 12729
+      },
+      "Script": {
+       "n": 35,
+       "bytes": 257187
+      },
+      "Image": {
+       "n": 2,
+       "bytes": 0
+      }
+     }
+    },
+    "diagrams": {
+     "viewport": 1440,
+     "docScrollWidth": 1440,
+     "svgs": [
+      {
+       "renderedW": 700,
+       "renderedH": 210,
+       "viewBox": "0 -35 1350.421875 405",
+       "nativeW": 1350,
+       "containerW": 732,
+       "containerScrollW": 732,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 10,
+       "edges": 18,
+       "fontSize": "16px",
+       "nodeFill": "rgb(31, 32, 32)",
+       "textColor": "rgb(204, 204, 204)",
+       "styleMaxWidth": "",
+       "styleW": "1350.421875"
+      }
+     ]
+    },
+    "sidebar": {
+     "found": true,
+     "totalLinks": 300,
+     "visibleLinks": 300,
+     "maxDepth": 3,
+     "current": {
+      "text": "3.2.4 오류 처리",
+      "visible": true,
+      "inView": false,
+      "top": 420
+     },
+     "sample": [
+      "홈",
+      "1. 개요",
+      "1.1 목적과 범위",
+      "1.1.1 책임과 경계",
+      "1.1.2 핵심 자료구조",
+      "1.1.3 요청 흐름",
+      "1.1.4 오류 처리",
+      "1.1.5 동시성 모델"
+     ],
+     "sidebarWidth": 1440
+    },
+    "toc": {
+     "found": true,
+     "rightSide": true,
+     "left": 1080,
+     "links": 22,
+     "visible": true
+    },
+    "features": {
+     "hasBreadcrumb": false,
+     "copyMd": [],
+     "calloutTop": 203,
+     "h1Top": 104,
+     "headingLevels": [
+      2,
+      1,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      3,
+      3,
+      2,
+      2
+     ],
+     "headingSkips": 0,
+     "h1Count": 1,
+     "hasLastUpdated": true,
+     "lang": "ko",
+     "linkColor": "rgb(179, 199, 255)",
+     "bodyBg": "rgb(23, 24, 28)",
+     "pageBg": "rgba(0, 0, 0, 0)",
+     "linkContrast": 10.58
+    }
+   },
+   "mobile": {
+    "load": {
+     "loadMs": 50,
+     "svgReadyMs": 180,
+     "svgCount": 1,
+     "expectDiagrams": 1,
+     "paint": {
+      "first-paint": 28,
+      "first-contentful-paint": 28,
+      "domContentLoaded": 46,
+      "load": 46,
+      "htmlBytes": 12676
+     },
+     "transferredBytes": 288113,
+     "rawBytes": 1103097,
+     "byType": {
+      "Stylesheet": {
+       "n": 3,
+       "bytes": 18197
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 12729
+      },
+      "Script": {
+       "n": 35,
+       "bytes": 257187
+      },
+      "Image": {
+       "n": 2,
+       "bytes": 0
+      }
+     }
+    },
+    "diagrams": {
+     "docScrollWidth": 390,
+     "viewport": 390,
+     "svgs": [
+      {
+       "renderedW": 326,
+       "containerW": 358,
+       "containerScrollW": 358,
+       "hscroll": false,
+       "clipped": false
+      }
+     ]
+    },
+    "drawer": {
+     "found": true,
+     "id": "starlight__sidebar",
+     "width": 390,
+     "left": 0,
+     "links": 300
+    }
+   }
+  },
+  "heavy": {
+   "url": "http://127.0.0.1:8003/2-broker/2-2-replicamanager/2-2-1/",
+   "light-1440": {
+    "load": {
+     "loadMs": 54,
+     "svgReadyMs": 593,
+     "svgCount": 3,
+     "expectDiagrams": 3,
+     "paint": {
+      "first-paint": 36,
+      "first-contentful-paint": 36,
+      "domContentLoaded": 49,
+      "load": 52,
+      "htmlBytes": 13670
+     },
+     "transferredBytes": 331870,
+     "rawBytes": 1255778,
+     "byType": {
+      "Stylesheet": {
+       "n": 3,
+       "bytes": 18197
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 13723
+      },
+      "Script": {
+       "n": 36,
+       "bytes": 299950
+      },
+      "Image": {
+       "n": 2,
+       "bytes": 0
+      }
+     }
+    },
+    "diagrams": {
+     "viewport": 1440,
+     "docScrollWidth": 1440,
+     "svgs": [
+      {
+       "renderedW": 1060,
+       "renderedH": 620,
+       "viewBox": "0 0 3727.640625 2181.8740234375",
+       "nativeW": 3728,
+       "containerW": 1092,
+       "containerScrollW": 1092,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 25,
+       "edges": 60,
+       "fontSize": "16px",
+       "nodeFill": "rgb(255, 255, 222)",
+       "textColor": "rgb(53, 56, 65)",
+       "styleMaxWidth": "",
+       "styleW": "3727.640625"
+      },
+      {
+       "renderedW": 1060,
+       "renderedH": 667,
+       "viewBox": "-50 -10 1226 772",
+       "nativeW": 1226,
+       "containerW": 1092,
+       "containerScrollW": 1092,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 0,
+       "edges": 12,
+       "fontSize": "16px",
+       "nodeFill": "rgb(236, 236, 255)",
+       "textColor": "rgb(53, 56, 65)",
+       "styleMaxWidth": "1226px",
+       "styleW": "100%"
+      },
+      {
+       "renderedW": 1060,
+       "renderedH": 1312,
+       "viewBox": "0 0 332.890625 412",
+       "nativeW": 333,
+       "containerW": 1092,
+       "containerScrollW": 1092,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 5,
+       "edges": 0,
+       "fontSize": "16px",
+       "nodeFill": "rgb(236, 236, 255)",
+       "textColor": "rgb(53, 56, 65)",
+       "styleMaxWidth": "332.891px",
+       "styleW": "100%"
+      }
+     ]
+    },
+    "sidebar": {
+     "found": true,
+     "totalLinks": 300,
+     "visibleLinks": 300,
+     "maxDepth": 3,
+     "current": {
+      "text": "2.2.1 책임과 경계",
+      "visible": true,
+      "inView": false,
+      "top": 321
+     },
+     "sample": [
+      "홈",
+      "1. 개요",
+      "1.1 목적과 범위",
+      "1.1.1 책임과 경계",
+      "1.1.2 핵심 자료구조",
+      "1.1.3 요청 흐름",
+      "1.1.4 오류 처리",
+      "1.1.5 동시성 모델"
+     ],
+     "sidebarWidth": 1440
+    },
+    "toc": {
+     "found": false
+    },
+    "features": {
+     "hasBreadcrumb": false,
+     "copyMd": [],
+     "calloutTop": 203,
+     "h1Top": 104,
+     "headingLevels": [
+      1,
+      2,
+      2,
+      3,
+      3,
+      2,
+      3,
+      3,
+      3,
+      3,
+      3,
+      2
+     ],
+     "headingSkips": 0,
+     "h1Count": 1,
+     "hasLastUpdated": true,
+     "lang": "ko",
+     "linkColor": "rgb(61, 80, 245)",
+     "bodyBg": "rgb(255, 255, 255)",
+     "pageBg": "rgba(0, 0, 0, 0)",
+     "linkContrast": 5.73
+    },
+    "tocFollow": {
+     "before": null,
+     "after": null,
+     "follows": false
+    },
+    "axe": []
+   },
+   "light-1920": {
+    "load": {
+     "loadMs": 50,
+     "svgReadyMs": 597,
+     "svgCount": 3,
+     "expectDiagrams": 3,
+     "paint": {
+      "first-paint": 36,
+      "first-contentful-paint": 36,
+      "domContentLoaded": 44,
+      "load": 47,
+      "htmlBytes": 13670
+     },
+     "transferredBytes": 331870,
+     "rawBytes": 1255778,
+     "byType": {
+      "Stylesheet": {
+       "n": 3,
+       "bytes": 18197
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 13723
+      },
+      "Script": {
+       "n": 36,
+       "bytes": 299950
+      },
+      "Image": {
+       "n": 2,
+       "bytes": 0
+      }
+     }
+    },
+    "diagrams": {
+     "viewport": 1920,
+     "docScrollWidth": 1920,
+     "svgs": [
+      {
+       "renderedW": 1408,
+       "renderedH": 824,
+       "viewBox": "0 0 3727.640625 2181.8740234375",
+       "nativeW": 3728,
+       "containerW": 1440,
+       "containerScrollW": 1440,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 25,
+       "edges": 60,
+       "fontSize": "16px",
+       "nodeFill": "rgb(255, 255, 222)",
+       "textColor": "rgb(53, 56, 65)",
+       "styleMaxWidth": "",
+       "styleW": "3727.640625"
+      },
+      {
+       "renderedW": 1408,
+       "renderedH": 887,
+       "viewBox": "-50 -10 1226 772",
+       "nativeW": 1226,
+       "containerW": 1440,
+       "containerScrollW": 1440,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 0,
+       "edges": 12,
+       "fontSize": "16px",
+       "nodeFill": "rgb(236, 236, 255)",
+       "textColor": "rgb(53, 56, 65)",
+       "styleMaxWidth": "1226px",
+       "styleW": "100%"
+      },
+      {
+       "renderedW": 1408,
+       "renderedH": 1743,
+       "viewBox": "0 0 332.890625 412",
+       "nativeW": 333,
+       "containerW": 1440,
+       "containerScrollW": 1440,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 5,
+       "edges": 0,
+       "fontSize": "16px",
+       "nodeFill": "rgb(236, 236, 255)",
+       "textColor": "rgb(53, 56, 65)",
+       "styleMaxWidth": "332.891px",
+       "styleW": "100%"
+      }
+     ]
+    }
+   },
+   "dark-1440": {
+    "load": {
+     "loadMs": 53,
+     "svgReadyMs": 593,
+     "svgCount": 3,
+     "expectDiagrams": 3,
+     "paint": {
+      "first-paint": 36,
+      "first-contentful-paint": 36,
+      "domContentLoaded": 48,
+      "load": 50,
+      "htmlBytes": 13670
+     },
+     "transferredBytes": 331870,
+     "rawBytes": 1255778,
+     "byType": {
+      "Stylesheet": {
+       "n": 3,
+       "bytes": 18197
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 13723
+      },
+      "Script": {
+       "n": 36,
+       "bytes": 299950
+      },
+      "Image": {
+       "n": 2,
+       "bytes": 0
+      }
+     }
+    },
+    "diagrams": {
+     "viewport": 1440,
+     "docScrollWidth": 1440,
+     "svgs": [
+      {
+       "renderedW": 1060,
+       "renderedH": 620,
+       "viewBox": "0 0 3727.640625 2181.8740234375",
+       "nativeW": 3728,
+       "containerW": 1092,
+       "containerScrollW": 1092,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 25,
+       "edges": 60,
+       "fontSize": "16px",
+       "nodeFill": "rgb(71, 73, 73)",
+       "textColor": "rgb(193, 195, 200)",
+       "styleMaxWidth": "",
+       "styleW": "3727.640625"
+      },
+      {
+       "renderedW": 1060,
+       "renderedH": 667,
+       "viewBox": "-50 -10 1226 772",
+       "nativeW": 1226,
+       "containerW": 1092,
+       "containerScrollW": 1092,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 0,
+       "edges": 12,
+       "fontSize": "16px",
+       "nodeFill": "rgb(31, 32, 32)",
+       "textColor": "rgb(193, 195, 200)",
+       "styleMaxWidth": "1226px",
+       "styleW": "100%"
+      },
+      {
+       "renderedW": 1060,
+       "renderedH": 1312,
+       "viewBox": "0 0 332.890625 412",
+       "nativeW": 333,
+       "containerW": 1092,
+       "containerScrollW": 1092,
+       "containerOverflowX": "auto",
+       "clipped": false,
+       "hscroll": false,
+       "nodes": 5,
+       "edges": 0,
+       "fontSize": "16px",
+       "nodeFill": "rgb(31, 32, 32)",
+       "textColor": "rgb(193, 195, 200)",
+       "styleMaxWidth": "332.891px",
+       "styleW": "100%"
+      }
+     ]
+    },
+    "sidebar": {
+     "found": true,
+     "totalLinks": 300,
+     "visibleLinks": 300,
+     "maxDepth": 3,
+     "current": {
+      "text": "2.2.1 책임과 경계",
+      "visible": true,
+      "inView": false,
+      "top": 321
+     },
+     "sample": [
+      "홈",
+      "1. 개요",
+      "1.1 목적과 범위",
+      "1.1.1 책임과 경계",
+      "1.1.2 핵심 자료구조",
+      "1.1.3 요청 흐름",
+      "1.1.4 오류 처리",
+      "1.1.5 동시성 모델"
+     ],
+     "sidebarWidth": 1440
+    },
+    "toc": {
+     "found": false
+    },
+    "features": {
+     "hasBreadcrumb": false,
+     "copyMd": [],
+     "calloutTop": 203,
+     "h1Top": 104,
+     "headingLevels": [
+      1,
+      2,
+      2,
+      3,
+      3,
+      2,
+      3,
+      3,
+      3,
+      3,
+      3,
+      2
+     ],
+     "headingSkips": 0,
+     "h1Count": 1,
+     "hasLastUpdated": true,
+     "lang": "ko",
+     "linkColor": "rgb(179, 199, 255)",
+     "bodyBg": "rgb(23, 24, 28)",
+     "pageBg": "rgba(0, 0, 0, 0)",
+     "linkContrast": 10.58
+    }
+   },
+   "mobile": {
+    "load": {
+     "loadMs": 43,
+     "svgReadyMs": 590,
+     "svgCount": 3,
+     "expectDiagrams": 3,
+     "paint": {
+      "first-paint": 24,
+      "first-contentful-paint": 24,
+      "domContentLoaded": 25,
+      "load": 41,
+      "htmlBytes": 13670
+     },
+     "transferredBytes": 331870,
+     "rawBytes": 1255778,
+     "byType": {
+      "Stylesheet": {
+       "n": 3,
+       "bytes": 18197
+      },
+      "Document": {
+       "n": 1,
+       "bytes": 13723
+      },
+      "Script": {
+       "n": 36,
+       "bytes": 299950
+      },
+      "Image": {
+       "n": 2,
+       "bytes": 0
+      }
+     }
+    },
+    "diagrams": {
+     "docScrollWidth": 390,
+     "viewport": 390,
+     "svgs": [
+      {
+       "renderedW": 326,
+       "containerW": 358,
+       "containerScrollW": 358,
+       "hscroll": false,
+       "clipped": false
+      },
+      {
+       "renderedW": 326,
+       "containerW": 358,
+       "containerScrollW": 358,
+       "hscroll": false,
+       "clipped": false
+      },
+      {
+       "renderedW": 326,
+       "containerW": 358,
+       "containerScrollW": 358,
+       "hscroll": false,
+       "clipped": false
+      }
+     ]
+    },
+    "drawer": {
+     "found": true,
+     "id": "starlight__sidebar",
+     "width": 390,
+     "left": 0,
+     "links": 300
+    }
+   }
+  }
+ },
+ "search": {
+  "indexBytes": null,
+  "queries": {
+   "컴포넌트": {
+    "hits": 5,
+    "firstResultMs": 374,
+    "top3": [
+     "2.3.1 책임과 경계 구조 구조. 다음 그래프는 이 컴포넌트가 참여하는 25개 노드, 60개 의존 간선의 모듈 책임 락이며, 역순 획득은 데드락을 유발한다. 이 컴포넌트는 브로커 기동 시 한 번 핵심 함수 핵심 함수. 이 컴포넌트는 브로커 기동 시 한 번 생성되며 파티션별 상태를",
+     "6.2.5 동시성 모델 요약 로그 관리자 사이에서 가장 높다. 이 컴포넌트는 브로커 기동 시 한 번 핵심 함수 핵심 함수. 이 컴포넌트는 브로커 기동 시 한 번 생성되며 파티션별 상태를 동시성 동시성. 이 컴포넌트는 브로커 기동 시 한 번 생성되며 파티션별 상태를 메모리에",
+     "9.2 메트릭 요약 중 먼저 도달하는 쪽이 트리거한다. 이 컴포넌트는 브로커 기동 시 한 번 책임 책임. 이 컴포넌트는 브로커 기동 시 한 번 생성되며 파티션별 상태를 메모리에 오류 처리 오류 처리. 이 컴포넌트는 브로커 기동 시 한 번 생성되며 파티션별 상태를"
+    ]
+   },
+   "복제 관리자": {
+    "hits": 5,
+    "firstResultMs": 492,
+    "top3": [
+     "2.2 ReplicaManager 복제 관리자 요약 완료되어 오류 응답을 만든다. 복제 관리자(ReplicaManager)는 브로커의 모든 파티션 복제본을 소유하며 리더/팔로워 책임 문서: 2.1.6 설정과 튜닝, 2.2 ReplicaManager 복제 관리자. 핵심 함수 적용해 만들어",
+     "3.4 복제 스로틀링 핵심 함수 띄워 검증한다. 이 모듈의 결합도는 복제 관리자와 로그 관리자 사이에서 가장 높다. 동시성 모듈의 결합도는 복제 관리자와 로그 관리자 사이에서 가장 높다. 락 순서는 항상 설정 문서: 6.3.7 테스트 전략, 2.2 ReplicaManager 복제 관리자",
+     "3. 복제와 리더 선출 책임 문서: 1.1.5 동시성 모델, 2.2 ReplicaManager 복제 관리자. 핵심 함수 컨트롤러에 전파된다. 이 모듈의 결합도는 복제 관리자와 로그 관리자 사이에서 가장 높다. 동시성 문서: 3.2.2 핵심 자료구조, 2.2 ReplicaManager 복"
+    ]
+   },
+   "리더 에포크 캐시가 절단 지점을 결정한다": {
+    "hits": 1,
+    "firstResultMs": 574,
+    "top3": [
+     "3.2.4 오류 처리 요약 핵심 규칙: 리더 에포크 캐시가 절단 지점을 결정한다. 이 규칙은 팔로워가 리더와 핵심 함수 도달하는 쪽이 트리거한다. 리더 복제본만 쓰기를 받으며 팔로워는 페치 요청으로 리더의 로그를 오류 처리 획득은 데드락을 유발한다. 리더 복제본만 쓰기를 받으며 팔로워는"
+    ]
+   },
+   "ReplicaManager": {
+    "hits": 5,
+    "firstResultMs": 486,
+    "top3": [
+     "2.2 ReplicaManager 복제 관리자 2.2 ReplicaManager 복제 관리자 2.2 ReplicaManager 복제 관리자. 분석 커밋. e2b5f0c · 2026-09-08 09:00 KST · 요약 요약. ReplicaManager 복제 관리자는 clients/src",
+     "2.2.1 책임과 경계 구조 api_Quotas rep_ReplicaManager -.->|fetch| api_RequestChannel click rep_ReplicaManager \"../../2-broker/2-2-replicamanager/\" \"ReplicaManager\" 요청 시",
+     "1.1.1 책임과 경계 구조 log_LogCleaner rep_ReplicaManager ==>|apply| rep_Partition click rep_ReplicaManager \"../../2-broker/2-2-replicamanager/\" \"ReplicaManager\" 요청 시퀀스"
+    ]
+   },
+   "퍼거토리": {
+    "hits": 5,
+    "firstResultMs": 372,
+    "top3": [
+     "1.2.3 요청 흐름 요약 core/src/main/scala/kafka/server/ReplicaFetcherThread.scala:60-104에서 호출된다. 타임아웃이 지난 지연 연산은 퍼거토리에서 강제로 완료되어 오류 응답을 만든다. 책임 책임. 타임아웃이 지난 지연 연산은 퍼거토",
+     "6.3.3 요청 흐름 요약 clients/src/main/java/org/apache/kafka/clients/producer/internals/Sender.java:301-347에서 호출된다. 타임아웃이 지난 지연 연산은 퍼거토리에서 강제로 완료되어 오류 응답을 만든다. 책임 책임. ",
+     "9.1.3 요청 흐름 요약 최소값으로 갱신된다. 타임아웃이 지난 지연 연산은 퍼거토리에서 강제로 완료되어 오류 응답을 만든다. 오류 처리 오류 처리. 타임아웃이 지난 지연 연산은 퍼거토리에서 강제로 완료되어 오류 응답을 만든다. 설정 최소값으로 갱신된다. 타임아웃이 지난 지연 연산은 퍼"
+    ]
+   }
+  }
+ }
+}

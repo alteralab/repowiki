@@ -1,0 +1,3 @@
+id: hcl-dump
+language: hcl
+rule: {kind: config_file}

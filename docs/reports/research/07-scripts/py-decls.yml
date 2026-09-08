@@ -1,0 +1,6 @@
+id: py-decls
+language: python
+rule:
+  any:
+    - kind: function_definition
+    - kind: class_definition

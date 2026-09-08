@@ -1,0 +1,16 @@
+certifi==2026.7.22
+    # via requests
+charset-normalizer==3.5.1
+    # via requests
+idna==3.19
+    # via requests
+python-gitlab==8.5.0
+    # via -r clusters/gitlab-rest.in
+requests==2.34.2
+    # via
+    #   python-gitlab
+    #   requests-toolbelt
+requests-toolbelt==1.0.0
+    # via python-gitlab
+urllib3==2.7.0
+    # via requests

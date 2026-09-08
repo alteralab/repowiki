@@ -1,0 +1,6 @@
+cffi==2.1.1
+    # via tfparse
+pycparser==3.0
+    # via cffi
+tfparse==0.6.21
+    # via -r clusters/tfparse.in

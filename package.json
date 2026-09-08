@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "openwiki(repo-memory 생성기)를 프로젝트 로컬로 고정하는 선언. tpl_init.sh 또는 `npm install --save-dev openwiki`가 정확 버전을 여기와 package-lock.json에 기록한다. 실행은 npx openwiki.",
+  "devDependencies": {}
+}

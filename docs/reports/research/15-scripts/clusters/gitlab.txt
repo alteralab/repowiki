@@ -1,0 +1,47 @@
+anyio==4.15.1
+    # via
+    #   gql
+    #   httpx
+backoff==2.2.1
+    # via gql
+certifi==2026.7.22
+    # via
+    #   httpcore
+    #   httpx
+    #   requests
+charset-normalizer==3.5.1
+    # via requests
+gql==4.0.0
+    # via python-gitlab
+graphql-core==3.2.12
+    # via gql
+h11==0.16.0
+    # via httpcore
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via gql
+idna==3.19
+    # via
+    #   anyio
+    #   httpx
+    #   requests
+    #   yarl
+multidict==6.7.1
+    # via yarl
+propcache==0.5.2
+    # via yarl
+python-gitlab==8.5.0
+    # via -r clusters/gitlab.in
+requests==2.34.2
+    # via
+    #   python-gitlab
+    #   requests-toolbelt
+requests-toolbelt==1.0.0
+    # via python-gitlab
+typing-extensions==4.16.0
+    # via anyio
+urllib3==2.7.0
+    # via requests
+yarl==1.24.5
+    # via gql

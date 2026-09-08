@@ -1,0 +1,10 @@
+http://127.0.0.1:8002 | nav ms 578 | soft(SPA) nav: true | url: /docs/2-broker/ | h1: 2. 브로커 코어 | svg: 1 | 4xx: [] | errors: [
+  'Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the ful'
+]
+http://127.0.0.1:8105 | nav ms 641 | soft(SPA) nav: false | url: /docs/2-broker/ | h1: 2. 브로커 코어 | svg: 1 | 4xx: [
+  '404 /__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  '404 /docs/1-overview/1-1-a/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  '404 /docs/1-overview/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W'
+] | errors: [
+  'Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the ful'
+]

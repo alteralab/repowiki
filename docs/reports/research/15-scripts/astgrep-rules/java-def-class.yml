@@ -1,0 +1,9 @@
+id: java-def-class
+language: java
+message: def.class
+rule:
+  kind: class_declaration
+  has:
+    field: name
+    kind: identifier
+    pattern: $NAME

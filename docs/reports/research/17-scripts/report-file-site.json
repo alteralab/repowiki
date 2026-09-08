@@ -1,0 +1,92 @@
+{
+ "label": "site",
+ "pages": {
+  "index.html": {
+   "css": 0,
+   "bodyBg": "rgba(0, 0, 0, 0)",
+   "scripts": 15,
+   "hydrated": true,
+   "svg": 0,
+   "mermaidBlocks": 0,
+   "firstSidebarHref": null,
+   "themeToggle": true,
+   "darkToggle": {
+    "before": "rgba(0, 0, 0, 0)",
+    "after": "rgba(0, 0, 0, 0)"
+   },
+   "search": {
+    "results": 0
+   },
+   "failedRequests": 15,
+   "failedKinds": {
+    "asset(_next/static)": 15
+   },
+   "failedSample": [
+    "net::ERR_FILE_NOT_FOUND file:///_next/static/chunks/0wj8to_xtrmak.css",
+    "net::ERR_FILE_NOT_FOUND file:///_next/static/chunks/28flaeabfo316.js",
+    "net::ERR_FILE_NOT_FOUND file:///_next/static/chunks/1r35mee6s4n4o.js"
+   ],
+   "consoleErrors": [
+    "Failed to load resource: net::ERR_FILE_NOT_FOUND"
+   ]
+  },
+  "docs/index.html": {
+   "css": 1,
+   "bodyBg": "rgba(0, 0, 0, 0)",
+   "scripts": 16,
+   "hydrated": true,
+   "svg": 0,
+   "mermaidBlocks": 1,
+   "firstSidebarHref": "/docs/2-broker/",
+   "themeToggle": true,
+   "darkToggle": {
+    "before": "rgba(0, 0, 0, 0)",
+    "after": "rgba(0, 0, 0, 0)"
+   },
+   "search": {
+    "results": 0
+   },
+   "failedRequests": 16,
+   "failedKinds": {
+    "asset(_next/static)": 16
+   },
+   "failedSample": [
+    "net::ERR_FILE_NOT_FOUND file:///_next/static/chunks/0wj8to_xtrmak.css",
+    "net::ERR_FILE_NOT_FOUND file:///_next/static/chunks/28flaeabfo316.js",
+    "net::ERR_FILE_NOT_FOUND file:///_next/static/chunks/1r35mee6s4n4o.js"
+   ],
+   "consoleErrors": [
+    "Failed to load resource: net::ERR_FILE_NOT_FOUND"
+   ]
+  },
+  "docs/3-replication/3-2-b/3-2-4/index.html": {
+   "css": 1,
+   "bodyBg": "rgba(0, 0, 0, 0)",
+   "scripts": 16,
+   "hydrated": true,
+   "svg": 0,
+   "mermaidBlocks": 1,
+   "firstSidebarHref": "/docs/2-broker/",
+   "themeToggle": true,
+   "darkToggle": {
+    "before": "rgba(0, 0, 0, 0)",
+    "after": "rgba(0, 0, 0, 0)"
+   },
+   "search": {
+    "results": 0
+   },
+   "failedRequests": 16,
+   "failedKinds": {
+    "asset(_next/static)": 16
+   },
+   "failedSample": [
+    "net::ERR_FILE_NOT_FOUND file:///_next/static/chunks/0wj8to_xtrmak.css",
+    "net::ERR_FILE_NOT_FOUND file:///_next/static/chunks/28flaeabfo316.js",
+    "net::ERR_FILE_NOT_FOUND file:///_next/static/chunks/1r35mee6s4n4o.js"
+   ],
+   "consoleErrors": [
+    "Failed to load resource: net::ERR_FILE_NOT_FOUND"
+   ]
+  }
+ }
+}

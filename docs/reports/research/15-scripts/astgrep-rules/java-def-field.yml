@@ -1,0 +1,7 @@
+id: java-def-field
+language: java
+message: def.field
+rule:
+  kind: variable_declarator
+  inside: {kind: field_declaration}
+  has: {field: name, kind: identifier, pattern: $NAME}

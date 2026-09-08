@@ -1,0 +1,6 @@
+id: java-ref-call
+language: java
+message: ref.call
+rule:
+  kind: method_invocation
+  has: {field: name, kind: identifier, pattern: $NAME}

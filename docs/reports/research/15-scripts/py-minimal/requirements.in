@@ -1,0 +1,10 @@
+# 제안 최소 런타임 집합
+anthropic==1.4.0
+ast-grep-cli==0.45.3
+networkx==3.6.1
+pydantic==2.13.5
+python-hcl2==8.1.4
+dockerfile-parse==2.0.1
+PyYAML==6.0.3
+mkdocs==1.6.1
+mkdocs-material==9.7.7

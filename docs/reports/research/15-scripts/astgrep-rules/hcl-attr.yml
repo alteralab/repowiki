@@ -1,0 +1,6 @@
+id: hcl-attr
+language: hcl
+message: attr
+rule:
+  kind: attribute
+  has: {kind: identifier, pattern: $NAME}

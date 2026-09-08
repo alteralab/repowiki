@@ -1,0 +1,14 @@
+certifi==2026.7.22
+    # via requests
+charset-normalizer==3.5.1
+    # via requests
+idna==3.19
+    # via requests
+regex==2026.9.3
+    # via tiktoken
+requests==2.34.2
+    # via tiktoken
+tiktoken==0.14.0
+    # via -r clusters/tiktoken.in
+urllib3==2.7.0
+    # via requests

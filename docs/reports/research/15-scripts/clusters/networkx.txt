@@ -1,0 +1,2 @@
+networkx==3.6.1
+    # via -r clusters/networkx.in

@@ -1,0 +1,40 @@
+== npm ci --offline
+
+added 461 packages in 4s
+real 4.31
+user 3.94
+sys 5.01
+== lock packages: 567
+== node_modules: 706424 KB, 37543 files
+== next build
+  Running TypeScript ...
+  Finished TypeScript in 841ms ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/606) ...
+  Generating static pages using 9 workers (151/606) 
+  Generating static pages using 9 workers (302/606) 
+  Generating static pages using 9 workers (454/606) 
+✓ Generating static pages using 9 workers (606/606) in 2.9s
+  Finalizing page optimization ...
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /api/search
+├   /docs/[[...slug]]
+│ ├ ● /docs
+│ ├ ● /docs/1-overview
+│ ├ ● /docs/2-broker
+│ └ ● [+297 more paths]
+├ ○ /llms-full.txt
+├   /llms.mdx/docs/[[...slug]]
+│ ├ ● /llms.mdx/docs/content.md
+│ ├ ● /llms.mdx/docs/1-overview/content.md
+│ ├ ● /llms.mdx/docs/2-broker/content.md
+│ └ ● [+297 more paths]
+└ ○ /llms.txt
+○  (Static)  prerendered as static content
+●  (SSG)     prerendered as static HTML (uses generateStaticParams)
+real 12.01
+user 50.40
+sys 10.63
+== out: 222412 KB, 2225 files; html 304, txt 1510 (125548 KB)

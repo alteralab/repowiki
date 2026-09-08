@@ -1,0 +1,8 @@
+id: py-ref-type
+language: python
+message: ref.type
+rule:
+  kind: identifier
+  inside:
+    any:
+      - {kind: type}

@@ -1,0 +1,6 @@
+id: java-ref-extends
+language: java
+message: ref.extends
+rule:
+  kind: type_identifier
+  inside: {kind: superclass}

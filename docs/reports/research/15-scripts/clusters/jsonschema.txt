@@ -1,0 +1,18 @@
+attrs==26.1.0
+    # via
+    #   jsonschema
+    #   referencing
+jsonschema==4.26.0
+    # via -r clusters/jsonschema.in
+jsonschema-specifications==2025.9.1
+    # via jsonschema
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
+rpds-py==2026.6.3
+    # via
+    #   jsonschema
+    #   referencing
+typing-extensions==4.16.0
+    # via referencing

@@ -1,0 +1,7 @@
+id: hcl-block
+language: hcl
+message: block
+rule:
+  kind: block
+  not:
+    inside: {kind: block}

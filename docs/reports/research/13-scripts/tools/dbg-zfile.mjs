@@ -1,0 +1,11 @@
+import puppeteer from 'puppeteer-core';
+import path from 'node:path';
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox', '--allow-file-access-from-files'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+p.on('requestfailed', r => console.log('reqfail:', r.url().slice(-80)));
+await p.goto('file://' + path.resolve('../zensical-test/proj-file/site/3-replication/3-2-b/3-2-4.html'), { waitUntil: 'load' }); await new Promise(r => setTimeout(r, 1500));
+await p.keyboard.press('/'); await new Promise(r => setTimeout(r, 800)); await p.keyboard.type('복제 관리자'); await new Promise(r => setTimeout(r, 6000));
+const txt = await p.evaluate(() => { const walk = (root) => { let t = ''; for (const el of root.querySelectorAll('*')) { if (el.shadowRoot) t += walk(el.shadowRoot); } return t + (root.body ? root.body.innerText : (root.textContent || '')); }; return walk(document); });
+console.log('results text:', (txt.match(/[\d,]+ results?/) || ['none'])[0], '| mentions 2.2:', /2\.2 ReplicaManager/.test(txt));
+await p.screenshot({ path: '../shots/zensical-file-search.png' });
+await b.close();

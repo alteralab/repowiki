@@ -1,0 +1,13 @@
+import puppeteer from 'puppeteer-core';
+import path from 'node:path';
+const [file, q] = process.argv.slice(2);
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox', '--allow-file-access-from-files'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+p.on('console', m => { if (['error', 'warning'].includes(m.type())) console.log('console:', m.type(), m.text().slice(0, 200)); });
+p.on('pageerror', e => console.log('pageerror:', String(e).slice(0, 200)));
+p.on('requestfailed', r => console.log('reqfail:', r.url().slice(-90), r.failure()?.errorText));
+await p.goto('file://' + path.resolve(file), { waitUntil: 'load' }); await new Promise(r => setTimeout(r, 2000));
+await p.click('.md-search__input'); await new Promise(r => setTimeout(r, 500));
+await p.keyboard.type(q); await new Promise(r => setTimeout(r, 6000));
+console.log(await p.evaluate(() => ({ out: document.querySelector('.md-search__output')?.innerText.slice(0, 300), meta: document.querySelector('.md-search-result__meta')?.innerText, items: document.querySelectorAll('.md-search-result__item').length, iframes: document.querySelectorAll('iframe').length, workerScript: [...document.scripts].map(s => s.src).filter(s => /worker|shim/.test(s)).map(s => s.slice(-60)) })));
+await b.close();

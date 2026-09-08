@@ -1,0 +1,8 @@
+repo,file,line,op,field
+skywalking-booster-ui,skywalking-booster-ui/src/graphql/fragments/app.ts,31,query,getMenuItems
+skywalking-booster-ui,skywalking-booster-ui/src/graphql/fragments/dashboard.ts,19,query,getAllTemplates
+skywalking-booster-ui,skywalking-booster-ui/src/graphql/fragments/dashboard.ts,29,query,addTemplate
+skywalking-booster-ui,skywalking-booster-ui/src/graphql/fragments/dashboard.ts,38,query,changeTemplate
+skywalking-booster-ui,skywalking-booster-ui/src/graphql/fragments/dashboard.ts,48,query,disableTemplate
+skywalking-cli,skywalking-cli/assets/graphqls/menu/GetItems.graphql,18,query,getMenuItems
+skywalking-cli,skywalking-cli/assets/graphqls/profiling/trace/GetProfiledSegment.graphql,18,query,getProfiledSegment

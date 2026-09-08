@@ -1,0 +1,11 @@
+import puppeteer from 'puppeteer-core';
+const url = process.argv[2];
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+p.on('console', m => console.log('console:', m.type(), m.text().slice(0, 300)));
+p.on('pageerror', e => console.log('pageerror:', String(e).slice(0, 300)));
+p.on('requestfailed', r => console.log('reqfail:', r.url(), r.failure()?.errorText));
+await p.goto(url, { waitUntil: 'networkidle0' });
+await new Promise(r => setTimeout(r, 3000));
+console.log(await p.evaluate(() => ({ mermaidType: typeof mermaid, pre: document.querySelectorAll('pre.mermaid').length, div: document.querySelectorAll('div.mermaid').length, svg: document.querySelectorAll('svg[id^=mermaid], svg[id^=__mermaid], .mermaid svg').length, allsvg: document.querySelectorAll('article svg, .md-content svg').length, sample: document.querySelector('.mermaid')?.outerHTML.slice(0, 300) })));
+await b.close();

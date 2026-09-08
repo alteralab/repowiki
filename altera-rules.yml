@@ -1,0 +1,12 @@
+# 생성 규약 표면 선언 — /rules-install 이 심링크로 실체화한다.
+# 판정 근거(2026-09-09): 파이썬 27개(제품 코드 전부)라 lang/python,
+# 셸 6개(gate_chain.sh 등)라 lang/bash, SKILL.md 6개(템플릿 스킬 + repowiki 조회 스킬)라
+# purpose/agent-skill, Codex 적대 리뷰를 실제로 돌리므로 review.
+# lang/typescript 표면은 이 판에 없다(Fumadocs 사이트 코드는 생성물이고 제품 코드가 아니다).
+rev: 56d4cd2939b5cb272f4b6d2a2cf8b2be2365d266   # rules-v0.9.1 + 1커밋(작업본 HEAD). PLAN의 v0.10.0은 아직 없다
+surfaces:
+  - common
+  - lang/python
+  - lang/bash
+  - purpose/agent-skill
+  - review

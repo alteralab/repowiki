@@ -1,0 +1,24 @@
+# pre-commit 훅. 인스턴스화 절차:
+#   1) /rules-install 로 altera-rules 게이트(ruff·ast-grep 등)를 아래에 추가
+#   2) pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: seal-acceptance-commit
+        name: 수용 테스트 봉인 커밋 검사
+        entry: scripts/seal_check.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  # --- altera-rules 게이트 (/rules-install 이 관리) ---
+  - repo: /Users/angyojun/workspace/altera-rules
+    rev: 56d4cd2939b5cb272f4b6d2a2cf8b2be2365d266
+    hooks:
+      - id: altera-ast-grep
+        exclude: ^docs/(reports|plan-history)/
+      - id: altera-ruff
+        args: ["--config", "ruff.toml"]
+        exclude: ^docs/(reports|plan-history)/
+      - id: altera-rules-declared
+

@@ -1,0 +1,16 @@
+annotated-doc==0.0.5
+    # via typer
+markdown-it-py==4.2.0
+    # via rich
+mdurl==0.1.2
+    # via markdown-it-py
+pygments==2.21.0
+    # via rich
+rich==15.0.0
+    # via
+    #   -r clusters/typer-rich.in
+    #   typer
+shellingham==1.5.4
+    # via typer
+typer==0.27.2
+    # via -r clusters/typer-rich.in

@@ -1,0 +1,9 @@
+id: java-def-record
+language: java
+message: def.record
+rule:
+  kind: record_declaration
+  has:
+    field: name
+    kind: identifier
+    pattern: $NAME

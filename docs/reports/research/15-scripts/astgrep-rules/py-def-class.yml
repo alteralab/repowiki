@@ -1,0 +1,6 @@
+id: py-def-class
+language: python
+message: def.class
+rule:
+  kind: class_definition
+  has: {field: name, kind: identifier, pattern: $NAME}

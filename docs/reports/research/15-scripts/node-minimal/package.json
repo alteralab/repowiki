@@ -1,0 +1,1 @@
+{"name":"repowiki-node-minimal","private":true,"version":"0.0.0","dependencies":{"mermaid":"11.17.2","mermaid-gitlab":"npm:mermaid@11.13.0","jsdom":"30.0.1"}}

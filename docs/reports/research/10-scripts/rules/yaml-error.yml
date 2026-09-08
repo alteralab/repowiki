@@ -1,0 +1,5 @@
+id: yaml-error
+language: yaml
+message: ERROR node
+rule:
+  kind: ERROR

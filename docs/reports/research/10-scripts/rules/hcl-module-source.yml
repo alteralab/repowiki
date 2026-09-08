@@ -1,0 +1,10 @@
+id: hcl-module-source
+language: hcl
+message: module source
+rule:
+  kind: attribute
+  has: {kind: identifier, regex: '^source$'}
+  inside:
+    kind: block
+    stopBy: end
+    has: {kind: identifier, regex: '^module$'}

@@ -1,0 +1,9 @@
+id: hcl-resource-type
+language: hcl
+message: resource type literal
+rule:
+  kind: string_lit
+  nthChild: 2
+  inside:
+    kind: block
+    has: {kind: identifier, regex: '^(resource|data)$', nthChild: 1}

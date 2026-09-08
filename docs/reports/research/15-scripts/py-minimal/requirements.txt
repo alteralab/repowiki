@@ -1,0 +1,129 @@
+annotated-types==0.8.0
+    # via pydantic
+anthropic==1.4.0
+    # via -r requirements.in
+anyio==4.15.1
+    # via
+    #   anthropic
+    #   httpx2
+ast-grep-cli==0.45.3
+    # via -r requirements.in
+babel==2.18.0
+    # via mkdocs-material
+backrefs==8.0
+    # via mkdocs-material
+certifi==2026.7.22
+    # via requests
+charset-normalizer==3.5.1
+    # via requests
+click==8.5.0
+    # via mkdocs
+colorama==0.4.6
+    # via mkdocs-material
+dockerfile-parse==2.0.1
+    # via -r requirements.in
+docstring-parser==0.18.0
+    # via anthropic
+ghp-import==2.1.0
+    # via mkdocs
+h11==0.16.0
+    # via httpcore2
+httpcore2==2.12.0
+    # via httpx2
+httpx2==2.12.0
+    # via anthropic
+idna==3.19
+    # via
+    #   anyio
+    #   httpx2
+    #   requests
+jinja2==3.1.6
+    # via
+    #   mkdocs
+    #   mkdocs-material
+jiter==0.16.0
+    # via anthropic
+lark==1.3.1
+    # via python-hcl2
+markdown==3.10.3
+    # via
+    #   mkdocs
+    #   mkdocs-material
+    #   pymdown-extensions
+markupsafe==3.0.3
+    # via
+    #   jinja2
+    #   mkdocs
+mergedeep==1.3.4
+    # via
+    #   mkdocs
+    #   mkdocs-get-deps
+mkdocs==1.6.1
+    # via
+    #   -r requirements.in
+    #   mkdocs-material
+mkdocs-get-deps==0.2.2
+    # via mkdocs
+mkdocs-material==9.7.7
+    # via -r requirements.in
+mkdocs-material-extensions==1.3.1
+    # via mkdocs-material
+networkx==3.6.1
+    # via -r requirements.in
+packaging==26.3
+    # via mkdocs
+paginate==0.5.7
+    # via mkdocs-material
+pathspec==1.1.1
+    # via mkdocs
+platformdirs==4.11.7
+    # via mkdocs-get-deps
+pydantic==2.13.5
+    # via
+    #   -r requirements.in
+    #   anthropic
+pydantic-core==2.46.5
+    # via pydantic
+pygments==2.21.0
+    # via mkdocs-material
+pymdown-extensions==11.0.2
+    # via mkdocs-material
+python-dateutil==2.9.0.post0
+    # via ghp-import
+python-hcl2==8.1.4
+    # via -r requirements.in
+pyyaml==6.0.3
+    # via
+    #   -r requirements.in
+    #   mkdocs
+    #   mkdocs-get-deps
+    #   pymdown-extensions
+    #   pyyaml-env-tag
+pyyaml-env-tag==1.1
+    # via mkdocs
+regex==2026.9.3
+    # via python-hcl2
+requests==2.34.2
+    # via mkdocs-material
+six==1.17.0
+    # via python-dateutil
+sniffio==1.3.1
+    # via anthropic
+truststore==0.10.4
+    # via
+    #   httpcore2
+    #   httpx2
+typing-extensions==4.16.0
+    # via
+    #   anthropic
+    #   anyio
+    #   httpx2
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.4
+    # via pydantic
+urllib3==2.7.0
+    # via requests
+watchdog==6.0.0
+    # via mkdocs

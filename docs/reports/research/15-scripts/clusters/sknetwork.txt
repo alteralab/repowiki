@@ -1,0 +1,8 @@
+numpy==2.5.3
+    # via
+    #   scikit-network
+    #   scipy
+scikit-network==0.33.5
+    # via -r clusters/sknetwork.in
+scipy==1.18.1
+    # via scikit-network

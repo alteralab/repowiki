@@ -1,0 +1,14 @@
+id: k8s-metadata-name
+language: yaml
+message: metadata.name
+rule:
+  kind: block_mapping_pair
+  has:
+    field: key
+    regex: '^name$'
+  inside:
+    kind: block_mapping_pair
+    stopBy: end
+    has:
+      field: key
+      regex: '^metadata$'

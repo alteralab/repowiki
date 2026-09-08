@@ -1,0 +1,18 @@
+import puppeteer from 'puppeteer-core';
+const base = process.argv[2];
+const b = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--no-sandbox'] });
+const p = await b.newPage(); await p.setViewport({ width: 1440, height: 900 });
+const failed = [], reqs = [];
+p.on('response', r => { if (r.status() >= 400) failed.push(r.status() + ' ' + r.url()); });
+p.on('request', r => reqs.push(r.url()));
+await p.goto(base + '/docs/', { waitUntil: 'networkidle0' });
+await p.evaluate(() => { window.__marker = 42; });
+const t0 = Date.now();
+await p.evaluate(() => { [...document.querySelectorAll('#nd-sidebar a')].find(a => a.textContent.includes('2. 브로커 코어')).click(); });
+await p.waitForFunction(() => location.pathname.includes('2-broker'), { timeout: 15000 });
+await new Promise(r => setTimeout(r, 1500));
+const soft = await p.evaluate(() => window.__marker === 42);
+const url = p.url();
+console.log(base, 'nav ms', Date.now() - t0, 'soft(SPA) nav:', soft, 'url:', url, 'h1:', await p.$eval('h1', e => e.textContent));
+console.log('failed responses:', failed.slice(0, 8)); console.log('requests after click (sample):', reqs.filter(u => /txt|_rsc|2-broker/.test(u)).slice(0, 8));
+await b.close();

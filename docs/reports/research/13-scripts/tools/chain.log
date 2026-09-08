@@ -1,0 +1,99 @@
+done fuma
+active: DIV.focus-visible shadow=true
+콘텐츠로 이동
+Apache Kafka 아키텍처 위키
+Apache Kafka 아키텍처 위키
+검색
+홈
+1. 개요
+1.1 목적과 범위
+1.2 저장소 구조
+1.3 빌드와 실행
+1.4 용어
+2. 브로커 코어
+2.1 KafkaApis 요청 처리
+2.2 ReplicaManager 복제 관리자
+2.3 LogManager
+2.4 SocketServer
+3. 복제와 리더 선출
+3.1 ISR 관리
+3.2 리더 에포크
+3.3 페치 프로토콜
+3.4 복제 스로틀링
+4. 저장소 계층
+4.1 세그먼트와 인덱스
+4.2 로그 컴팩션
+4.3 티어드 스토리지
+4.4 리텐션
+5. 클라이언트
+5.1 프로듀서 파이프라인
+5.2 컨슈머 페처
+5.3 어드민 클라이언트
+5.4 직렬화
+6. 코디네이터
+6.1 그룹 코디네이터
+6.2 트랜잭션 코디네이터
+6.3 오프셋 커밋
+6.4 리밸런스 프로토콜
+7. KRaft 메타데이터
+7.1 QuorumController
+7.2 메타데이터 로그
+7.3 스냅샷
+7.4 컨트롤러 마이그레이션
+8. 네트워크와 보안
+8.1 요청 채널
+8.2 SASL 인증
+8.3 ACL 권한
+8.4 쿼터
+9. 운영
+9.1 설정 항목
+9.2 메트릭
+9.3 장애 시나리오
+9.4 업그레이드
+목차
+목차
+
+http://127.0.0.1:8002 nav ms 1586 soft(SPA) nav: true url: http://127.0.0.1:8002/docs/2-broker/ h1: 2. 브로커 코어
+failed responses: [
+  '404 http://127.0.0.1:8002/favicon.ico',
+  '404 http://127.0.0.1:8002/docs/1-overview/index.md/__next.docs.$oc$slug.__PAGE__.txt?_rsc=eYcguzT6AtgoDtNJ',
+  '404 http://127.0.0.1:8002/docs/1-overview/1-1-a/index.md/__next.docs.$oc$slug.__PAGE__.txt?_rsc=eYcguzT6AtgoDtNJ',
+  '404 http://127.0.0.1:8002/docs/1-overview/1-2-b/index.md/__next.docs.$oc$slug.__PAGE__.txt?_rsc=eYcguzT6AtgoDtNJ',
+  '404 http://127.0.0.1:8002/docs/1-overview/1-3-c/index.md/__next.docs.$oc$slug.__PAGE__.txt?_rsc=eYcguzT6AtgoDtNJ',
+  '404 http://127.0.0.1:8002/docs/1-overview/1-4-d/index.md/__next.docs.$oc$slug.__PAGE__.txt?_rsc=eYcguzT6AtgoDtNJ',
+  '404 http://127.0.0.1:8002/docs/2-broker/index.md/__next.docs.$oc$slug.__PAGE__.txt?_rsc=eYcguzT6AtgoDtNJ',
+  '404 http://127.0.0.1:8002/docs/2-broker/2-1-kafkaapis/index.md/__next.docs.$oc$slug.__PAGE__.txt?_rsc=eYcguzT6AtgoDtNJ'
+]
+requests after click (sample): [
+  'http://127.0.0.1:8002/docs/2-broker/',
+  'http://127.0.0.1:8002/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  'http://127.0.0.1:8002/docs/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  'http://127.0.0.1:8002/docs/1-overview/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  'http://127.0.0.1:8002/docs/2-broker/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  'http://127.0.0.1:8002/__next.!KGhvbWUp.__PAGE__.txt?_rsc=IymUAcNcj4tiudE-',
+  'http://127.0.0.1:8002/docs/__next.docs.txt?_rsc=jXM1Qee9liVra7jm',
+  'http://127.0.0.1:8002/docs/__next.docs.$oc$slug.__PAGE__.txt?_rsc=eYcguzT6AtgoDtNJ'
+]
+http://127.0.0.1:8005 nav ms 1596 soft(SPA) nav: false url: http://127.0.0.1:8005/docs/2-broker h1: 2. 브로커 코어
+failed responses: [
+  '404 http://127.0.0.1:8005/favicon.ico',
+  '404 http://127.0.0.1:8005/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  '404 http://127.0.0.1:8005/docs/1-overview/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  '404 http://127.0.0.1:8005/docs/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  '404 http://127.0.0.1:8005/docs/2-broker/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  '404 http://127.0.0.1:8005/docs/1-overview/index.md',
+  '404 http://127.0.0.1:8005/docs/1-overview/1-1-a/index.md',
+  '404 http://127.0.0.1:8005/docs/1-overview/1-2-b/index.md'
+]
+requests after click (sample): [
+  'http://127.0.0.1:8005/docs/2-broker/',
+  'http://127.0.0.1:8005/docs/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  'http://127.0.0.1:8005/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  'http://127.0.0.1:8005/docs/1-overview/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  'http://127.0.0.1:8005/docs/2-broker/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  'http://127.0.0.1:8005/docs/2-broker/index.md',
+  'http://127.0.0.1:8005/docs/3-replication/__next._tree.txt?_rsc=c-Hr4oP2d3Bq2q0W',
+  'http://127.0.0.1:8005/docs/2-broker/2-1-kafkaapis/index.md'
+]
+done mkdocs
+CHAIN_DONE

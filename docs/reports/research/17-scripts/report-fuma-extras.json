@@ -1,0 +1,465 @@
+{
+ "base": "http://127.0.0.1:8002",
+ "deepNav": {
+  "title": "3.2.4 오류 처리",
+  "h1": "3.2.4 오류 처리",
+  "breadcrumb": {
+   "found": false,
+   "items": []
+  },
+  "prev": {
+   "href": "/docs/3-replication/3-2-b/3-2-3/",
+   "text": "3.2.3 요청 흐름3.2.3 요청 흐름 — apache/kafka 자동 생성 아키텍처 문서"
+  },
+  "next": {
+   "href": "/docs/3-replication/3-2-b/3-2-5/",
+   "text": "3.2.5 동시성 모델3.2.5 동시성 모델 — apache/kafka 자동 생성 아키텍처 문서"
+  },
+  "paginationCandidates": [],
+  "toc": {
+   "links": 10,
+   "left": 1157,
+   "right": true
+  },
+  "sidebar": {
+   "links": 54,
+   "visible": 54,
+   "maxDepth": 0,
+   "folders": 1,
+   "openFolders": 0,
+   "active": {
+    "text": "3.2.4 오류 처리",
+    "inView": true
+   }
+  },
+  "copyMd": [
+   "Copy Markdown"
+  ],
+  "failedRequests": [
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/"
+  ],
+  "consoleErrors": [
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+  ],
+  "requestCount": 66
+ },
+ "spaChain": {
+  "chain": [
+   {
+    "text": "2. 브로커 코어",
+    "ms": 576,
+    "softNav": true,
+    "url": "/docs/2-broker/",
+    "h1": "2. 브로커 코어",
+    "newRequests": 3,
+    "rscTxt": 0,
+    "svg": 1
+   },
+   {
+    "text": "2.2 ReplicaManager",
+    "ms": 536,
+    "softNav": true,
+    "url": "/docs/2-broker/2-2-replicamanager/",
+    "h1": "2.2 ReplicaManager 복제 관리자",
+    "newRequests": 8,
+    "rscTxt": 7,
+    "svg": 1
+   },
+   {
+    "text": "2.2.1",
+    "ms": 687,
+    "softNav": true,
+    "url": "/docs/2-broker/2-2-replicamanager/2-2-1/",
+    "h1": "2.2.1 책임과 경계",
+    "newRequests": 3,
+    "rscTxt": 0,
+    "svg": 3
+   },
+   {
+    "text": "3. 복제와 리더 선출",
+    "ms": 587,
+    "softNav": true,
+    "url": "/docs/3-replication/",
+    "h1": "3. 복제와 리더 선출",
+    "newRequests": 3,
+    "rscTxt": 0,
+    "svg": 2
+   },
+   {
+    "back": true,
+    "softNav": true,
+    "url": "/docs/2-broker/2-2-replicamanager/2-2-1/",
+    "h1": "2.2.1 책임과 경계"
+   }
+  ],
+  "failedRequests": [
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/"
+  ],
+  "consoleErrors": [
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+  ],
+  "totalRequests": 84
+ },
+ "darkToggle": {
+  "toggled": {
+   "found": true,
+   "label": "Toggle Theme"
+  },
+  "before": {
+   "bodyBg": "rgb(245, 245, 245)",
+   "html": "font-sans light",
+   "nodeFill": "rgb(255, 255, 222)",
+   "svgs": 3
+  },
+  "after": {
+   "bodyBg": "rgb(18, 18, 18)",
+   "html": "font-sans dark",
+   "nodeFill": "rgb(71, 73, 73)",
+   "svgs": 3
+  },
+  "changed": true,
+  "mermaidRerendered": true,
+  "consoleErrors": [
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+  ],
+  "failedRequests": [
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/"
+  ]
+ },
+ "search": {
+  "queries": {
+   "컴포넌트": {
+    "hits": 60,
+    "firstResultMs": 389,
+    "top3": [
+     "Apache Kafka 아키텍처 위키",
+     "이 위키는 apache/kafka 저장소를 정적 분석해 자동 생성한 아키텍처 문서이다. 브로커, 복제, 저장소, 클라이언트, 코디네이터, KRaft 컴포넌트를 다룬다.",
+     "Kafka 위키 1. 개요 1.1 목적과 범위 1.1.1 책임과 경계"
+    ],
+    "indexFetches": 1
+   },
+   "컴포넌트는": {
+    "hits": 60,
+    "firstResultMs": 365,
+    "top3": [
+     "Kafka 위키 2. 브로커 코어 2.4 SocketServer 2.4.2 핵심 자료구조",
+     "이 컴포넌트는 브로커 기동 시 한 번 생성되며 파티션별 상태를 메모리에 유지한다. ISR 축소는 replica.lag.time.max.ms 기준으로 판단되고 컨트롤러에 전파된다. 자세한 내용은 core/src/mai",
+     "이 컴포넌트는 브로커 기동 시 한 번 생성되며 파티션별 상태를 메모리에 유지한다. 테스트는 통합 테스트 하네스 위에서 단일 브로커 클러스터를 띄워 검증한다. 자세한 내용은 core/src/main/scala/kafk"
+    ],
+    "indexFetches": 1
+   },
+   "퍼거토리": {
+    "hits": 60,
+    "firstResultMs": 347,
+    "top3": [
+     "Kafka 위키 7. KRaft 메타데이터 7.3 스냅샷 7.3.1 책임과 경계",
+     "타임아웃이 지난 지연 연산은 퍼거토리에서 강제로 완료되어 오류 응답을 만든다. ISR 축소는 replica.lag.time.max.ms 기준으로 판단되고 컨트롤러에 전파된다. 자세한 내용은 core/src/main/",
+     "하이 워터마크는 ISR 내 모든 복제본이 확인한 오프셋의 최소값으로 갱신된다. 타임아웃이 지난 지연 연산은 퍼거토리에서 강제로 완료되어 오류 응답을 만든다. 자세한 내용은 storage/src/main/java/or"
+    ],
+    "indexFetches": 1
+   },
+   "퍼거토리에서": {
+    "hits": 60,
+    "firstResultMs": 368,
+    "top3": [
+     "Kafka 위키 7. KRaft 메타데이터 7.3 스냅샷 7.3.1 책임과 경계",
+     "타임아웃이 지난 지연 연산은 퍼거토리에서 강제로 완료되어 오류 응답을 만든다. ISR 축소는 replica.lag.time.max.ms 기준으로 판단되고 컨트롤러에 전파된다. 자세한 내용은 core/src/main/",
+     "하이 워터마크는 ISR 내 모든 복제본이 확인한 오프셋의 최소값으로 갱신된다. 타임아웃이 지난 지연 연산은 퍼거토리에서 강제로 완료되어 오류 응답을 만든다. 자세한 내용은 storage/src/main/java/or"
+    ],
+    "indexFetches": 1
+   },
+   "복제 관리자": {
+    "hits": 60,
+    "firstResultMs": 381,
+    "top3": [
+     "Apache Kafka 아키텍처 위키",
+     "2.2 ReplicaManager 복제 관리자",
+     "3.4 복제 스로틀링"
+    ],
+    "indexFetches": 1
+   },
+   "복제 관리자가": {
+    "hits": 60,
+    "firstResultMs": 389,
+    "top3": [
+     "Apache Kafka 아키텍처 위키",
+     "3.4 복제 스로틀링",
+     "2.2 ReplicaManager 복제 관리자"
+    ],
+    "indexFetches": 1
+   },
+   "ReplicaManager": {
+    "hits": 60,
+    "firstResultMs": 464,
+    "top3": [
+     "Apache Kafka 아키텍처 위키",
+     "2.2 ReplicaManager 복제 관리자",
+     "Kafka 위키 2. 브로커 코어 브로커 코어"
+    ],
+    "indexFetches": 1
+   },
+   "리더 에포크 캐시가 절단 지점을 결정한다": {
+    "hits": 60,
+    "firstResultMs": 570,
+    "top3": [
+     "Kafka 위키 3. 복제와 리더 선출 3.2 리더 에포크 3.2.4 오류 처리",
+     "핵심 규칙: 리더 에포크 캐시가 절단 지점을 결정한다. 이 규칙은 팔로워가 리더와 로그를 맞출 때 적용된다.",
+     "ISR 축소는 replica.lag.time.max.ms 기준으로 판단되고 컨트롤러에 전파된다. 리더 복제본만 쓰기를 받으며 팔로워는 페치 요청으로 리더의 로그를 따라간다. 자세한 내용은 raft/src/main/j"
+    ],
+    "indexFetches": 1,
+    "enterNavigatedTo": "/docs/3-replication/3-2-b/3-2-4/"
+   },
+   "ㅋㅍ": {
+    "hits": 0,
+    "firstResultMs": null,
+    "top3": [],
+    "indexFetches": 1
+   }
+  },
+  "indexBytes": 12265284,
+  "failedRequests": [
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/"
+  ],
+  "consoleErrors": [
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings.",
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+  ]
+ },
+ "llms": [
+  {
+   "url": "/llms.txt",
+   "status": 200,
+   "contentType": "text/plain",
+   "bytes": 41678,
+   "head": "# Kafka ìœ„í‚¤\\n\\n- 1. ê°œìš”\\n  - [1. ê°œìš”](/docs/1-overview): 1. ê°œìš” â€” apache/kafka ìžë™ ìƒì„± ì•„í‚¤í…ì²˜ ë¬¸ì„œ\\n  - 1.1 ëª©ì ê³¼ ë²”ìœ„\\n    - [1.1 "
+  },
+  {
+   "url": "/llms-full.txt",
+   "status": 200,
+   "contentType": "text/plain",
+   "bytes": 2370295,
+   "head": "# Apache Kafka ì•„í‚¤í…ì²˜ ìœ„í‚¤ (/docs)\\n\\n\\n\\n<CalloutContainer type=\"info\">\\n  <CalloutTitle>\\n    ë¶„ì„ ì»¤ë°‹\\n  </CalloutTitle>\\n\\n  <CalloutDescription>\\n    `e"
+  },
+  {
+   "url": "/llms.mdx/docs/2-broker/2-2-replicamanager/2-2-1/content.md",
+   "status": 200,
+   "contentType": "text/markdown",
+   "bytes": 11851,
+   "head": "# 2.2.1 ì±…ìž„ê³¼ ê²½ê³„ (/docs/2-broker/2-2-replicamanager/2-2-1)\\n\\n\\n\\n<CalloutContainer type=\"info\">\\n  <CalloutTitle>\\n    ë¶„ì„ ì»¤ë°‹\\n  </CalloutTitle>\\n\\n  <Ca"
+  },
+  {
+   "url": "/docs/2-broker/2-2-replicamanager/2-2-1.md",
+   "status": 404,
+   "contentType": "text/html;charset=utf-8",
+   "bytes": 460,
+   "head": "<!DOCTYPE HTML>\\n<html lang=\"en\">\\n    <head>\\n        <meta charset=\"utf-8\">\\n        <style type=\"text/css\">\\n            :root {\\n                color-scheme: lig"
+  },
+  {
+   "url": "/docs/2-broker/2-2-replicamanager/2-2-1/index.md",
+   "status": 404,
+   "contentType": "text/html;charset=utf-8",
+   "bytes": 460,
+   "head": "<!DOCTYPE HTML>\\n<html lang=\"en\">\\n    <head>\\n        <meta charset=\"utf-8\">\\n        <style type=\"text/css\">\\n            :root {\\n                color-scheme: lig"
+  }
+ ],
+ "llmsMdJsx": {
+  "hasCalloutJsx": true,
+  "hasAccordionJsx": true,
+  "hasMermaidJsx": true,
+  "mermaidFence": 0,
+  "sample": [
+   "<CalloutContainer type=\"info\">",
+   "<CalloutTitle>",
+   "<CalloutDescription>",
+   "<Accordions type=\"single\">",
+   "<Accordion title=\"ê´€ë ¨ ì†ŒìŠ¤ íŒŒì¼ (3)\">"
+  ]
+ },
+ "mermaid_native": {
+  "svgs": [
+   {
+    "renderedW": 3791,
+    "renderedH": 2182,
+    "nativeW": 3791,
+    "containerW": 1091,
+    "containerScrollW": 3807,
+    "hscroll": true,
+    "scale": 1,
+    "effectiveFontPx": 16,
+    "nodes": 25
+   },
+   {
+    "renderedW": 1226,
+    "renderedH": 771,
+    "nativeW": 1226,
+    "containerW": 1091,
+    "containerScrollW": 1242,
+    "hscroll": true,
+    "scale": 1,
+    "effectiveFontPx": 16,
+    "nodes": 0
+   },
+   {
+    "renderedW": 333,
+    "renderedH": 412,
+    "nativeW": 333,
+    "containerW": 1091,
+    "containerScrollW": 1091,
+    "hscroll": false,
+    "scale": 1,
+    "effectiveFontPx": 16,
+    "nodes": 5
+   }
+  ],
+  "docScrollWidth": 1425
+ },
+ "zoomOverlay": {
+  "opened": true,
+  "zoomAfter2Wheel": "121%",
+  "svgWidthInOverlay": 4588,
+  "closedWithEsc": true
+ },
+ "mermaid_maxwidth": {
+  "svgs": [
+   {
+    "renderedW": 1075,
+    "renderedH": 619,
+    "nativeW": 3791,
+    "containerW": 1091,
+    "containerScrollW": 1091,
+    "hscroll": false,
+    "scale": 0.28,
+    "effectiveFontPx": 4.5,
+    "nodes": 25
+   },
+   {
+    "renderedW": 1075,
+    "renderedH": 676,
+    "nativeW": 1226,
+    "containerW": 1091,
+    "containerScrollW": 1091,
+    "hscroll": false,
+    "scale": 0.88,
+    "effectiveFontPx": 14,
+    "nodes": 0
+   },
+   {
+    "renderedW": 333,
+    "renderedH": 412,
+    "nativeW": 333,
+    "containerW": 1091,
+    "containerScrollW": 1091,
+    "hscroll": false,
+    "scale": 1,
+    "effectiveFontPx": 16,
+    "nodes": 5
+   }
+  ],
+  "docScrollWidth": 1425
+ },
+ "heavyWeightNoGzip": {
+  "transferredBytes": 3150786,
+  "byType": {
+   "Document": {
+    "n": 1,
+    "bytes": 247580
+   },
+   "Script": {
+    "n": 36,
+    "bytes": 2207810
+   },
+   "Stylesheet": {
+    "n": 1,
+    "bytes": 78480
+   },
+   "Other": {
+    "n": 1,
+    "bytes": 258
+   },
+   "Fetch": {
+    "n": 26,
+    "bytes": 616658
+   }
+  },
+  "requests": 70,
+  "failed": [
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-1-a/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-2-b/",
+   "FAILED net::ERR_ABORTED http://127.0.0.1:8002/docs/1-overview/1-3-c/"
+  ],
+  "consoleErrors": [
+   "pageerror: Error: Minified React error #418; visit https://react.dev/errors/418?args[]=HTML&args[]= for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+  ]
+ }
+}
