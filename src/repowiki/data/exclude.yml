@@ -1,0 +1,22 @@
+# 분석에서 제외하는 경로. 사유를 함께 적는다 — 제외는 계수 대상이다(C-GATE-4).
+globs:
+  "**/.git/**": 버전 관리 내부
+  "**/node_modules/**": 서드파티 설치본
+  "**/target/**": 빌드 산출물
+  "**/build/**": 빌드 산출물
+  "**/dist/**": 빌드 산출물
+  "**/.venv/**": 파이썬 가상환경
+  "**/venv/**": 파이썬 가상환경
+  "**/__pycache__/**": 파이썬 캐시
+  "**/generated/**": 생성 코드
+  "**/gen/**": 생성 코드
+  "**/vendor/**": 벤더링 사본
+  "**/site-packages/**": 서드파티 설치본
+# 테스트 소스. 제외가 아니라 scope=test로 분리한다(PLAN §2.8).
+test_markers:
+  - "/src/test/"
+  - "/src/it/"
+  - "/tests/"
+  - "/test/"
+  - "_test."
+  - "/test_"

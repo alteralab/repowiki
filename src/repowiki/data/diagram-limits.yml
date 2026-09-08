@@ -1,0 +1,15 @@
+# 다이어그램 한도의 정본(PLAN §2.5). 노드 상한의 값은 Phase 1의 가독성 사다리
+# 결과로 채운다. 아래 값은 리서치 05의 GitLab 실측 한도와 사다리 초기값이다.
+levels:
+  L0:
+    max_nodes: 15
+    max_source_chars: 2000
+    max_blocks_per_page: 50
+  L1:
+    max_nodes: 25
+    max_source_chars: 2000
+    max_blocks_per_page: 50
+  L2:
+    max_nodes: 25
+    max_source_chars: 2000
+    max_blocks_per_page: 50

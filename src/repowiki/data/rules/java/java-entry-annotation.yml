@@ -1,0 +1,11 @@
+id: java-entry-annotation
+language: java
+message: entry.annotation
+rule:
+  any:
+    - kind: annotation
+    - kind: marker_annotation
+  has:
+    field: name
+    kind: identifier
+    regex: "^(RestController|Controller|RequestMapping|GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping|KafkaListener|RabbitListener|JmsListener|Scheduled|EventListener|SqsListener)$"

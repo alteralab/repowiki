@@ -1,5 +1,10 @@
 {
   "private": true,
-  "description": "openwiki(repo-memory 생성기)를 프로젝트 로컬로 고정하는 선언. tpl_init.sh 또는 `npm install --save-dev openwiki`가 정확 버전을 여기와 package-lock.json에 기록한다. 실행은 npx openwiki.",
-  "devDependencies": {}
+  "description": "Node 자산 선언. Mermaid 파서 게이트(mermaid 두 판 + jsdom)와 repo-memory 생성기(openwiki). 실행은 npx. 정확 버전은 package-lock.json이 소유한다.",
+  "devDependencies": {
+    "mermaid": "11.17.2",
+    "mermaid-gitlab": "npm:mermaid@11.13.0",
+    "jsdom": "30.0.1",
+    "dompurify": "3.3.1"
+  }
 }

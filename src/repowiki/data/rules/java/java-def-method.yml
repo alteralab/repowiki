@@ -1,0 +1,9 @@
+id: java-def-method
+language: java
+message: def.method
+rule:
+  kind: method_declaration
+  has:
+    field: name
+    kind: identifier
+    pattern: $NAME

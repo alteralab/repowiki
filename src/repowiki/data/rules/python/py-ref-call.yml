@@ -1,0 +1,10 @@
+id: py-ref-call
+language: python
+message: ref.call
+rule:
+  kind: call
+  has:
+    field: function
+    any:
+      - {kind: identifier, pattern: $NAME}
+      - {kind: attribute, has: {field: attribute, kind: identifier, pattern: $NAME}}

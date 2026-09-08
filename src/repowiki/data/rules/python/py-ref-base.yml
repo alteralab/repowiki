@@ -1,0 +1,6 @@
+id: py-ref-base
+language: python
+message: ref.extends
+rule:
+  kind: identifier
+  inside: {kind: argument_list, inside: {kind: class_definition}}

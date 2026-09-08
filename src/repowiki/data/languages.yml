@@ -1,0 +1,15 @@
+# 확장자에서 언어로. 도메인 사실이라 데이터가 소유한다(C-DOMAIN-1).
+# 여기 없는 확장자는 분석 대상이 아니고 프로파일의 other로 센다.
+extensions:
+  ".java": java
+  ".scala": scala
+  ".kt": kotlin
+  ".py": python
+  ".ts": typescript
+  ".tsx": typescript
+  ".js": javascript
+  ".jsx": javascript
+  ".go": go
+# ast-grep 룰이 실제로 있는 언어. 없는 언어는 심볼과 타입 사실을 내지 않고
+# 프로파일에만 남는다(C-REPORT-2: 조용히 다른 것으로 대체하지 않는다).
+analyzed: [java, python]

@@ -1,0 +1,8 @@
+id: py-entry-main
+language: python
+message: entry.main
+rule:
+  kind: if_statement
+  has:
+    field: condition
+    regex: "__name__"

@@ -1,0 +1,9 @@
+id: java-def-constructor
+language: java
+message: def.constructor
+rule:
+  kind: constructor_declaration
+  has:
+    field: name
+    kind: identifier
+    pattern: $NAME

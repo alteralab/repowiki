@@ -1,0 +1,6 @@
+id: java-ref-param-type
+language: java
+message: ref.param_type
+rule:
+  kind: type_identifier
+  inside: {kind: formal_parameter, stopBy: end}

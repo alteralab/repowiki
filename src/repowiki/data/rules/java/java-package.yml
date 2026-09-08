@@ -1,0 +1,5 @@
+id: java-package
+language: java
+message: package
+rule:
+  kind: package_declaration

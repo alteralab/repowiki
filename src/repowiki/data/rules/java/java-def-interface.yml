@@ -1,0 +1,9 @@
+id: java-def-interface
+language: java
+message: def.interface
+rule:
+  kind: interface_declaration
+  has:
+    field: name
+    kind: identifier
+    pattern: $NAME

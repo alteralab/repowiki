@@ -1,0 +1,6 @@
+id: java-ref-implements
+language: java
+message: ref.implements
+rule:
+  kind: type_identifier
+  inside: {kind: super_interfaces, stopBy: end}

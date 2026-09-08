@@ -1,0 +1,6 @@
+id: py-entry-decorator
+language: python
+message: entry.decorator
+rule:
+  kind: decorator
+  regex: "\\.(route|get|post|put|delete|patch|command|websocket|on_event)\\("

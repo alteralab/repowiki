@@ -1,0 +1,6 @@
+id: java-ref-new
+language: java
+message: ref.new
+rule:
+  kind: object_creation_expression
+  has: {field: type, pattern: $NAME}

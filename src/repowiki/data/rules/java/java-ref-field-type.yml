@@ -1,0 +1,6 @@
+id: java-ref-field-type
+language: java
+message: ref.field_type
+rule:
+  kind: type_identifier
+  inside: {kind: field_declaration, stopBy: end}

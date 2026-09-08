@@ -1,0 +1,6 @@
+id: py-def-function
+language: python
+message: def.function
+rule:
+  kind: function_definition
+  has: {field: name, kind: identifier, pattern: $NAME}

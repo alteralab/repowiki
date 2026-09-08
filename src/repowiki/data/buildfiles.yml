@@ -1,0 +1,15 @@
+# 모듈 경계를 만드는 빌드 파일. 이 파일이 있는 디렉토리가 모듈 뿌리다(PLAN §2.3).
+files:
+  - pom.xml
+  - build.gradle
+  - build.gradle.kts
+  - package.json
+  - pyproject.toml
+  - setup.py
+  - go.mod
+  - Cargo.toml
+# 저장소 종류 감지(PLAN §2.7). 순서대로 보고 둘 이상이면 mixed다.
+kind_markers:
+  helm: [Chart.yaml]
+  terraform: ["*.tf"]
+  k8s: [kustomization.yaml, kustomization.yml]

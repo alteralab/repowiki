@@ -1,0 +1,5 @@
+id: py-import
+language: python
+message: import
+rule:
+  kind: import_statement

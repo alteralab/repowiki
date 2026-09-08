@@ -1,0 +1,8 @@
+id: java-entry-main
+language: java
+message: entry.main
+rule:
+  kind: method_declaration
+  all:
+    - has: {field: name, kind: identifier, regex: "^main$"}
+    - has: {kind: modifiers, regex: "static"}

@@ -1,0 +1,5 @@
+id: java-import
+language: java
+message: import
+rule:
+  kind: import_declaration

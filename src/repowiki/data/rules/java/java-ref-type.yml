@@ -1,0 +1,14 @@
+id: java-ref-type
+language: java
+message: ref.local_type
+rule:
+  kind: type_identifier
+  not:
+    any:
+      - inside: {kind: superclass}
+      - inside: {kind: super_interfaces, stopBy: end}
+      - inside: {kind: field_declaration, stopBy: end}
+      - inside: {kind: formal_parameter, stopBy: end}
+  any:
+    - inside: {kind: local_variable_declaration, stopBy: end}
+    - inside: {kind: method_declaration, field: type}

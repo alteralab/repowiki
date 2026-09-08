@@ -1,0 +1,5 @@
+id: py-import-from
+language: python
+message: import.from
+rule:
+  kind: import_from_statement

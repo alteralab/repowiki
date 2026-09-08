@@ -70,22 +70,20 @@ include_external_packages = true
 [[tool.importlinter.contracts]]
 name = "계층 순서"
 type = "layers"
-layers = ["repowiki.cli", "repowiki.pipeline", "repowiki.analyze | repowiki.write | repowiki.gate | repowiki.bundle", "repowiki.adapters"]
+# write 층은 Phase 3(LLM 층)에서 생긴다. 없는 모듈을 계약에 적으면 계약이 실패한다.
+layers = ["repowiki.cli", "repowiki.pipeline", "repowiki.analyze | repowiki.gate | repowiki.bundle", "repowiki.adapters"]
 
 # 계약 2 — 형제 독립. analyze, write, gate, bundle은 서로를 부르지 않는다.
 [[tool.importlinter.contracts]]
 name = "형제 독립"
 type = "independence"
-modules = ["repowiki.analyze", "repowiki.write", "repowiki.gate", "repowiki.bundle"]
+modules = ["repowiki.analyze", "repowiki.gate", "repowiki.bundle"]
 
 # 계약 3 — 서드파티는 adapters 안에서만. adapters 파일 목록이 곧 서드파티 목록이다(PLAN §8 2).
 [[tool.importlinter.contracts]]
 name = "서드파티 격리"
 type = "forbidden"
-source_modules = ["repowiki.cli", "repowiki.pipeline", "repowiki.analyze", "repowiki.write", "repowiki.gate", "repowiki.bundle"]
-forbidden_modules = ["subprocess", "anthropic", "urllib.request", "http.server", "hcl2", "dockerfile_parse", "httpx", "httpx2", "requests"]
-ignore_imports = [
-    # 조율 층은 그래프 정의를 소유하므로 langgraph를 직접 쓴다(PLAN §2.2).
-    "repowiki.pipeline.* -> langgraph.*",
-    "repowiki.pipeline.* -> langchain_core.*",
-]
+source_modules = ["repowiki.pipeline", "repowiki.analyze", "repowiki.gate", "repowiki.bundle"]
+forbidden_modules = ["subprocess", "anthropic", "urllib", "http", "hcl2", "dockerfile_parse", "httpx", "httpx2", "requests"]
+# 어댑터를 거친 간접 임포트는 계약이 허용하는 경로다. 금지는 직접 임포트에만 건다.
+allow_indirect_imports = true
