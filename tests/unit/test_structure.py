@@ -83,3 +83,15 @@ def test_top_level_build_output_is_excluded(facts: DomainFacts) -> None:
     kept, excluded = source_paths(["target/A.class", "a/target/B.class", "src/A.java"], facts)
     assert kept == ["src/A.java"]
     assert sum(excluded.values()) == 2
+
+
+def test_build_file_inside_resources_is_not_a_module(facts: DomainFacts) -> None:
+    """리소스 안의 빌드 파일은 템플릿이다. Maven 아키타입이 pom.xml을 통째로 담는다."""
+    paths = [
+        "quickstart/src/main/resources/archetype-resources/pom.xml",
+        "quickstart/src/main/resources/archetype-resources/src/main/java/X.java",
+        "quickstart/pom.xml",
+    ]
+    roots = module_roots(paths, facts)
+    assert "quickstart" in roots
+    assert not any("archetype-resources" in root for root in roots)

@@ -75,6 +75,16 @@ def build_profile(
 
 
 _SOURCE_SET = "/src/"
+_RESOURCES = "/resources/"
+
+
+def _inside_resources(path: str) -> bool:
+    """리소스 디렉토리 안인가. 그 안의 빌드 파일과 소스 세트는 모듈이 아니라 템플릿이다.
+
+    Maven 아키타입이 `src/main/resources/archetype-resources/`에 pom.xml과 소스 트리를
+    통째로 담는다(kafka streams/quickstart 실측).
+    """
+    return _RESOURCES in f"/{path}/"
 
 
 def module_roots(paths: list[str], facts: DomainFacts) -> list[str]:
@@ -89,14 +99,16 @@ def module_roots(paths: list[str], facts: DomainFacts) -> list[str]:
     roots = {""}
     for path in paths:
         pure = PurePosixPath(path)
-        if pure.name in facts.build_files:
+        if pure.name in facts.build_files and not _inside_resources(path):
             roots.add(pure.parent.as_posix().lstrip("."))
         # 소스 세트가 경로에 두 번 나오면 안쪽이 이긴다. 바깥을 고르면 생성 소스가
         # 상위 모듈로 흡수된다(`a/src/main/generated/src/main/java/X.java`).
         for marker in (f"{_SOURCE_SET}main/", f"{_SOURCE_SET}test/"):
             if marker in path:
                 head = path.rsplit(marker, 1)[0]
-                if head and head != path:
+                # 리소스 안의 소스 세트는 모듈이 아니라 템플릿이다. Maven 아키타입이
+                # `resources/archetype-resources/src/main/...`을 담는다(kafka 실측).
+                if head and head != path and not _inside_resources(head):
                     roots.add(head)
                 break
     return sorted(roots)

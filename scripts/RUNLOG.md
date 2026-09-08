@@ -225,3 +225,28 @@ ast-grep 방출 순서가 모듈 엣지를 바꿨다(검증자 실측 kafka 129~
   networkx와 PyYAML을 도메인 층에서 허용한다. SPEC 문면을 PLAN에 맞추는 것이 맞아 보이나
   성공 기준 변경이라 사람 승인 항목이다.
 - `tests/acceptance/`는 비어 있다. SC-0과 SC-1의 수용 테스트 승격은 사람 승인 단독 커밋이다.
+
+### 모듈 경계의 오라클 대조 (빌드 도구의 선언이 정답)
+
+`evals/oracles/gradle_modules_oracle.py`. 정답은 사람이 아니라 `settings.gradle`의
+`include`와 `pom.xml`의 `<module>`이 낸다.
+
+| 저장소 | 정답 원천 | 선언 | 감지 | 일치 | precision | recall |
+|---|---|---|---|---|---|---|
+| kafka | settings.gradle | 65 | 69 | 64 | 0.9275 | 0.9846 |
+| dubbo | pom.xml | 118 | 84 | 84 | 1.0000 | 0.7119 |
+| commons-cli | 없음(단일 모듈) | 대상 아님 | | | | |
+
+차이의 내역을 사람이 봤다.
+
+- kafka에서 감지에만 있는 5개는 전부 실재하는 빌드 단위다. `api-checker`의 하위 셋은
+  자기 빌드 파일을 가진 별도 Gradle 빌드이고, `streams/quickstart/java`는 Maven 모듈이며,
+  `tests`는 파이썬 시스템 테스트 트리다. `settings.gradle`이 안 적을 뿐 코드가 있다.
+- kafka에서 선언에만 있는 1개(`api-checker`)는 그 하위 모듈을 대신 잡았기 때문이다.
+- dubbo에서 빠진 34개는 전부 소스가 없는 집합 모듈과 BOM이다(`dubbo-dependencies-bom`,
+  `dubbo-distribution/*`). 소스 0개 모듈은 페이지를 만들 사실이 없어 내지 않는다. 이
+  판정은 의도한 것이고 recall 0.71의 전부를 설명한다.
+
+이 대조에서 찾은 제품 결함: Maven 아키타입이 `src/main/resources/archetype-resources/`에
+pom.xml과 소스 트리를 통째로 담는데 그것을 모듈로 잡았다. 리소스 디렉토리 안의 빌드
+파일과 소스 세트를 모듈 뿌리에서 뺐고 회귀 검사를 붙였다(C-LOCAL-2).
