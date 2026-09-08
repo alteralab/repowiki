@@ -1,0 +1,6 @@
+id: scala-def-trait
+language: scala
+message: def.interface
+rule:
+  kind: trait_definition
+  has: {field: name, kind: identifier, pattern: $NAME}

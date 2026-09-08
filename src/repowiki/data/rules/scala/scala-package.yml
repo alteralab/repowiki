@@ -1,0 +1,5 @@
+id: scala-package
+language: scala
+message: package
+rule:
+  kind: package_clause

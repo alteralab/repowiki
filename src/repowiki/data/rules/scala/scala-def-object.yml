@@ -1,0 +1,6 @@
+id: scala-def-object
+language: scala
+message: def.class
+rule:
+  kind: object_definition
+  has: {field: name, kind: identifier, pattern: $NAME}

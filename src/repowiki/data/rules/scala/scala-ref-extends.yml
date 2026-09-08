@@ -1,0 +1,6 @@
+id: scala-ref-extends
+language: scala
+message: ref.extends
+rule:
+  kind: type_identifier
+  inside: {kind: extends_clause, stopBy: end}

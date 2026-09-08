@@ -1,0 +1,6 @@
+id: scala-def-function
+language: scala
+message: def.method
+rule:
+  kind: function_definition
+  has: {field: name, kind: identifier, pattern: $NAME}

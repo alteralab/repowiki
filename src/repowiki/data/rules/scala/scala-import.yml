@@ -1,0 +1,5 @@
+id: scala-import
+language: scala
+message: import
+rule:
+  kind: import_declaration

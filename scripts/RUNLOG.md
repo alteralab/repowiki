@@ -455,3 +455,16 @@ python뿐이라 core 모듈(Scala)의 임포트와 선언이 빠진다. `core→
 - 명시 임포트 일치 지표는 같은 자료로 판단하고 같은 자료로 검사해 순환이었다.
 - 게이트 전 단계 통과는 이 기계에서만 확인했고 검증자 환경에서는 재현되지 않았다
   (임시 디렉토리 권한).
+
+### Scala 분석 추가
+
+kafka core가 Scala라 `analyzed`에 없는 동안 그 모듈의 선언과 임포트가 통째로 빠져
+있었다. ast-grep의 scala 문법으로 룰 일곱 개를 더했다(class, object, trait, function
+정의와 package, import, extends 참조). `object`는 Scala의 단일 인스턴스 선언이라
+`def.class`로, `trait`는 `def.interface`로 옮긴다.
+
+kafka 재측정: 심볼 67,380 → 69,008(Scala 1,628), 모듈 엣지 119 → 123,
+`core→clients` 가중치 91 → 327. 같은 입력 2회에서 해시 동일.
+
+Scala는 `outline`이 빈 목록을 내므로(리서치 02, 15) 대조 원천이 없다. kind 룰이
+유일한 경로이고, 독립 오라클은 아직 없다.
