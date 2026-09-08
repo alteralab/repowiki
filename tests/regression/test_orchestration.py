@@ -136,3 +136,13 @@ def test_gate_failure_loop_stops_at_limit(tmp_path: Path) -> None:
     assert len(attempts) == MAX_ATTEMPTS
     assert result["exhausted"] == ["job-0"]
     assert store.counts() == {"done": 1}
+
+
+def test_source_read_failure_is_explicit(tmp_path: Path) -> None:
+    """소스를 못 읽으면 줄 수 0으로 물러서지 않고 멈춘다."""
+    from repowiki.analyze import domain
+    from repowiki.pipeline.analyze_run import SourceReadError, _line_counts
+
+    facts = domain.load()
+    with pytest.raises(SourceReadError, match="없는파일.py"):
+        _line_counts(tmp_path, ["없는파일.py"], facts)

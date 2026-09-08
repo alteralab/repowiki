@@ -336,3 +336,98 @@ def test_same_package_declaration_needs_no_import() -> None:
     )
     found = resolve_in_scope("Helper", "core/src/main/java/org/y/User.java", "core", index, scope)
     assert found is sibling
+
+
+def test_resolution_counts_account_for_every_reference() -> None:
+    """참조 하나하나가 어느 항목엔가 들어간다. 합이 입력과 같아야 회계다."""
+    symbols = [_type("Client", "c", "c/C.java")]
+    index = type_index(symbols)
+    references = [
+        _ref("ref.field_type", "Client", "a", "App", "a/App.java"),
+        _ref("ref.field_type", "Missing", "a", "App", "a/App.java"),
+        _ref("ref.call", "doThing", "a", "App", "a/App.java"),
+        _ref("ref.local_type", "Client", "a", "App", "a/App.java"),
+        Reference(
+            message="ref.field_type",
+            name="Client",
+            span=_span("t/T.java"),
+            module="t",
+            owner="T",
+            is_test=True,
+        ),
+        Reference(
+            message="ref.field_type",
+            name="Client",
+            span=_span("c/C.java"),
+            module="c",
+            owner="Client",
+            is_test=False,
+        ),
+    ]
+    edges, counts = type_edges(_extraction(references, symbols), index)
+    assert counts.total() == len(references)
+    assert counts.emitted == len(edges) == 1
+    assert counts.self_edge == 1
+    assert counts.excluded_test == 1
+
+
+def _flow_edge(src: str, dst: str, src_module: str, dst_module: str, line: int) -> "TypeEdge":
+    from repowiki.models import TypeEdge, TypeEdgeKind
+
+    return TypeEdge(
+        src=src,
+        dst=dst,
+        kind=TypeEdgeKind.FIELD_TYPE,
+        span=_span(f"{src_module}/{src}.java", line),
+        src_module=src_module,
+        dst_module=dst_module,
+        dst_path=f"{dst_module}/{dst}.java",
+    )
+
+
+def test_flow_prefers_crossing_a_module_boundary() -> None:
+    """다음 홉은 교차 모듈을 먼저 고른다. 흐름 페이지가 보여야 하는 것이 그 경계다."""
+    from repowiki.analyze.graph import flows
+    from repowiki.models import EntryPoint, EntryPointKind
+
+    symbols = [
+        _type("Entry", "a", "a/Entry.java"),
+        _type("Near", "a", "a/Near.java"),
+        _type("Far", "b", "b/Far.java"),
+    ]
+    symbols[0].span.end_line = 50
+    index = type_index(symbols)
+    edges = [_flow_edge("Entry", "Near", "a", "a", 10), _flow_edge("Entry", "Far", "a", "b", 11)]
+    entry = EntryPoint(
+        kind=EntryPointKind.MAIN, name="main", span=_span("a/Entry.java", 5), module="a"
+    )
+    result = flows([entry], edges, index, limit=5)
+    assert len(result) == 1
+    assert result[0].hops[0].dst_module == "b"
+    assert result[0].modules == ["a", "b"]
+
+
+def test_flow_is_order_independent_and_terminates_on_cycles() -> None:
+    """엣지 순서가 흐름을 바꾸지 않고, 순환이 있어도 멈춘다."""
+    from repowiki.analyze.graph import flows
+    from repowiki.models import EntryPoint, EntryPointKind
+
+    symbols = [
+        _type("Entry", "a", "a/Entry.java"),
+        _type("Mid", "b", "b/Mid.java"),
+        _type("Back", "a", "a/Back.java"),
+    ]
+    symbols[0].span.end_line = 50
+    index = type_index(symbols)
+    edges = [
+        _flow_edge("Entry", "Mid", "a", "b", 10),
+        _flow_edge("Mid", "Back", "b", "a", 11),
+        _flow_edge("Back", "Entry", "a", "a", 12),
+    ]
+    entry = EntryPoint(
+        kind=EntryPointKind.MAIN, name="main", span=_span("a/Entry.java", 5), module="a"
+    )
+    forward = flows([entry], edges, index, limit=5)
+    backward = flows([entry], list(reversed(edges)), index, limit=5)
+    assert [h.symbol for h in forward[0].hops] == [h.symbol for h in backward[0].hops]
+    assert len(forward[0].hops) <= 4

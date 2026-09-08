@@ -101,3 +101,14 @@ def test_symbol_kinds_map_from_rule_messages(facts: DomainFacts) -> None:
     ]
     result = extract(matches, [""], facts)
     assert {s.kind for s in result.symbols} == {SymbolKind.RECORD, SymbolKind.INTERFACE}
+
+
+def test_equal_range_owners_are_ambiguous(facts: DomainFacts) -> None:
+    """같은 범위의 타입이 둘이면 소유자를 정하지 않는다. 사전순 선택은 근거가 아니다."""
+    matches = [
+        AstMatch(rule_id="r", message="def.class", path="a/A.java", start_line=1, end_line=20, text="", name="First"),
+        AstMatch(rule_id="r", message="def.class", path="a/A.java", start_line=1, end_line=20, text="", name="Second"),
+        _match("ref.field_type", "Config", line=10, name="Config"),
+    ]
+    result = extract(matches, [""], facts)
+    assert result.references[0].owner is None

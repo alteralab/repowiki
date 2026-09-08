@@ -262,16 +262,33 @@ def resolve_type(name: str, home: str, index: dict[str, list[Symbol]]) -> Symbol
 
 
 class ResolutionCounts(BaseModel):
-    """해석 실패의 내역. 합계 하나로 뭉치면 어디를 고쳐야 할지 알 수 없다."""
+    """참조 하나가 어디로 갔는지의 전수 회계.
 
+    항목은 서로 겹치지 않고 합은 입력 참조 수와 같다. 실패만 세면 "본 것 중 얼마가
+    엣지가 됐는가"에 답할 수 없다.
+    """
+
+    emitted: int = 0
+    self_edge: int = 0
     unknown_name: int = 0
     ambiguous: int = 0
     no_owner: int = 0
     deferred_calls: int = 0
     deferred_local_types: int = 0
+    excluded_test: int = 0
 
     def total(self) -> int:
-        return self.unknown_name + self.ambiguous + self.no_owner
+        """본 참조 수. 이 값이 입력과 다르면 어딘가에서 조용히 사라진 것이다."""
+        return (
+            self.emitted
+            + self.self_edge
+            + self.unknown_name
+            + self.ambiguous
+            + self.no_owner
+            + self.deferred_calls
+            + self.deferred_local_types
+            + self.excluded_test
+        )
 
 
 def type_edges(
@@ -293,6 +310,7 @@ def type_edges(
     )
     for reference in ordered:
         if reference.is_test:
+            counts.excluded_test += 1
             continue
         if reference.message == "ref.call":
             counts.deferred_calls += 1
@@ -318,7 +336,9 @@ def type_edges(
                 counts.unknown_name += 1
             continue
         if target.name == reference.owner:
+            counts.self_edge += 1
             continue
+        counts.emitted += 1
         edges.append(
             TypeEdge(
                 src=reference.owner,

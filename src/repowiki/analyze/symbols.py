@@ -266,11 +266,7 @@ def _assign_owners(
 ) -> None:
     """선언의 부모 타입과 참조의 소유 타입을 줄 범위 포함으로 정한다."""
     types_by_file: dict[str, list[Symbol]] = {
-        path: sorted(
-            (s for s in items if s.kind in _TYPE_KINDS),
-            key=lambda s: s.span.end_line - s.span.start_line,
-        )
-        for path, items in defs_by_file.items()
+        path: [s for s in items if s.kind in _TYPE_KINDS] for path, items in defs_by_file.items()
     }
     for symbol in symbols:
         if symbol.kind in _TYPE_KINDS:
@@ -281,8 +277,20 @@ def _assign_owners(
 
 
 def _innermost(candidates: list[Symbol], span: Span) -> str | None:
-    """`span`을 담는 가장 작은 타입의 이름. 후보는 범위가 좁은 순으로 정렬돼 있다."""
-    for candidate in candidates:
-        if candidate.span.start_line <= span.start_line and span.end_line <= candidate.span.end_line:
-            return candidate.name
-    return None
+    """`span`을 담는 가장 작은 타입의 이름.
+
+    같은 크기의 후보가 둘 이상이면 소유자를 정하지 않는다. 사전순으로 하나를 고르면
+    재현은 되지만 근거 없는 선택이 사실이 된다(C-BRANCH-3).
+    """
+    enclosing = [
+        candidate
+        for candidate in candidates
+        if candidate.span.start_line <= span.start_line and span.end_line <= candidate.span.end_line
+    ]
+    if not enclosing:
+        return None
+    smallest = min(c.span.end_line - c.span.start_line for c in enclosing)
+    tied = [c for c in enclosing if c.span.end_line - c.span.start_line == smallest]
+    if len(tied) > 1:
+        return None
+    return tied[0].name
