@@ -100,12 +100,24 @@ def resolve_dotted(target: str, index: dict[str, set[str]], home: str | None = N
     return None
 
 
+def type_owners(index: dict[str, list[Symbol]]) -> dict[str, str]:
+    """저장소 안에서 유일하게 선언된 타입 이름의 소유 모듈. 임포트 해석의 1순위 근거다."""
+    return {name: items[0].module for name, items in index.items() if len(items) == 1}
+
+
 def module_edges(
     imports: list[ImportRecord],
     index: dict[str, set[str]],
     include_test: bool = False,
+    owners: dict[str, str] | None = None,
 ) -> tuple[list[ModuleEdge], int]:
-    """임포트를 모듈 엣지로 접는다. 해석되지 않은 임포트 수를 함께 낸다."""
+    """임포트를 모듈 엣지로 접는다. 해석되지 않은 임포트 수를 함께 낸다.
+
+    해석 순서는 둘이다. (1) 임포트가 가리키는 타입 이름이 저장소에서 유일하게 선언돼
+    있으면 그 선언의 모듈이다. (2) 아니면 패키지 접두사로 찾는다. 타입을 먼저 보는 이유는
+    한 패키지를 여러 모듈이 나눠 가질 때 패키지만으로는 어느 쪽인지 알 수 없고, 참조하는
+    모듈을 답으로 삼으면 실재하는 교차 모듈 엣지가 자기 엣지로 흡수되기 때문이다.
+    """
     weights: Counter[tuple[str, str]] = Counter()
     evidence: dict[tuple[str, str], list] = defaultdict(list)
     unresolved = 0
@@ -115,7 +127,11 @@ def module_edges(
     for record in ordered:
         if record.is_test and not include_test:
             continue
-        target_module = resolve_dotted(record.target, index, home=record.module)
+        target_module = None
+        if owners is not None:
+            target_module = owners.get(record.target.rsplit(".", 1)[-1])
+        if target_module is None:
+            target_module = resolve_dotted(record.target, index, home=record.module)
         if target_module is None:
             unresolved += 1
             continue

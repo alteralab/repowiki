@@ -16,6 +16,7 @@ from repowiki.analyze.graph import (
     subsystems,
     type_edges,
     type_index,
+    type_owners,
 )
 from repowiki.analyze.structure import module_of
 from repowiki.analyze.symbols import Extraction, ImportRecord, PackageRecord, Reference
@@ -232,3 +233,21 @@ def test_type_diagram_is_absent_without_edges() -> None:
     """엣지가 없으면 다이어그램을 만들지 않는다."""
     limit = DiagramLimit(level="L2", max_nodes=25, max_source_chars=2000, max_blocks_per_page=50)
     assert type_diagram("core", [], limit) is None
+
+
+def test_import_resolves_by_declared_type_before_package() -> None:
+    """임포트가 가리키는 타입의 선언 모듈이 1순위다.
+
+    한 패키지를 두 모듈이 나눠 가질 때 참조하는 모듈을 답으로 삼으면 실재하는 교차
+    모듈 엣지가 자기 엣지로 흡수된다.
+    """
+    symbols = [_type("Shared", "clients", "clients/src/main/java/Shared.java")]
+    owners = type_owners(type_index(symbols))
+    index = {"org.shared": {"core", "clients"}}
+    imports = [
+        ImportRecord(target="org.shared.Shared", span=_span(), module="core", is_test=False)
+    ]
+    with_owners, _ = module_edges(imports, index, owners=owners)
+    without_owners, _ = module_edges(imports, index)
+    assert [(e.src, e.dst) for e in with_owners] == [("core", "clients")]
+    assert without_owners == []
