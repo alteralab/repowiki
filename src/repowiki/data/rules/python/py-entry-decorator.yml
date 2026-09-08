@@ -3,4 +3,10 @@ language: python
 message: entry.decorator
 rule:
   kind: decorator
-  regex: "\\.(route|get|post|put|delete|patch|command|websocket|on_event)\\("
+  has:
+    kind: call
+    field: function
+    has:
+      field: attribute
+      kind: identifier
+      regex: "^(route|get|post|put|delete|patch|websocket|on_event)$"

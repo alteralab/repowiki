@@ -3,8 +3,9 @@
 경계 계약: 입력은 `Extraction`과 모듈 목록이고 출력은 이름 붙은 형태다. 표준 계산
 (PageRank, HITS, Louvain)은 networkx에 위임한다 — 직접 만들지 않는다(C-LIB-1).
 
-사각: 이름 해석은 저장소 안에서 유일한 선언에만 붙는다. 같은 이름의 타입이 두 모듈에
-있으면 엣지를 만들지 않고 `unresolved`로 센다. 외부 라이브러리 타입도 같은 이유로 빠진다.
+사각: 이름 해석은 단순 이름으로 한다. 범위는 모듈 지역이 먼저고 그다음이 저장소 전역
+유일이며, 둘 다 갈리면 해석하지 않고 내역별로 센다. 외부 라이브러리 타입은 선언이 없어
+`unknown_name`으로 빠진다. 정규화된 이름(패키지까지 붙인 식별자)은 아직 없다.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 
 import networkx as nx
+
+from pydantic import BaseModel
 
 from repowiki.analyze.symbols import Extraction, ImportRecord, PackageRecord
 from repowiki.models import (
@@ -44,20 +47,28 @@ _MAX_FLOW_DEPTH = 4
 _RRF_K = 60
 
 
-def package_index(packages: list[PackageRecord]) -> dict[str, str]:
-    """패키지 이름에서 모듈로. main 소스만 소유자로 인정한다."""
-    index: dict[str, str] = {}
-    for record in packages:
+def package_index(packages: list[PackageRecord]) -> dict[str, set[str]]:
+    """패키지 이름에서 소유 모듈 집합으로. main 소스만 소유자로 인정한다.
+
+    한 패키지를 여러 모듈이 나눠 가지는 것은 Java에서 흔하다. 먼저 본 것을 소유자로
+    정하면 추출 순서가 사실을 바꾼다 — 그래서 집합으로 담고 해석 시점에 가린다.
+    """
+    index: dict[str, set[str]] = {}
+    for record in sorted(packages, key=lambda r: (r.name, r.module, r.path)):
         if record.is_test:
             continue
-        index.setdefault(record.name, record.module)
+        index.setdefault(record.name, set()).add(record.module)
     return index
 
 
-def python_index(paths: list[str], module_roots: list[str], module_of) -> dict[str, str]:
-    """파이썬 점 이름에서 모듈로. 파일 경로의 디렉토리 구조가 곧 점 이름이다."""
-    index: dict[str, str] = {}
-    for path in paths:
+def python_index(paths: list[str], module_roots: list[str], module_of) -> dict[str, set[str]]:
+    """파이썬 점 이름에서 소유 모듈 집합으로. 파일 경로의 디렉토리 구조가 곧 점 이름이다.
+
+    입력 순서에 기대지 않으려고 안에서 정렬한다. 같은 점 이름을 두 모듈이 제공하면
+    둘 다 담고 해석 시점에 가린다.
+    """
+    index: dict[str, set[str]] = {}
+    for path in sorted(paths):
         if not path.endswith(".py"):
             continue
         module_id = module_of(path, module_roots)
@@ -65,33 +76,46 @@ def python_index(paths: list[str], module_roots: list[str], module_of) -> dict[s
         relative = relative.removeprefix("src/")
         dotted = relative.removesuffix(".py").removesuffix("/__init__").replace("/", ".")
         if dotted:
-            index.setdefault(dotted, module_id)
+            index.setdefault(dotted, set()).add(module_id)
     return index
 
 
-def resolve_dotted(target: str, index: dict[str, str]) -> str | None:
-    """가장 긴 접두사 일치로 모듈을 찾는다. 없으면 `None`."""
+def resolve_dotted(target: str, index: dict[str, set[str]], home: str | None = None) -> str | None:
+    """가장 긴 접두사 일치로 모듈을 찾는다.
+
+    소유자가 여럿이면 `home`(참조하는 쪽의 모듈)이 그중에 있을 때만 그것으로 정하고,
+    아니면 해석하지 않는다. 먼저 본 것을 고르지 않는다 — 그 선택은 추출 순서에 기댄다.
+    """
     parts = target.split(".")
     for size in range(len(parts), 0, -1):
         candidate = ".".join(parts[:size])
-        if candidate in index:
-            return index[candidate]
+        owners = index.get(candidate)
+        if not owners:
+            continue
+        if len(owners) == 1:
+            return next(iter(owners))
+        if home is not None and home in owners:
+            return home
+        return None
     return None
 
 
 def module_edges(
     imports: list[ImportRecord],
-    index: dict[str, str],
+    index: dict[str, set[str]],
     include_test: bool = False,
 ) -> tuple[list[ModuleEdge], int]:
     """임포트를 모듈 엣지로 접는다. 해석되지 않은 임포트 수를 함께 낸다."""
     weights: Counter[tuple[str, str]] = Counter()
     evidence: dict[tuple[str, str], list] = defaultdict(list)
     unresolved = 0
-    for record in imports:
+    ordered = sorted(
+        imports, key=lambda r: (r.module, r.target, r.span.path, r.span.start_line)
+    )
+    for record in ordered:
         if record.is_test and not include_test:
             continue
-        target_module = resolve_dotted(record.target, index)
+        target_module = resolve_dotted(record.target, index, home=record.module)
         if target_module is None:
             unresolved += 1
             continue
@@ -108,28 +132,91 @@ def module_edges(
     return edges, unresolved
 
 
-def type_index(symbols: list[Symbol]) -> dict[str, Symbol]:
-    """타입 이름에서 선언으로. 이름이 겹치면 넣지 않는다 — 모호한 해석을 만들지 않는다."""
+def type_index(symbols: list[Symbol]) -> dict[str, list[Symbol]]:
+    """타입 이름에서 선언 목록으로. 같은 이름이 여럿이면 전부 담는다.
+
+    이름 하나에 선언 하나만 남기면(전역 유일 조건) 같은 이름이 두 모듈에 있다는 이유로
+    그 이름의 참조가 전부 사라진다. 실측에서 kafka 15,435건, dubbo 7,416건이 그렇게
+    버려졌고 그중 각각 5,595건과 2,937건은 참조하는 모듈 안에서 유일했다. 해석은
+    `resolve_type`이 범위 순서로 한다.
+    """
     seen: dict[str, list[Symbol]] = defaultdict(list)
     for symbol in symbols:
         if symbol.kind in _TYPE_KINDS and not symbol.is_test:
             seen[symbol.name].append(symbol)
-    return {name: items[0] for name, items in seen.items() if len(items) == 1}
+    return {
+        name: sorted(items, key=lambda s: (s.module, s.span.path, s.span.start_line))
+        for name, items in seen.items()
+    }
 
 
-def type_edges(extraction: Extraction, index: dict[str, Symbol]) -> tuple[list[TypeEdge], int]:
-    """참조를 타입 엣지로 바꾼다. 호출 엣지는 만들지 않는다(PLAN §2.3 미채택 표기)."""
+def resolve_type(name: str, home: str, index: dict[str, list[Symbol]]) -> Symbol | None:
+    """이름을 선언으로 푼다. 범위 순서는 모듈 지역, 그다음 저장소 전역 유일이다.
+
+    둘 다 갈리면 해석하지 않는다 — 틀린 엣지보다 없는 엣지가 낫다(PLAN §1 비목표).
+    """
+    candidates = index.get(name)
+    if not candidates:
+        return None
+    local = [item for item in candidates if item.module == home]
+    if len(local) == 1:
+        return local[0]
+    if len(local) > 1:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
+
+
+class ResolutionCounts(BaseModel):
+    """해석 실패의 내역. 합계 하나로 뭉치면 어디를 고쳐야 할지 알 수 없다."""
+
+    unknown_name: int = 0
+    ambiguous: int = 0
+    no_owner: int = 0
+    deferred_calls: int = 0
+    deferred_local_types: int = 0
+
+    def total(self) -> int:
+        return self.unknown_name + self.ambiguous + self.no_owner
+
+
+def type_edges(
+    extraction: Extraction, index: dict[str, list[Symbol]]
+) -> tuple[list[TypeEdge], ResolutionCounts]:
+    """참조를 타입 엣지로 바꾼다.
+
+    호출 엣지(`ref.call`)와 지역 변수 타입(`ref.local_type`)은 만들지 않고 따로 센다.
+    호출은 해석기 채택 전까지 제공하지 않는다는 판정이고(PLAN §2.3), 지역 변수 타입은
+    `TypeGraph`의 엣지 종류에 없다. 조용히 버리지 않는다(C-REPORT-2).
+    """
     edges: list[TypeEdge] = []
-    unresolved = 0
-    for reference in extraction.references:
+    counts = ResolutionCounts()
+    ordered = sorted(
+        extraction.references,
+        key=lambda r: (r.span.path, r.span.start_line, r.message, r.name),
+    )
+    for reference in ordered:
+        if reference.is_test:
+            continue
+        if reference.message == "ref.call":
+            counts.deferred_calls += 1
+            continue
+        if reference.message == "ref.local_type":
+            counts.deferred_local_types += 1
+            continue
         kind = _REF_TO_EDGE.get(reference.message)
-        if kind is None or reference.is_test:
-            continue
+        if kind is None:
+            raise ValueError(f"엣지 종류가 정해지지 않은 참조다: {reference.message}")
         if reference.owner is None:
+            counts.no_owner += 1
             continue
-        target = index.get(reference.name)
+        target = resolve_type(reference.name, reference.module, index)
         if target is None:
-            unresolved += 1
+            if reference.name in index:
+                counts.ambiguous += 1
+            else:
+                counts.unknown_name += 1
             continue
         if target.name == reference.owner:
             continue
@@ -143,17 +230,19 @@ def type_edges(extraction: Extraction, index: dict[str, Symbol]) -> tuple[list[T
                 dst_module=target.module,
             )
         )
-    return edges, unresolved
+    return edges, counts
 
 
-def file_ranks(edges: list[TypeEdge], index: dict[str, Symbol], symbols: list[Symbol]) -> list[FileRank]:
+def file_ranks(
+    edges: list[TypeEdge], index: dict[str, list[Symbol]], symbols: list[Symbol]
+) -> list[FileRank]:
     """타입 엣지를 파일 그래프로 접고 PageRank와 허브 점수를 RRF로 합친다."""
     graph = nx.DiGraph()
-    file_module = {s.span.path: s.module for s in symbols if not s.is_test}
+    file_module = {s.span.path: s.module for s in sorted(symbols, key=lambda s: s.span.path) if not s.is_test}
     for path, module in file_module.items():
         graph.add_node(path, module=module)
     for edge in edges:
-        target = index.get(edge.dst)
+        target = resolve_type(edge.dst, edge.dst_module or edge.src_module, index)
         if target is None:
             continue
         src_path, dst_path = edge.span.path, target.span.path
@@ -230,7 +319,7 @@ def _build_tree_groups(module_ids: list[str]) -> dict[str, list[str]]:
 def flows(
     entry_points: list[EntryPoint],
     edges: list[TypeEdge],
-    index: dict[str, Symbol],
+    index: dict[str, list[Symbol]],
     limit: int,
 ) -> list[CrossModuleFlow]:
     """진입점에서 타입 엣지를 따라가며 모듈 둘 이상을 지나는 경로를 만든다.
@@ -259,16 +348,24 @@ def flows(
     return results
 
 
-def _owner_type_at(entry: EntryPoint, index: dict[str, Symbol]) -> str | None:
-    for name, symbol in index.items():
-        if symbol.span.path != entry.span.path:
-            continue
-        if symbol.span.start_line <= entry.span.start_line <= symbol.span.end_line:
-            return name
-    return None
+def _owner_type_at(entry: EntryPoint, index: dict[str, list[Symbol]]) -> str | None:
+    """진입점을 감싸는 가장 안쪽 타입. 중첩 클래스가 바깥에 붙지 않게 한다."""
+    best: tuple[int, str] | None = None
+    for name, symbols in index.items():
+        for symbol in symbols:
+            if symbol.span.path != entry.span.path:
+                continue
+            if not (symbol.span.start_line <= entry.span.start_line <= symbol.span.end_line):
+                continue
+            size = symbol.span.end_line - symbol.span.start_line
+            if best is None or (size, name) < best:
+                best = (size, name)
+    return best[1] if best is not None else None
 
 
-def _walk(start: str, by_owner: dict[str, list[TypeEdge]], index: dict[str, Symbol]) -> list[FlowHop]:
+def _walk(
+    start: str, by_owner: dict[str, list[TypeEdge]], index: dict[str, list[Symbol]]
+) -> list[FlowHop]:
     hops: list[FlowHop] = []
     seen = {start}
     frontier = start
@@ -276,8 +373,20 @@ def _walk(start: str, by_owner: dict[str, list[TypeEdge]], index: dict[str, Symb
         candidates = [e for e in by_owner.get(frontier, []) if e.dst not in seen]
         if not candidates:
             break
-        edge = sorted(candidates, key=lambda e: (e.dst_module != e.src_module, e.dst))[0]
-        target = index.get(edge.dst)
+        # 교차 모듈 홉을 먼저 고른다. 흐름 페이지가 보여야 하는 것이 모듈을 넘는 경로다.
+        # 나머지 키는 같은 입력에서 같은 홉을 고르게 하는 정렬 기준이다.
+        edge = sorted(
+            candidates,
+            key=lambda e: (
+                e.dst_module == e.src_module,
+                e.dst_module or "",
+                e.dst,
+                e.kind,
+                e.span.path,
+                e.span.start_line,
+            ),
+        )[0]
+        target = resolve_type(edge.dst, edge.dst_module or edge.src_module, index)
         if target is None:
             break
         hops.append(

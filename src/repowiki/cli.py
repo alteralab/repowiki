@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from repowiki.adapters.node import DiagramSource, parse_diagrams
+from repowiki.gate.evidence import check_evidence
 from repowiki.gate.mermaid import check_limits
 from repowiki.pipeline.analyze_run import analyze_repo, load_limits, write_facts
 
@@ -19,9 +20,16 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     if not root.is_dir():
         print(f"오류: 디렉토리가 아니다: {root}", file=sys.stderr)
         return 2
-    facts = analyze_repo(root)
+    result = analyze_repo(root)
+    facts = result.facts
     out = Path(args.out).resolve()
     target = write_facts(out / "facts.json", facts)
+
+    evidence_violations = check_evidence(facts, result.line_counts)
+    for violation in evidence_violations[:10]:
+        print(
+            f"근거 위반 {violation.subject} {violation.rule}: {violation.detail}", file=sys.stderr
+        )
 
     limits = load_limits()
     violations = check_limits(facts.diagrams, limits, len(facts.diagrams))
@@ -41,11 +49,12 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     print(f"  심볼 {len(facts.symbols)}개, 타입 엣지 {len(facts.type_edges)}개, 모듈 엣지 {len(facts.module_edges)}개")
     print(f"  진입점 {len(facts.entry_points)}개, 흐름 {len(facts.flows)}개, 다이어그램 {len(facts.diagrams)}개")
     print(f"  사실 파일 {target}")
+    print(f"  근거 위반 {len(evidence_violations)}건")
     passed = len(facts.diagrams) - len({f.id for f in parse_failures})
     print(f"  Mermaid 파서 통과 {passed}/{len(facts.diagrams)} (두 판)")
     for note in facts.unresolved:
         print(f"  미해석 {note}")
-    return 1 if violations or parse_failures else 0
+    return 1 if violations or parse_failures or evidence_violations else 0
 
 
 def main(argv: list[str] | None = None) -> int:

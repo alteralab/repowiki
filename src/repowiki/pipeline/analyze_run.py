@@ -14,6 +14,8 @@ import yaml
 from repowiki.adapters import astgrep, git
 from repowiki.analyze import domain, graph, structure, symbols
 from repowiki.bundle import diagrams
+from pydantic import BaseModel
+
 from repowiki.models import DiagramLimit, RepoFacts
 
 _TOP_N = 20
@@ -35,6 +37,10 @@ def load_limits() -> dict[str, DiagramLimit]:
     }
 
 
+class SourceReadError(RuntimeError):
+    """소스를 읽지 못했다. 줄 수 0으로 물러서면 프로파일과 근거 게이트가 함께 거짓말한다."""
+
+
 def _line_counts(root: Path, paths: list[str], facts: domain.DomainFacts) -> dict[str, int]:
     counts: dict[str, int] = {}
     for path in paths:
@@ -43,13 +49,20 @@ def _line_counts(root: Path, paths: list[str], facts: domain.DomainFacts) -> dic
         try:
             with (root / path).open("rb") as handle:
                 counts[path] = sum(1 for _ in handle)
-        except OSError:
-            continue
+        except OSError as error:
+            raise SourceReadError(f"소스를 읽지 못했다: {path} ({error})") from error
     return counts
 
 
-def analyze_repo(root: Path) -> RepoFacts:
-    """작업본 하나를 분석해 사실 묶음을 낸다."""
+class AnalyzeResult(BaseModel):
+    """분석 산출. 근거 게이트가 줄 수를 필요로 해서 함께 낸다(C-PY-1)."""
+
+    facts: RepoFacts
+    line_counts: dict[str, int]
+
+
+def analyze_repo(root: Path) -> AnalyzeResult:
+    """작업본 하나를 분석해 사실 묶음과 줄 수 표를 낸다."""
     facts = domain.load()
     head = git.head(root)
     tracked = git.tracked_files(root)
@@ -60,7 +73,12 @@ def analyze_repo(root: Path) -> RepoFacts:
     roots = structure.module_roots(kept, facts)
     modules = structure.build_modules(kept, roots, counts, facts)
 
-    matches = [m for m in astgrep.scan(root) if domain.excluded_by(m.path, facts) is None]
+    # 정본 순서를 여기서 못 박는다. ast-grep의 방출 순서는 보장되지 않고, 순서가
+    # 사실을 바꾸면 같은 입력이 다른 위키를 낸다(Codex 5차 검증 지적).
+    matches = sorted(
+        (m for m in astgrep.scan(root) if domain.excluded_by(m.path, facts) is None),
+        key=lambda m: (m.path, m.start_line, m.end_line, m.message, m.name or ""),
+    )
     extraction = symbols.extract(matches, roots, facts)
 
     index = graph.package_index(extraction.packages)
@@ -68,7 +86,7 @@ def analyze_repo(root: Path) -> RepoFacts:
     edges, unresolved_imports = graph.module_edges(extraction.imports, index)
 
     types = graph.type_index(extraction.symbols)
-    type_edges, unresolved_types = graph.type_edges(extraction, types)
+    type_edges, resolution = graph.type_edges(extraction, types)
     ranks = graph.file_ranks(type_edges, types, extraction.symbols)
 
     limits = load_limits()
@@ -83,7 +101,7 @@ def analyze_repo(root: Path) -> RepoFacts:
         if diagram is not None:
             compiled.append(diagram)
 
-    return RepoFacts(
+    facts_out = RepoFacts(
         profile=profile,
         modules=modules,
         module_edges=edges,
@@ -96,9 +114,14 @@ def analyze_repo(root: Path) -> RepoFacts:
         diagrams=compiled,
         unresolved=[
             f"해석되지 않은 임포트 {unresolved_imports}건",
-            f"해석되지 않은 타입 참조 {unresolved_types}건",
+            f"선언이 없는 타입 이름 {resolution.unknown_name}건",
+            f"모호한 타입 이름 {resolution.ambiguous}건",
+            f"소유 타입 밖의 참조 {resolution.no_owner}건",
+            f"미제공 호출 참조 {resolution.deferred_calls}건(해석기 채택 전)",
+            f"엣지 종류 밖의 지역 타입 참조 {resolution.deferred_local_types}건",
         ],
     )
+    return AnalyzeResult(facts=facts_out, line_counts=counts)
 
 
 def _busiest_modules(modules, count: int) -> list[str]:

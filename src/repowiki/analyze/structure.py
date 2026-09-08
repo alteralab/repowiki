@@ -91,13 +91,14 @@ def module_roots(paths: list[str], facts: DomainFacts) -> list[str]:
         pure = PurePosixPath(path)
         if pure.name in facts.build_files:
             roots.add(pure.parent.as_posix().lstrip("."))
-        marker = f"{_SOURCE_SET}main/"
-        head = path.split(marker)[0] if marker in path else None
-        if head is None:
-            marker = f"{_SOURCE_SET}test/"
-            head = path.split(marker)[0] if marker in path else None
-        if head is not None and head != path:
-            roots.add(head)
+        # 소스 세트가 경로에 두 번 나오면 안쪽이 이긴다. 바깥을 고르면 생성 소스가
+        # 상위 모듈로 흡수된다(`a/src/main/generated/src/main/java/X.java`).
+        for marker in (f"{_SOURCE_SET}main/", f"{_SOURCE_SET}test/"):
+            if marker in path:
+                head = path.rsplit(marker, 1)[0]
+                if head and head != path:
+                    roots.add(head)
+                break
     return sorted(roots)
 
 

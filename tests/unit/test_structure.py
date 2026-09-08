@@ -68,3 +68,18 @@ def test_module_counts_split_main_and_test(facts: DomainFacts) -> None:
     assert core.file_count == 2
     assert core.main_file_count == 1
     assert is_test("core/src/test/java/ATest.java", facts) is True
+
+
+def test_nested_source_set_picks_innermost_root(facts: DomainFacts) -> None:
+    """소스 세트가 두 번 나오면 안쪽이 모듈 뿌리다."""
+    path = "a/src/main/generated/src/main/java/X.java"
+    roots = module_roots([path], facts)
+    assert "a/src/main/generated" in roots
+    assert module_of(path, roots) == "a/src/main/generated"
+
+
+def test_top_level_build_output_is_excluded(facts: DomainFacts) -> None:
+    """최상위 빌드 산출물도 제외된다. 글로브가 맨 앞 구획을 놓치면 안 된다."""
+    kept, excluded = source_paths(["target/A.class", "a/target/B.class", "src/A.java"], facts)
+    assert kept == ["src/A.java"]
+    assert sum(excluded.values()) == 2

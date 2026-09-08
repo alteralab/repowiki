@@ -77,6 +77,14 @@ def _compile(plan: _Plan, limit: DiagramLimit, diagram_id: str, level: str) -> D
         reasons.append(
             f"소스 {limit.max_source_chars}자 상한을 맞추려고 노드를 {len(shown)}개로 줄였다"
         )
+    if len(source) > limit.max_source_chars:
+        # 노드 하나로도 상한을 못 맞추는 경우다. 상한을 넘는 다이어그램을 내보내면
+        # 게이트가 그다음에 잡을 뿐이라, 여기서 표로 강등한다(사다리 마지막 단).
+        source, edge_count = plan.header, 0
+        reasons.append(
+            f"노드 하나의 라벨만으로도 {limit.max_source_chars}자를 넘어 다이어그램을 비웠다"
+        )
+        shown = []
     return Diagram(
         id=diagram_id,
         level=level,
