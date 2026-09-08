@@ -523,3 +523,34 @@ def test_same_named_types_are_separate_nodes() -> None:
     diagram = type_diagram("core", edges, limit)
     assert diagram is not None
     assert diagram.source.count('["Builder"]') == 2
+
+
+def _java_scope(symbols_in: list[Symbol], packages: list[PackageRecord]) -> "object":
+    return build_scope(_scope_extraction(symbols_in, packages, []))
+
+
+def test_nested_and_static_imports_resolve_to_the_declaring_module() -> None:
+    """마지막 점이 패키지 경계라는 보장은 없다.
+
+    `a.b.Outer.Inner`는 중첩 타입이고 `static a.b.C.CONST`는 정적 멤버다. 둘 다 선언된
+    최상위 이름까지 줄여 가며 찾아야 그 모듈에 닿는다.
+    """
+    outer = _type("Outer", "clients", "clients/src/main/java/org/x/Outer.java")
+    constants = _type("Const", "clients", "clients/src/main/java/org/x/Const.java")
+    scope = _java_scope(
+        [outer, constants],
+        [
+            _package("clients/src/main/java/org/x/Outer.java", "org.x"),
+            _package("clients/src/main/java/org/x/Const.java", "org.x"),
+            _package("core/src/main/java/org/y/User.java", "org.y"),
+        ],
+    )
+    here = _span("core/src/main/java/org/y/User.java")
+    imports = [
+        ImportRecord(target="org.x.Outer.Inner", span=here, module="core", is_test=False),
+        ImportRecord(target="org.x.Const.LIMIT", span=here, module="core", is_test=False),
+        ImportRecord(target="org.z.Absent.THING", span=here, module="core", is_test=False),
+    ]
+    edges, unresolved = module_edges(imports, {"org.x": {"clients"}}, scope=scope)
+    assert [(e.src, e.dst, e.weight) for e in edges] == [("core", "clients", 2)]
+    assert unresolved == 1

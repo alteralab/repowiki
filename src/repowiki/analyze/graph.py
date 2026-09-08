@@ -142,19 +142,33 @@ def module_edges(
     return edges, unresolved
 
 
+def _declared_prefix(target: str, scope: "NameScope") -> str | None:
+    """임포트 문자열에서 선언된 최상위 타입의 가장 긴 접두사를 찾아 그 선언 파일을 낸다.
+
+    마지막 점이 패키지와 타입의 경계라는 보장은 없다. `a.b.Outer.Inner`는 중첩 타입이고
+    `static a.b.C.CONST`는 정적 멤버라 경계가 더 앞에 있다. 그래서 뒤에서부터 줄여 가며
+    선언된 이름을 만나는 자리를 경계로 삼는다. 어느 자리에서도 선언을 못 만나면 외부
+    타입이다(dubbo 정적 임포트 1,598건, kafka 중첩 임포트 197건이 이 규칙으로 살아난다).
+    """
+    parts = target.split(".")
+    for size in range(len(parts), 1, -1):
+        package = ".".join(parts[: size - 1])
+        simple = parts[size - 1]
+        path = scope.declared(package, simple)
+        if path is not None:
+            return path
+    return None
+
+
 def _import_target(
     record: ImportRecord, index: dict[str, set[str]], scope: "NameScope | None"
 ) -> str | None:
     """임포트 하나가 가리키는 모듈. 정규화된 선언이 있을 때만 답한다."""
     if scope is not None and "." in record.target:
-        package, simple = record.target.rsplit(".", 1)
-        path = scope.declared(package, simple)
+        path = _declared_prefix(record.target, scope)
         if path is not None:
             return scope.file_module.get(path)
-        if package in index or record.target in index:
-            # 타입 선언이 아니라 패키지를 가리킨다(와일드카드나 파이썬 모듈).
-            return resolve_dotted(record.target, index, home=record.module)
-        return None
+    # 타입 선언이 아니라 패키지를 가리키는 형태(와일드카드, 파이썬 모듈)만 남는다.
     return resolve_dotted(record.target, index, home=record.module)
 
 
