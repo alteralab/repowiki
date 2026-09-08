@@ -468,3 +468,25 @@ kafka 재측정: 심볼 67,380 → 69,008(Scala 1,628), 모듈 엣지 119 → 12
 
 Scala는 `outline`이 빈 목록을 내므로(리서치 02, 15) 대조 원천이 없다. kind 룰이
 유일한 경로이고, 독립 오라클은 아직 없다.
+
+### Scala 임포트 형태 교정
+
+Scala 임포트가 Java 경로를 타면서 세 형태 중 둘을 잘못 읽었다. `import a.b.{C, D}`는
+`a.b.{C,`로 잘렸고 `import a.b._`는 `a.b._`가 그대로 남았다. Scala 전용 파서를 두어
+중괄호는 이름별로 펴고, 밑줄은 패키지로, 별칭(`C => E`)은 왼쪽 이름으로 읽는다.
+
+kafka `core→clients` 가중치 327 → 512. 모듈 엣지 수는 123으로 같다(같은 짝에 근거가
+늘었다). 해시 동일.
+
+### 검사 수 (기계로 센 값, 2026-09-09 야간 종료 시점)
+
+| 파일 | 검사 |
+|---|---|
+| tests/unit/test_graph.py | 25 |
+| tests/unit/test_symbols.py | 9 |
+| tests/unit/test_structure.py | 8 |
+| tests/regression/test_orchestration.py | 7 |
+| tests/regression/test_rules.py | 2 |
+| 합계 | 51 |
+
+앞서 두 번 분류를 틀리게 적었다. 이 표는 `grep -c '^def test_'`로 센 값이다.

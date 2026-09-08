@@ -104,6 +104,27 @@ def _dotted(text: str, keyword: str) -> str:
     return body.removesuffix(".*").strip()
 
 
+def _scala_import_targets(text: str) -> list[str]:
+    """Scala 임포트에서 대상 이름을 낸다.
+
+    세 형태를 읽는다. `import a.b.C`는 그대로, `import a.b.{C, D}`는 둘로 펴고,
+    `import a.b._`는 패키지를 가리킨다. 중괄호 안의 별칭(`C => E`)은 왼쪽 이름을 쓴다.
+    """
+    body = text.strip().removeprefix("import").strip()
+    if body.endswith("._"):
+        return [body[:-2]]
+    if "{" not in body:
+        return [body] if body else []
+    package, _, rest = body.partition("{")
+    package = package.rstrip(".")
+    names = []
+    for piece in rest.rstrip("}").split(","):
+        name = piece.split("=>")[0].strip()
+        if name and name != "_":
+            names.append(f"{package}.{name}")
+    return names or [package]
+
+
 def _python_import_targets(match: AstMatch) -> list[str]:
     """`import a.b` 와 `from a.b import c` 에서 대상 이름을 낸다."""
     text = match.text.strip()
@@ -176,11 +197,12 @@ def _take_package(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
 
 
 def _take_import(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
-    targets = (
-        _python_import_targets(match)
-        if ctx.language == "python" or match.message == "import.from"
-        else [_dotted(match.text, "import")]
-    )
+    if ctx.language == "python" or match.message == "import.from":
+        targets = _python_import_targets(match)
+    elif ctx.language == "scala":
+        targets = _scala_import_targets(match.text)
+    else:
+        targets = [_dotted(match.text, "import")]
     for target in targets:
         out.imports.append(
             ImportRecord(target=target, span=ctx.span, module=ctx.module, is_test=ctx.is_test)

@@ -13,8 +13,8 @@ from repowiki.models import SymbolKind
 @pytest.fixture
 def facts() -> DomainFacts:
     return DomainFacts(
-        extensions={".java": "java", ".py": "python"},
-        analyzed_languages=["java", "python"],
+        extensions={".java": "java", ".py": "python", ".scala": "scala"},
+        analyzed_languages=["java", "python", "scala"],
         exclude_globs={},
         test_markers=["/src/test/"],
         build_files=["pom.xml"],
@@ -112,3 +112,21 @@ def test_equal_range_owners_are_ambiguous(facts: DomainFacts) -> None:
     ]
     result = extract(matches, [""], facts)
     assert result.references[0].owner is None
+
+
+def test_scala_import_forms(facts: DomainFacts) -> None:
+    """Scala의 중괄호 임포트와 밑줄 임포트를 편다."""
+    matches = [
+        _match("import", "import java.util.Properties", path="c/A.scala", line=1),
+        _match("import", "import kafka.utils.{Exit, Logging}", path="c/A.scala", line=2),
+        _match("import", "import kafka.server._", path="c/A.scala", line=3),
+        _match("import", "import kafka.api.{Request => Req}", path="c/A.scala", line=4),
+    ]
+    result = extract(matches, [""], facts)
+    assert [record.target for record in result.imports] == [
+        "java.util.Properties",
+        "kafka.utils.Exit",
+        "kafka.utils.Logging",
+        "kafka.server",
+        "kafka.api.Request",
+    ]
