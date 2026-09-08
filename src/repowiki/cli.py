@@ -48,6 +48,13 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     print(f"  파일 {profile.file_count}개, 모듈 {len(facts.modules)}개, 서브시스템 {len(facts.subsystems)}개")
     print(f"  심볼 {len(facts.symbols)}개, 타입 엣지 {len(facts.type_edges)}개, 모듈 엣지 {len(facts.module_edges)}개")
     print(f"  진입점 {len(facts.entry_points)}개, 흐름 {len(facts.flows)}개, 다이어그램 {len(facts.diagrams)}개")
+    if facts.history is not None:
+        top = facts.history.hotspots[0] if facts.history.hotspots else None
+        print(
+            f"  이력 {facts.history.window_months}개월 커밋 {facts.history.commit_count}개,"
+            f" 핫스팟 {len(facts.history.hotspots)}개, 결합 {len(facts.history.couplings)}쌍"
+            + (f", 최다 수정 {top['path']} {top['revisions']}회" if top else "")
+        )
     print(f"  사실 파일 {target}")
     print(f"  근거 위반 {len(evidence_violations)}건")
     passed = len(facts.diagrams) - len({f.id for f in parse_failures})

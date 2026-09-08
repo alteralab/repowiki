@@ -11,16 +11,18 @@ from pathlib import Path
 
 import yaml
 
-from repowiki.adapters import astgrep, git
-from repowiki.analyze import domain, graph, structure, symbols
+from repowiki.adapters import astgrep, git, githistory
+from repowiki.analyze import domain, graph, history, structure, symbols
 from repowiki.bundle import diagrams
 from pydantic import BaseModel
 
-from repowiki.models import DiagramLimit, RepoFacts
+from repowiki.models import DiagramLimit, HistoryFacts, RepoFacts
 
 _TOP_N = 20
 _MAX_FLOWS = 10
 _MAX_L2_MODULES = 5
+_HISTORY_MONTHS = 24
+_TOP_COUPLINGS = 30
 
 
 def load_limits() -> dict[str, DiagramLimit]:
@@ -60,6 +62,26 @@ class AnalyzeResult(BaseModel):
 
     facts: RepoFacts
     line_counts: dict[str, int]
+
+
+def _history(root: Path, kept: list[str], roots: list[str], facts: domain.DomainFacts):
+    """이력 사실. git 저장소가 아니면 `None`을 낸다 — 없는 것을 지어내지 않는다."""
+    if not (root / ".git").exists():
+        return None
+    commits = githistory.read_log(root, _HISTORY_MONTHS)
+    known = set(kept)
+    return HistoryFacts(
+        window_months=_HISTORY_MONTHS,
+        commit_count=len(commits),
+        hotspots=[
+            h.model_dump()
+            for h in history.hotspots(commits, facts, known, structure.module_of, roots, _TOP_N)
+        ],
+        couplings=[
+            c.model_dump() for c in history.couplings(commits, facts, known, _TOP_COUPLINGS)
+        ],
+        issue_keys=history.issue_keys(commits, facts.issue_patterns).model_dump(),
+    )
 
 
 def analyze_repo(root: Path) -> AnalyzeResult:
@@ -106,6 +128,7 @@ def analyze_repo(root: Path) -> AnalyzeResult:
             compiled.append(diagram)
 
     facts_out = RepoFacts(
+        history=_history(root, kept, roots, facts),
         profile=profile,
         modules=modules,
         module_edges=edges,

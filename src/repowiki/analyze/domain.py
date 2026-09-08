@@ -25,6 +25,7 @@ class DomainFacts(BaseModel):
     test_markers: list[str]
     build_files: list[str]
     kind_markers: dict[str, list[str]]
+    issue_patterns: dict[str, str] = {}
 
 
 def load() -> DomainFacts:
@@ -32,6 +33,7 @@ def load() -> DomainFacts:
     languages = yaml.safe_load((DATA_DIR / "languages.yml").read_text(encoding="utf-8"))
     exclude = yaml.safe_load((DATA_DIR / "exclude.yml").read_text(encoding="utf-8"))
     build = yaml.safe_load((DATA_DIR / "buildfiles.yml").read_text(encoding="utf-8"))
+    issues = yaml.safe_load((DATA_DIR / "issue-links.yml").read_text(encoding="utf-8"))
     return DomainFacts(
         extensions=languages["extensions"],
         analyzed_languages=languages["analyzed"],
@@ -39,6 +41,7 @@ def load() -> DomainFacts:
         test_markers=exclude["test_markers"],
         build_files=build["files"],
         kind_markers=build["kind_markers"],
+        issue_patterns=issues["patterns"],
     )
 
 

@@ -212,6 +212,16 @@ class Diagram(BaseModel):
     degraded_reason: str | None = None
 
 
+class HistoryFacts(BaseModel):
+    """이력 사실. 계산은 `analyze/history.py`가 하고 이 형태로 경계를 넘는다."""
+
+    window_months: int
+    commit_count: int
+    hotspots: list[dict]
+    couplings: list[dict]
+    issue_keys: dict
+
+
 class RepoFacts(BaseModel):
     """결정층의 산출 전부. LLM 층은 이 자료만 읽는다(PLAN §2.1)."""
 
@@ -225,4 +235,5 @@ class RepoFacts(BaseModel):
     file_ranks: list[FileRank]
     flows: list[CrossModuleFlow]
     diagrams: list[Diagram]
+    history: HistoryFacts | None = None
     unresolved: list[str] = Field(default_factory=list)

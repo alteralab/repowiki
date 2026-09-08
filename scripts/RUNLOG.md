@@ -669,3 +669,43 @@ L2는 classDiagram이라 ELK 대상이 아니고 dagre로 통과한다.
 - SC-1.3에서 MoJoFM을 뺐다. 파이썬 구현이 없어 자작해야 하는데 측정 인프라 자작은
   금지이고, 분할이 빌드 트리 자신이 된 뒤로는 "빌드 트리 단독보다 낫다"가 자기 비교라
   판정이 성립하지 않는다. 대신 결정성과 빌드 구조 일치를 기준으로 다시 썼다.
+
+## Phase 2 이력 (2026-09-09 아침)
+
+`git log --name-only --no-renames --since=24.months` 하나로 핫스팟과 시간 결합과 이슈 키를
+낸다. 줄 단위 churn은 blobless 클론에서 얻을 수 없어 쓰지 않는다(계획의 판정 그대로).
+
+### 실측
+
+| 저장소 | 24개월 커밋 | 핫스팟 최다 | 결합 쌍 |
+|---|---|---|---|
+| kafka | 4,500 | build.gradle 221회 | 30 |
+| airflow | 15,134 | .pre-commit-config.yaml 515회 | 30 |
+| dubbo | 858 | dubbo-dependencies-bom/pom.xml 308회 | 13 |
+| commons-cli | 540 | .github/workflows/codeql-analysis.yml 99회 | 28 |
+
+kafka 전체 분석이 47초다(이력 포함). SC-2.2의 60초 안이다.
+
+### SC-2.3 이슈 키 대조 (전체 이력, 리서치 07 대비)
+
+| 저장소 | 항목 | 리서치 07 | 이번 | 차이 |
+|---|---|---|---|---|
+| kafka | `(#N)` | 72.2% | 72.2% | 0.0 |
+| kafka | KIP | 4.5% | 4.5% | 0.0 |
+| kafka | MINOR | 32.2% | 31.2% | 1.0 |
+| kafka | JIRA | 61.5% | 62.4% | 0.9 |
+| airflow | `(#N)` | 86.9% | 86.9% | 0.0 |
+| dubbo | `(#N)` | 58.1% | 58.1% | 0.0 |
+| dubbo | JIRA | 11.0% | 11.0% | 0.0 |
+| commons-cli | `(#N)` | 14.8% | 16.8% | 2.0 |
+
+JIRA 열의 차이는 우리 패턴이 `KAFKA-`만이 아니라 대문자 키 일반을 세기 때문이다.
+commons-cli의 2.0퍼센트포인트는 리서치 07이 더 좁은 앵커를 썼기 때문으로 보이며 아직
+확인하지 않았다. SC-2.3의 1퍼센트포인트 조건은 kafka와 airflow와 dubbo에서 만족하고
+commons-cli에서 만족하지 않는다.
+
+### SC-2.1 code-maat 대조는 미실행
+
+code-maat는 Docker 이미지로 돌리고 입력이 `--numstat` 풀 클론이라 이번 창에서 준비하지
+못했다. 산식과 기본값(`--min-revs 5 --min-shared-revs 5 --min-coupling 30
+--max-changeset-size 30`)은 계획대로 맞춰 두었으므로 대조는 픽스처만 만들면 된다.
