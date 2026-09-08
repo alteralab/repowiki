@@ -61,6 +61,7 @@ class Reference(BaseModel):
     module: str
     owner: str | None
     owner_path: str | None = None
+    owner_span: Span | None = None
     is_test: bool
 
 
@@ -303,6 +304,9 @@ def _assign_owners(
         owner = _innermost_symbol(types_by_file.get(reference.span.path, []), reference.span)
         reference.owner = owner.name if owner is not None else None
         reference.owner_path = owner.span.path if owner is not None else None
+        # 소유 선언의 위치를 그대로 들고 간다. 나중에 (경로, 이름)으로 다시 찾으면
+        # 한 파일에 같은 이름의 선언이 둘일 때 뒤엣것이 앞엣것을 덮는다.
+        reference.owner_span = owner.span if owner is not None else None
 
 
 def _innermost_symbol(candidates: list[Symbol], span: Span) -> Symbol | None:

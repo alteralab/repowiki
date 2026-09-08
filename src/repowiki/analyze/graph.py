@@ -381,11 +381,6 @@ def type_edges(
         extraction.references,
         key=lambda r: (r.span.path, r.span.start_line, r.message, r.name),
     )
-    owner_declarations = {
-        (symbol.span.path, symbol.name): symbol.span
-        for symbol in extraction.symbols
-        if symbol.kind in _TYPE_KINDS
-    }
     for reference in ordered:
         if reference.is_test:
             counts.excluded_test += 1
@@ -427,7 +422,7 @@ def type_edges(
                 dst_module=target.module,
                 src_path=reference.owner_path,
                 dst_path=target.span.path,
-                src_declaration=owner_declarations.get((reference.owner_path or "", reference.owner)),
+                src_declaration=reference.owner_span,
                 dst_declaration=target.span,
                 src_qualified=_qualified(reference.owner, reference.owner_path, scope),
                 dst_qualified=_qualified(target.name, target.span.path, scope),

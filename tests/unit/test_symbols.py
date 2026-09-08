@@ -130,3 +130,17 @@ def test_scala_import_forms(facts: DomainFacts) -> None:
         "kafka.server",
         "kafka.api.Request",
     ]
+
+
+def test_two_same_named_declarations_in_one_file_are_distinct_owners(facts: DomainFacts) -> None:
+    """한 파일에 같은 이름의 선언이 둘이면 각 참조는 자기를 감싸는 쪽이 소유한다."""
+    matches = [
+        AstMatch(rule_id="r", message="def.class", path="a/A.java", start_line=1, end_line=300, text="", name="Wrapper"),
+        AstMatch(rule_id="r", message="def.class", path="a/A.java", start_line=10, end_line=40, text="", name="Builder"),
+        AstMatch(rule_id="r", message="def.class", path="a/A.java", start_line=100, end_line=140, text="", name="Builder"),
+        _match("ref.field_type", "Config", line=20, name="Config"),
+        _match("ref.field_type", "Config", line=120, name="Config"),
+    ]
+    result = extract(matches, [""], facts)
+    owners = [(r.owner, r.owner_span.start_line) for r in result.references]
+    assert owners == [("Builder", 10), ("Builder", 100)]
