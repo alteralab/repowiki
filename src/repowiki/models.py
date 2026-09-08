@@ -188,12 +188,17 @@ class RepoProfile(BaseModel):
 
 
 class DiagramLimit(BaseModel):
-    """다이어그램 한도. 정본은 `data/diagram-limits.yml`이다(PLAN §2.5)."""
+    """다이어그램 한도와 레이아웃. 정본은 `data/diagram-limits.yml`이다(PLAN §2.5).
+
+    `layout`은 렌더 엔진 이름이다. `dagre`는 Mermaid 내장이라 지시문을 넣지 않고,
+    그 밖의 값은 소스 머리에 init 지시문으로 적는다.
+    """
 
     level: str
     max_nodes: int
     max_source_chars: int
     max_blocks_per_page: int
+    layout: str = "dagre"
 
 
 class Diagram(BaseModel):

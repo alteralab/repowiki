@@ -34,6 +34,7 @@ class _Plan(BaseModel):
     """그릴 것의 계획. 노드는 우선순위 순서이고 엣지는 노드 이름을 가리킨다."""
 
     header: str
+    directive: str = ""
     nodes: list[str]
     node_lines: dict[str, str]
     edges: list[tuple[str, str, str]]
@@ -52,7 +53,7 @@ def _label(raw: str) -> str:
 
 def _render(plan: _Plan, shown: list[str]) -> tuple[str, int]:
     visible = set(shown)
-    lines = [plan.header]
+    lines = [plan.header] if not plan.directive else [plan.directive, plan.header]
     for name in shown:
         lines.append(plan.node_lines[name])
     kept = 0
@@ -65,6 +66,10 @@ def _render(plan: _Plan, shown: list[str]) -> tuple[str, int]:
 
 def _compile(plan: _Plan, limit: DiagramLimit, diagram_id: str, level: str) -> Diagram:
     """노드 상한과 소스 문자 상한을 함께 만족할 때까지 노드를 줄인다."""
+    if limit.layout != "dagre":
+        plan = plan.model_copy(
+            update={"directive": f'%%{{init: {{"layout": "{limit.layout}"}}}}%%'}
+        )
     total = len(plan.nodes)
     shown = plan.nodes[: limit.max_nodes]
     reasons: list[str] = []
@@ -81,7 +86,8 @@ def _compile(plan: _Plan, limit: DiagramLimit, diagram_id: str, level: str) -> D
     if len(source) > limit.max_source_chars:
         # 노드 하나로도 상한을 못 맞추는 경우다. 상한을 넘는 다이어그램을 내보내면
         # 게이트가 그다음에 잡을 뿐이라, 여기서 표로 강등한다(사다리 마지막 단).
-        source, edge_count = plan.header, 0
+        source, edge_count = _render(plan, []), 0
+        source = source[0] if isinstance(source, tuple) else source
         reasons.append(
             f"노드 하나의 라벨만으로도 {limit.max_source_chars}자를 넘어 다이어그램을 비웠다"
         )

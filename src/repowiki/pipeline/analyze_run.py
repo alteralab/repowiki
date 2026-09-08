@@ -32,6 +32,7 @@ def load_limits() -> dict[str, DiagramLimit]:
             max_nodes=values["max_nodes"],
             max_source_chars=values["max_source_chars"],
             max_blocks_per_page=values["max_blocks_per_page"],
+            layout=values.get("layout", "dagre"),
         )
         for level, values in raw["levels"].items()
     }
@@ -95,7 +96,9 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     flows = graph.flows(extraction.entry_points, type_edges, types, _MAX_FLOWS)
 
     compiled = [diagrams.subsystem_diagram(groups, edges, limits["L0"])]
-    for group in groups[: limits["L0"].max_nodes]:
+    # 서브시스템마다 페이지가 하나씩 생긴다. L0의 노드 상한은 한 그림에 몇 개를 그리느냐이지
+    # 페이지를 몇 개 만드느냐가 아니다.
+    for group in groups:
         compiled.append(diagrams.module_diagram(group, modules, edges, limits["L1"]))
     for module in _busiest_modules(modules, _MAX_L2_MODULES):
         diagram = diagrams.type_diagram(module, type_edges, limits["L2"])

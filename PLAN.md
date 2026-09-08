@@ -14,7 +14,7 @@
 | altera-rules | 적용: `rev: rules-v0.10.0`, 표면 `common`, `lang/python`, `lang/bash`, `review` | 규약 저장소 정독 |
 | 조율 | 그래프 하나(결정층 + LLM층). **LangGraph 1.2.11 기본**(사용자 결정 2026-09-09: 자작보다 프레임워크가 표준 대응에 유리). Phase 0 하네스 세 시나리오는 그 구현의 수용 테스트다(§5). 비용은 실측으로 기록(해석 +23, 네이티브 +7, 휠 +8.6 MB, [15] §7) | 사용자 결정, syntopicon 재감사, [14] #8, [15] §7 |
 | 의존성 | 런타임 Python 직접 의존 기본 11개(최소 8 + LangGraph 3; anthropic은 `[api]` extra), Node 3개, 바이너리 4개, 네이티브 휠 ≤15개. 상한과 추가 규칙은 §8 | [15] 실측(6판 함의 해석 120, 네이티브 38, 휠 150 MB → 72, 15, 50 MB) |
-| 다이어그램 | Mermaid 11. 게이트에 GitLab 실제 한도(페이지당 소스 2,000자, 50블록), 가독성 사다리(§2.5)로 상한과 레이아웃을 결정. ELK와 대화형 페이지는 사다리 결과로 채택 | [14] #1, #2, [15] |
+| 다이어그램 | Mermaid 11. 게이트에 GitLab 실제 한도(페이지당 소스 2,000자, 50블록). 사다리 실측으로 L0 노드 상한 6, L1 상한 25, 레이아웃은 L0과 L1 모두 ELK로 확정했다. 대화형 페이지는 미채택 | [14] #1, #2, [15], Phase 1 실측 |
 | 심볼, 타입, 호출, def/ref 태그 | ast-grep 0.45.3 kind 룰 한 벌(파서 한 벌). def/ref 태그의 tree-sitter 대체는 **임시**이며 Phase 1 언어별 오라클 비교(Java, Scala, Python, TypeScript; 정답은 사람이 아니라 테스트 전용 오라클이 낸다, §6 3) 통과가 채택 조건이다. 타입 관계와 호출 엣지는 분리된 채택 조건(§2.3) | [14] #3, [15] §3(샘플 2건 실측) |
 | 랭킹, 서브시스템 | PageRank(권위) + 역PageRank/HITS(허브), RRF; 빌드 트리 우선, networkx Louvain. Leiden 도전자(scikit-network)는 평가 전용 extra. networkx Leiden은 CPU에 없다 | [14] #4, #5, [15] |
 | 이력 | git CLI, blobless에서 핫스팟 = 수정 횟수, 오라클 code-maat(Docker, 테스트 전용) | [14] #6, [15] |
@@ -162,7 +162,7 @@ frontmatter 스키마의 정본은 `gate/frontmatter.py`의 pydantic 모델이�
 - 소스 언어 Mermaid 11 다섯 종(flowchart, classDiagram, sequenceDiagram, stateDiagram-v2, erDiagram) + timeline. LLM은 라벨과 그룹 이름만 제안한다. 게이트는 jsdom `mermaid.parse`(11.17.2와 대상 GitLab 판 11.13.0 둘 다, 같은 jsdom에서 두 판 동작 확인 [15] §3.5)이고, 여기에 여섯 종 대표 픽스처(`tests/fixtures/mermaid/`)를 11.13.0 `mermaid.render`로 렌더해 오류 0, SVG 생성, 라벨 텍스트 보존을 확인하는 렌더 픽스처 테스트를 더한다. `parse`는 문법 수용만 보기 때문이다. GitLab 실제 초기화 설정과의 동일성은 §6 6의 GitLab 라운드트립(P-B)이 판정하며 그 전까지 [unverified].
 - 한도 게이트: 페이지당 Mermaid 소스 ≤2,000자, ≤50블록(GitLab이 초과 시 클릭 렌더로 바꾼다 [14]).
 - **가독성 사다리(사전 등록, Phase 1 판정)**: 1440px 폭에서 L0(서브시스템)와 L1(모듈) 다이어그램마다 (a) 엣지 교차 ≤10, (b) 라벨 잘림 0, (c) 가로 스크롤 없음을 dagre로 만족하면 확정. 실패하면 순서대로 `layout: elk`(정적 사이트 프로필, Fumadocs의 Mermaid 클라이언트 컴포넌트에 ELK 로더 벤더링) → 서브시스템 분할로 노드 감축 → 표 + `graph.json` 대화형 페이지로 강등하고 페이지에 강등 사유를 적는다. 노드 상한의 정본은 `data/diagram-limits.yml`이고, 그 값은 Phase 1에서 4개 레포의 사다리 결과로 채운다. 이해도 하한은 Phase 4 태스크(§5)가 잰다.
-- **사다리 단의 의존성은 채택 조건부다.** `@mermaid-js/layout-elk`(elkjs, `node_modules` 77 MB, npm license 필드가 SPDX 표현식 `EPL-2.0 OR GPL-3.0-or-later`이므로 SBOM에 원 표현식을 그대로 두고 선택 라이선스 EPL-2.0을 별도 필드로 적으며, EPL-2.0 허용 여부는 회사 라이선스 정책 항목으로 둔다)와 sigma 3 + graphology(대화형 페이지)는 Phase 1의 4개 레포에서 그 단에 떨어지는 다이어그램이 하나라도 있을 때만 락과 자산 manifest에 들어간다. 채택하면 §8의 Node 상한을 채택한 패키지 수만큼 올리고 그 사유를 §8에 적는다. 하나도 없으면 그 단은 "표로 강등"으로 끝나고 두 패키지는 계획에서 지운다.
+- **사다리 단의 의존성 판정(Phase 1 실측으로 확정).** `@mermaid-js/layout-elk` 0.2.3을 **채택**한다. 근거는 1440px 본문 폭 1100px에서 실제 Chrome으로 잰 엣지 교차 수다. L0를 dagre로 그리면 노드 상한 6에서도 dubbo 11, airflow 20으로 하한 10을 넘고, ELK로 그리면 kafka 1, dubbo 5, airflow 5다. L1도 dagre로는 둘이 떨어졌고(dubbo-metrics 11, airflow providers 17) ELK로 각각 5와 3이 됐다. 채택으로 Node 직접 의존이 3개에서 4개가 되고 §8의 상한을 그만큼 올린다. elkjs의 npm license 필드는 SPDX 표현식 `EPL-2.0 OR GPL-3.0-or-later`이므로 SBOM에 원 표현식과 선택 라이선스 EPL-2.0을 함께 적고, EPL-2.0 허용 여부는 회사 라이선스 정책 항목이다. sigma 3 + graphology(대화형 페이지)는 **미채택**이다. 네 저장소의 L0과 L1이 전부 사다리를 통과해 마지막 단으로 내려간 다이어그램이 없다.
 - L2(모듈 안 타입)는 fan-in 상위 25개, `extends/implements` 실선, `field_type/param_type` 점선, `call` 가중 화살표. 흐름은 sequence 골격(participant = 모듈, 메시지 = 홉, ≤12홉).
 - 핫스팟은 `classDef hot`. GitLab과 GitHub 저장소 뷰에서는 스크립트가 돌지 않으므로 그곳의 1차 산출은 정적 Mermaid다.
 - 사이트의 Mermaid는 Fumadocs 클라이언트 컴포넌트(리서치 17 `mermaid.tsx`, 약 40줄 줌 오버레이 포함)가 렌더한다. 기본은 원 크기 + 가로 스크롤(리서치 17 실측 3,791 px)이 아니라 `max-width: 100%` + 클릭 줌이며, 사다리 (c) 판정도 이 CSS로 잰다.
@@ -269,7 +269,7 @@ frontmatter 스키마의 정본은 `gate/frontmatter.py`의 pydantic 모델이�
 | Helm/kustomize | Helm 4.2.4, kustomize 5.8.1(SHA256 고정) | KEEP+ | 골든 렌더 |
 | Terraform 평가 그래프 | tfparse 0.6.21 `[terraform-eval]` extra(cffi + Go 17 MB) | SPIKE [15] | Phase 2b 스파이크(모듈 소스 2, backend 3, `--network none`) |
 | Mermaid 검증 | mermaid 11.17.2 + 11.13.0, jsdom 30.0.1, Node 22.22.2 | KEEP+ | parse 두 판, render 픽스처 여섯 종, 2,000자, 50블록, 가독성 사다리 |
-| 사다리 단(ELK, 대화형) | `@mermaid-js/layout-elk` 0.2.3, sigma 3.0.3 + graphology 0.26.0 | SPIKE [15] | Phase 1 사다리에서 그 단에 떨어지는 다이어그램 ≥1일 때만 채택(§2.5) |
+| 사다리 단(ELK) | `@mermaid-js/layout-elk` 0.2.3 + elkjs 0.12.0 | 채택(Phase 1 실측). sigma와 graphology는 미채택 | L0과 L1 전부 교차 ≤10, 라벨 잘림 0, 가로 스크롤 없음 |
 | 산문 | fluent-korean + 자체 정규식(hanlint 규칙 4개 이식); hanlint 0.0.10은 테스트 오라클 | KEEP(강등); TEST [15] | 30문장 오탐 0, 오라클 일치 기록 |
 | GitLab, GitHub | 표준 라이브러리 `urllib.request` 위의 REST 어댑터(`adapters/gitlab.py` 100줄 안팎: 그룹 프로젝트 열거, MR 목록, MR 생성, 페이지네이션) | python-gitlab REPLACE [15](LGPL과 httpx 1.x 스택 제거); httpx2는 anthropic이 `[api]` extra로 내려가 보장되지 않으므로 표준 라이브러리 | 요청 수, 20개 프로젝트 열거 |
 | 사이트 생성기 | **Fumadocs 16.15.8** + Next.js 16.3.4 `output: 'export'`, `npm ci --offline` 4.3 s, `next build` 9~12 s(egress 차단 sandbox에서 실측), Orama 정적 검색, Mermaid 클라이언트 컴포넌트, 루트에 `llms.txt`와 페이지별 `.md` 복사. 뷰어는 `repowiki site --open`(127.0.0.1 `http.server`) | 리서치 13, 17 [실측]; 사용자 결정(Starlight 42 > Fumadocs 35 > MkDocs 32였으나 Fumadocs 선택); Node 락 153 → 527, `node_modules` 250 → 800 MB, 산출물 300페이지 222 MB(RSC `.txt` 125 MB, 지우면 탐색 후퇴) | 루프백 라운드트립(탐색, 검색 한국어 4질의, Mermaid, 다크, 실패 요청 0), hydration 오류 #418 원인 규명 |
@@ -384,7 +384,7 @@ Phase 0의 셸 절차는 `docs/bootstrap.md`가 소유한다.
 - 금지: 오프라인 `uv sync`, 반입 환경 안 `uv build`, `pyright` pip 래퍼, `mermaid-cli`, language-pack, Serena와 `optional-lsp/`.
 
 **의존성 지속 규칙(리서치 15 §5).**
-1. 상한: 런타임 Python 직접 의존 12개 이하, Node 직접 의존 20개 이하(파서 게이트 3 + Fumadocs 빌더 17, 사용자 결정 2026-09-09로 3에서 상향), 바이너리 4개 이하, 네이티브 휠 15개 이하. 현재 기본 Python 9(anthropic은 `[api]` extra, mkdocs 계열 제거), Node 20, 바이너리 4, 네이티브 ≤15(정확한 값은 Phase 0 `depcheck`). Node 상향의 대가(락 527, `node_modules` 약 800 MB, Next.js 보안 권고 연 35건)는 §9에 기록했고, Next.js는 보안 권고 배치마다 골든 재통과 뒤 한 번에 올린다(반입 주기 1~2개월). 상한을 넘기는 추가는 같은 수만큼 제거를 동반한다. 예외는 §2.5와 §3에 사전 등록된 조건부 스파이크(layout-elk, sigma+graphology, cbm, tfparse) 하나뿐이며, 스파이크가 채택되면 그 수만큼 상한을 올리고 채택 근거(Phase, 측정값)를 이 항목에 적는다.
+1. 상한: 런타임 Python 직접 의존 12개 이하, Node 직접 의존 20개 이하(파서 게이트 3 + Fumadocs 빌더 17, 사용자 결정 2026-09-09로 3에서 상향), 바이너리 4개 이하, 네이티브 휠 15개 이하. 현재 기본 Python 9(anthropic은 `[api]` extra, mkdocs 계열 제거), Node 4(mermaid 두 판, jsdom, layout-elk), 바이너리 4, 네이티브 ≤15(정확한 값은 Phase 0 `depcheck`). Node 상향의 대가(락 527, `node_modules` 약 800 MB, Next.js 보안 권고 연 35건)는 §9에 기록했고, Next.js는 보안 권고 배치마다 골든 재통과 뒤 한 번에 올린다(반입 주기 1~2개월). 상한을 넘기는 추가는 같은 수만큼 제거를 동반한다. 예외는 §2.5와 §3에 사전 등록된 조건부 스파이크(layout-elk, sigma+graphology, cbm, tfparse) 하나뿐이며, 스파이크가 채택되면 그 수만큼 상한을 올리고 채택 근거(Phase, 측정값)를 이 항목에 적는다.
 2. 서드파티 하나에 어댑터 하나(§2.2). `.importlinter`가 `adapters/` 밖의 서드파티 임포트를 막는다.
 3. 파서는 한 벌. 코드 파싱은 ast-grep 내장 tree-sitter 하나다.
 4. 런타임 코드가 쓰는 HTTP 클라이언트는 표준 라이브러리 `urllib.request` 하나다(`adapters/gitlab.py`, `adapters/github.py`). httpx 0.28, httpx2, requests는 langchain-core, langsmith, `[api]`의 anthropic 전이 의존으로 락에 있을 뿐이며 `.importlinter`가 `httpx`, `httpx2`, `requests` 임포트를 막는다. 새 의존성이 httpx 1.x나 requests를 요구하면 그 자체로 검사 항목 (2)의 대체 시도 대상이다.

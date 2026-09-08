@@ -29,7 +29,7 @@
 - Python ≥3.12, uv 고정. Node 22.22.2는 Mermaid 검증기와 Fumadocs 빌드에만.
 - 런타임 직접 의존은 파이썬 12개, Node 20개, 바이너리 4개, 네이티브 휠 15개 이하다. 추가는 PLAN §8의 검사 목록 여덟 항목을 통과해야 한다.
 - LLM 실행의 기본은 Claude Code 세션 드라이버다. repowiki는 job 파일과 게이트만 소유하고 컨테이너는 LLM 네트워크가 필요 없다. `--driver api`와 anthropic SDK는 `[api]` extra다.
-- 서드파티 임포트는 `adapters/` 안에서만 한다. 조율 층만 langgraph를 직접 쓴다.
+- 서드파티 임포트는 금지 목록으로 막는다(PLAN §2.2). `adapters/` 밖에서 `subprocess`, `anthropic`, `urllib`, `http`, `hcl2`, `dockerfile_parse`, `httpx`, `httpx2`, `requests`를 임포트하지 않는다. 순수 계산 라이브러리(networkx, PyYAML)와 조율 층의 langgraph는 도메인 층과 조율 층에서 직접 쓴다. 계약의 정본은 `pyproject.toml`의 import-linter 설정이다.
 - 시크릿은 환경 변수와 `GIT_ASKPASS`. 자격증명 유사 키는 값 마스킹.
 - 런타임 배포물 SBOM에 SPDX `GPL-*`, `AGPL-*` 0건.
 - 텔레메트리 전송 0. langsmith는 langchain-core의 하드 의존이라 설치되지만 `LANGSMITH_TRACING=false`와 `langsmith.configure(enabled=False)`로 끈다.
@@ -51,7 +51,7 @@
 
 - **SC-1.1** 대상 저장소 넷(commons-cli, dubbo, kafka, airflow)에서 분석이 종료 상태 0으로 끝난다.
 - **SC-1.2** 언어별 선언과 def/ref 추출이 오라클과 비교해 정밀도와 재현율 0.98 이상이다. 오라클은 사람이 아니라 도구가 낸다(Python은 표준 라이브러리 `ast`, Java는 javaparser, TypeScript는 컴파일러 API, Scala는 tree-sitter-scala tags). 사람은 불일치 항목만 판정하고 사유를 픽스처에 남긴다.
-- **SC-1.3** 서브시스템 분할이 문서화된 모듈 목록 대비 MoJoFM에서 빌드 트리 단독 이상이고, 시드 10개 사이 ARI가 0.9 이상이다.
+- **SC-1.3** 서브시스템 분할이 결정적이고 빌드 구조를 따른다. 빌드 파일이 선언한 상위 묶음이 둘 이상이면 그 묶음이 분할이고, 시드나 실행 순서가 결과를 바꾸지 않는다(같은 입력 2회에서 같은 분할). 상위 묶음이 하나뿐이라 군집 알고리즘이 도는 저장소에서는 시드 10개 사이 ARI가 0.9 이상이다. MoJoFM은 쓰지 않는다. 파이썬 구현이 없어 자작해야 하는데 측정 인프라 자작은 금지이고(C-LIB-1), 분할이 빌드 트리 자신이 된 뒤로는 '빌드 트리 단독보다 낫다'가 자기 비교라 판정이 성립하지 않는다.
 - **SC-1.4** 파일 랭킹이 문서화된 핵심 모듈 목록 대비 precision@15에서 0.6 이상이다.
 - **SC-1.5** 생성된 모든 Mermaid 블록이 11.17.2와 11.13.0 두 파서를 통과하고, 페이지당 소스 2,000자 이하 50블록 이하이며, 대표 여섯 종 픽스처가 11.13.0 렌더에서 오류 0으로 SVG를 만들고 라벨을 보존한다.
 - **SC-1.6** 가독성 사다리 판정이 기록된다. 1440px에서 엣지 교차 10 이하, 라벨 잘림 0, 가로 스크롤 없음을 만족하는지와 그 결과로 정해진 노드 상한이 `data/diagram-limits.yml`에 남는다.

@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- 가독성 사다리 측정용 렌더 페이지. 로컬 node_modules의 ESM 번들만 쓴다(외부 요청 0). -->
+<html>
+  <body style="margin:0">
+    <div id="host" style="width:1100px"></div>
+    <script type="module">
+      import mermaid from '../../node_modules/mermaid/dist/mermaid.esm.min.mjs';
+      import elkLayouts from '../../node_modules/@mermaid-js/layout-elk/dist/mermaid-layout-elk.esm.min.mjs';
+      mermaid.registerLayoutLoaders(elkLayouts);
+      mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', suppressErrorRendering: true });
+      window.mermaid = mermaid;
+      window.__ready = true;
+    </script>
+  </body>
+</html>
