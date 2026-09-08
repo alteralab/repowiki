@@ -347,6 +347,7 @@ def type_edges(
                 span=reference.span,
                 src_module=reference.module,
                 dst_module=target.module,
+                src_path=reference.owner_path,
                 dst_path=target.span.path,
             )
         )

@@ -431,3 +431,35 @@ def test_flow_is_order_independent_and_terminates_on_cycles() -> None:
     backward = flows([entry], list(reversed(edges)), index, limit=5)
     assert [h.symbol for h in forward[0].hops] == [h.symbol for h in backward[0].hops]
     assert len(forward[0].hops) <= 4
+
+
+def test_same_named_types_are_separate_nodes() -> None:
+    """같은 이름의 다른 타입을 한 노드로 합치면 없는 관계를 그린다."""
+    from repowiki.models import TypeEdge, TypeEdgeKind
+
+    limit = DiagramLimit(level="L2", max_nodes=25, max_source_chars=2000, max_blocks_per_page=50)
+    edges = [
+        TypeEdge(
+            src="Builder",
+            dst="Option",
+            kind=TypeEdgeKind.FIELD_TYPE,
+            span=_span("core/Option.java", 10),
+            src_module="core",
+            dst_module="core",
+            src_path="core/Option.java",
+            dst_path="core/Option.java",
+        ),
+        TypeEdge(
+            src="Builder",
+            dst="Parser",
+            kind=TypeEdgeKind.FIELD_TYPE,
+            span=_span("core/Parser.java", 12),
+            src_module="core",
+            dst_module="core",
+            src_path="core/Parser.java",
+            dst_path="core/Parser.java",
+        ),
+    ]
+    diagram = type_diagram("core", edges, limit)
+    assert diagram is not None
+    assert diagram.source.count('["Builder"]') == 2

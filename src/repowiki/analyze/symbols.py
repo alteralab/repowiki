@@ -50,13 +50,17 @@ _ENTRY_ANNOTATIONS = {
 
 
 class Reference(BaseModel):
-    """참조 하나. `owner`는 이 참조를 감싸는 타입의 이름이다."""
+    """참조 하나. `owner`는 이 참조를 감싸는 타입이고 `owner_path`가 그 선언 파일이다.
+
+    이름만으로는 같은 이름의 다른 타입을 구분하지 못한다. 경로가 식별자다.
+    """
 
     message: str
     name: str
     span: Span
     module: str
     owner: str | None
+    owner_path: str | None = None
     is_test: bool
 
 
@@ -271,13 +275,16 @@ def _assign_owners(
     for symbol in symbols:
         if symbol.kind in _TYPE_KINDS:
             continue
-        symbol.parent = _innermost(types_by_file.get(symbol.span.path, []), symbol.span)
+        parent = _innermost_symbol(types_by_file.get(symbol.span.path, []), symbol.span)
+        symbol.parent = parent.name if parent is not None else None
     for reference in references:
-        reference.owner = _innermost(types_by_file.get(reference.span.path, []), reference.span)
+        owner = _innermost_symbol(types_by_file.get(reference.span.path, []), reference.span)
+        reference.owner = owner.name if owner is not None else None
+        reference.owner_path = owner.span.path if owner is not None else None
 
 
-def _innermost(candidates: list[Symbol], span: Span) -> str | None:
-    """`span`을 담는 가장 작은 타입의 이름.
+def _innermost_symbol(candidates: list[Symbol], span: Span) -> Symbol | None:
+    """`span`을 담는 가장 작은 타입.
 
     같은 크기의 후보가 둘 이상이면 소유자를 정하지 않는다. 사전순으로 하나를 고르면
     재현은 되지만 근거 없는 선택이 사실이 된다(C-BRANCH-3).
@@ -293,4 +300,4 @@ def _innermost(candidates: list[Symbol], span: Span) -> str | None:
     tied = [c for c in enclosing if c.span.end_line - c.span.start_line == smallest]
     if len(tied) > 1:
         return None
-    return tied[0].name
+    return tied[0]

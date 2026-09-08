@@ -161,25 +161,38 @@ def type_diagram(
     in_module = [e for e in edges if e.src_module == module_id]
     if not in_module:
         return None
+    # 노드의 정체는 선언 파일이고 이름은 라벨이다. 같은 이름의 다른 타입을 한 노드로
+    # 합치면 다이어그램이 없는 관계를 그린다.
+    label_of: dict[str, str] = {}
     fan_in: Counter[str] = Counter()
     for edge in in_module:
-        fan_in[edge.dst] += 1
-        fan_in.setdefault(edge.src, 0)
-    ordered = [name for name, _ in fan_in.most_common()]
+        src_key = edge.src_path or f"name:{edge.src}"
+        dst_key = edge.dst_path or f"name:{edge.dst}"
+        label_of.setdefault(src_key, edge.src)
+        label_of.setdefault(dst_key, edge.dst)
+        fan_in[dst_key] += 1
+        fan_in.setdefault(src_key, 0)
+    ordered = [key for key, _ in fan_in.most_common()]
+    # 노드 id는 짧은 자리 번호다. 경로를 id로 쓰면 소스 문자 예산을 다 먹는다.
+    # 순서는 결정적이므로 같은 입력에서 같은 번호가 붙는다.
+    short = {key: f"T{position}" for position, key in enumerate(ordered)}
     seen: set[tuple[str, str, TypeEdgeKind]] = set()
     edge_lines: list[tuple[str, str, str]] = []
     for edge in in_module:
-        key = (edge.src, edge.dst, edge.kind)
+        src_key = edge.src_path or f"name:{edge.src}"
+        dst_key = edge.dst_path or f"name:{edge.dst}"
+        key = (src_key, dst_key, edge.kind)
         if key in seen:
             continue
         seen.add(key)
         arrow = _EDGE_ARROW.get(edge.kind, "..>")
-        src, dst = _ID_SAFE.sub("_", edge.src), _ID_SAFE.sub("_", edge.dst)
-        edge_lines.append((edge.src, edge.dst, f"  {dst} {arrow} {src}"))
+        edge_lines.append((src_key, dst_key, f"  {short[dst_key]} {arrow} {short[src_key]}"))
     plan = _Plan(
         header="classDiagram",
         nodes=ordered,
-        node_lines={name: f"  class {_ID_SAFE.sub('_', name)}" for name in ordered},
+        node_lines={
+            key: f'  class {short[key]}["{_label(label_of[key])}"]' for key in ordered
+        },
         edges=edge_lines,
     )
     label = module_id if module_id not in ("", ".") else "root"
