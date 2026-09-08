@@ -100,23 +100,21 @@ def resolve_dotted(target: str, index: dict[str, set[str]], home: str | None = N
     return None
 
 
-def type_owners(index: dict[str, list[Symbol]]) -> dict[str, str]:
-    """저장소 안에서 유일하게 선언된 타입 이름의 소유 모듈. 임포트 해석의 1순위 근거다."""
-    return {name: items[0].module for name, items in index.items() if len(items) == 1}
-
-
 def module_edges(
     imports: list[ImportRecord],
     index: dict[str, set[str]],
     include_test: bool = False,
-    owners: dict[str, str] | None = None,
+    scope: "NameScope | None" = None,
 ) -> tuple[list[ModuleEdge], int]:
     """임포트를 모듈 엣지로 접는다. 해석되지 않은 임포트 수를 함께 낸다.
 
-    해석 순서는 둘이다. (1) 임포트가 가리키는 타입 이름이 저장소에서 유일하게 선언돼
-    있으면 그 선언의 모듈이다. (2) 아니면 패키지 접두사로 찾는다. 타입을 먼저 보는 이유는
-    한 패키지를 여러 모듈이 나눠 가질 때 패키지만으로는 어느 쪽인지 알 수 없고, 참조하는
-    모듈을 답으로 삼으면 실재하는 교차 모듈 엣지가 자기 엣지로 흡수되기 때문이다.
+    해석은 정규화된 이름으로만 한다. `import a.b.C`는 패키지 `a.b`가 최상위로 선언한
+    `C`를 찾고, 그런 선언이 없으면 외부 타입이므로 엣지를 만들지 않는다. 단순 이름이
+    저장소 어딘가에 유일하다는 이유로 잇지 않는다 — 그러면 `java.util.stream.Stream`이
+    저장소의 `Stream`으로 이어진다(dubbo 437건, kafka 1,508건 실측).
+
+    와일드카드 임포트(`import a.b.*`)처럼 타입 이름이 없는 형태는 패키지 소유자로 찾고,
+    소유자가 여럿이면 해석하지 않는다.
     """
     weights: Counter[tuple[str, str]] = Counter()
     evidence: dict[tuple[str, str], list] = defaultdict(list)
@@ -127,11 +125,7 @@ def module_edges(
     for record in ordered:
         if record.is_test and not include_test:
             continue
-        target_module = None
-        if owners is not None:
-            target_module = owners.get(record.target.rsplit(".", 1)[-1])
-        if target_module is None:
-            target_module = resolve_dotted(record.target, index, home=record.module)
+        target_module = _import_target(record, index, scope)
         if target_module is None:
             unresolved += 1
             continue
@@ -146,6 +140,22 @@ def module_edges(
         for (src, dst), weight in sorted(weights.items())
     ]
     return edges, unresolved
+
+
+def _import_target(
+    record: ImportRecord, index: dict[str, set[str]], scope: "NameScope | None"
+) -> str | None:
+    """임포트 하나가 가리키는 모듈. 정규화된 선언이 있을 때만 답한다."""
+    if scope is not None and "." in record.target:
+        package, simple = record.target.rsplit(".", 1)
+        path = scope.declared(package, simple)
+        if path is not None:
+            return scope.file_module.get(path)
+        if package in index or record.target in index:
+            # 타입 선언이 아니라 패키지를 가리킨다(와일드카드나 파이썬 모듈).
+            return resolve_dotted(record.target, index, home=record.module)
+        return None
+    return resolve_dotted(record.target, index, home=record.module)
 
 
 def type_index(symbols: list[Symbol]) -> dict[str, list[Symbol]]:
@@ -175,32 +185,73 @@ class NameScope(BaseModel):
 
     file_package: dict[str, str] = {}
     file_imports: dict[str, dict[str, str]] = {}
+    file_module: dict[str, str] = {}
     by_package: dict[str, dict[str, str]] = {}
 
     def declared(self, package: str, name: str) -> str | None:
-        """그 패키지가 그 이름을 선언한 파일. 없으면 `None`."""
+        """그 패키지가 그 이름을 최상위로 선언한 파일. 없거나 둘 이상이면 `None`.
+
+        중첩 타입은 여기 없다. 감싸는 타입 없이는 그 이름으로 부를 수 없기 때문이다.
+        """
         return self.by_package.get(package, {}).get(name)
 
 
+def _package_claims(
+    extraction: Extraction, file_package: dict[str, str]
+) -> dict[str, dict[str, set[str]]]:
+    """(패키지, 이름) → 그 이름을 최상위로 선언한 파일들.
+
+    중첩 타입은 넣지 않는다. 감싸는 타입 없이는 그 이름으로 부를 수 없어서, 패키지 수준
+    선언처럼 다루면 다른 파일의 내부 클래스가 같은 이름의 참조를 가로챈다.
+    """
+    types_by_file: dict[str, list[Symbol]] = defaultdict(list)
+    for symbol in sorted(extraction.symbols, key=lambda s: (s.span.path, s.span.start_line)):
+        if symbol.kind in _TYPE_KINDS and not symbol.is_test:
+            types_by_file[symbol.span.path].append(symbol)
+
+    claims: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    for path, items in sorted(types_by_file.items()):
+        package = file_package.get(path)
+        if package is None:
+            continue
+        for symbol in items:
+            if not _is_nested(symbol, items):
+                claims[package][symbol.name].add(path)
+    return claims
+
+
 def build_scope(extraction: Extraction) -> NameScope:
-    """파일별 패키지와 임포트, 패키지별 선언 표를 만든다."""
+    """파일별 패키지와 임포트, 패키지별 최상위 선언 표를 만든다."""
     scope = NameScope()
     for record in sorted(extraction.packages, key=lambda r: r.path):
         scope.file_package[record.path] = record.name
+        scope.file_module[record.path] = record.module
     for record in sorted(extraction.imports, key=lambda r: (r.span.path, r.target)):
         parts = record.target.rsplit(".", 1)
-        if len(parts) != 2:
-            continue
-        package, simple = parts
-        scope.file_imports.setdefault(record.span.path, {})[simple] = package
-    for symbol in sorted(extraction.symbols, key=lambda s: (s.span.path, s.name)):
-        if symbol.kind not in _TYPE_KINDS or symbol.is_test:
-            continue
-        package = scope.file_package.get(symbol.span.path)
-        if package is None:
-            continue
-        scope.by_package.setdefault(package, {}).setdefault(symbol.name, symbol.span.path)
+        if len(parts) == 2:
+            scope.file_imports.setdefault(record.span.path, {})[parts[1]] = parts[0]
+
+    # 같은 (패키지, 이름)을 두 파일이 주장하면 그 이름은 정규화되지 않는다. 넣지 않는다.
+    for package, names in _package_claims(extraction, scope.file_package).items():
+        for name, paths in names.items():
+            if len(paths) == 1:
+                scope.by_package.setdefault(package, {})[name] = next(iter(paths))
     return scope
+
+
+def _is_nested(symbol: Symbol, siblings: list[Symbol]) -> bool:
+    """같은 파일의 다른 타입이 이 타입을 감싸고 있는가."""
+    for other in siblings:
+        if other is symbol:
+            continue
+        if (
+            other.span.start_line <= symbol.span.start_line
+            and symbol.span.end_line <= other.span.end_line
+            and (other.span.end_line - other.span.start_line)
+            > (symbol.span.end_line - symbol.span.start_line)
+        ):
+            return True
+    return False
 
 
 def _by_path(index: dict[str, list[Symbol]], name: str, path: str) -> Symbol | None:

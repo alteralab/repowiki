@@ -84,11 +84,9 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     index = graph.package_index(extraction.packages)
     index.update(graph.python_index(kept, roots, structure.module_of))
     types = graph.type_index(extraction.symbols)
-    edges, unresolved_imports = graph.module_edges(
-        extraction.imports, index, owners=graph.type_owners(types)
-    )
-
     scope = graph.build_scope(extraction)
+    edges, unresolved_imports = graph.module_edges(extraction.imports, index, scope=scope)
+
     type_edges, resolution = graph.type_edges(extraction, types, scope)
     ranks = graph.file_ranks(type_edges, extraction.symbols)
 

@@ -18,7 +18,6 @@ from repowiki.analyze.graph import (
     subsystems,
     type_edges,
     type_index,
-    type_owners,
 )
 from repowiki.analyze.structure import module_of
 from repowiki.analyze.symbols import Extraction, ImportRecord, PackageRecord, Reference
@@ -237,22 +236,83 @@ def test_type_diagram_is_absent_without_edges() -> None:
     assert type_diagram("core", [], limit) is None
 
 
-def test_import_resolves_by_declared_type_before_package() -> None:
-    """임포트가 가리키는 타입의 선언 모듈이 1순위다.
+def test_import_resolves_by_qualified_declaration() -> None:
+    """임포트는 정규화된 선언으로만 푼다.
 
-    한 패키지를 두 모듈이 나눠 가질 때 참조하는 모듈을 답으로 삼으면 실재하는 교차
-    모듈 엣지가 자기 엣지로 흡수된다.
+    한 패키지를 두 모듈이 나눠 가져도 `a.b.C`를 최상위로 선언한 파일이 하나면 답이
+    정해진다. 참조하는 모듈을 답으로 삼으면 실재하는 교차 모듈 엣지가 자기 엣지로
+    흡수된다.
     """
-    symbols = [_type("Shared", "clients", "clients/src/main/java/Shared.java")]
-    owners = type_owners(type_index(symbols))
+    declaration = _type("Shared", "clients", "clients/src/main/java/Shared.java")
+    scope = build_scope(
+        _scope_extraction(
+            [declaration],
+            [
+                _package("clients/src/main/java/Shared.java", "org.shared"),
+                _package("core/src/main/java/User.java", "org.shared"),
+            ],
+            [],
+        )
+    )
     index = {"org.shared": {"core", "clients"}}
     imports = [
         ImportRecord(target="org.shared.Shared", span=_span(), module="core", is_test=False)
     ]
-    with_owners, _ = module_edges(imports, index, owners=owners)
-    without_owners, _ = module_edges(imports, index)
-    assert [(e.src, e.dst) for e in with_owners] == [("core", "clients")]
-    assert without_owners == []
+    with_scope, _ = module_edges(imports, index, scope=scope)
+    without_scope, _ = module_edges(imports, index)
+    assert [(e.src, e.dst) for e in with_scope] == [("core", "clients")]
+    assert without_scope == []
+
+
+def test_external_import_makes_no_module_edge() -> None:
+    """저장소가 선언하지 않은 이름을 임포트하면 외부 타입이다. 동명 선언으로 잇지 않는다."""
+    local = _type("Stream", "core", "core/src/main/java/org/y/Stream.java")
+    scope = build_scope(
+        _scope_extraction(
+            [local],
+            [
+                _package("core/src/main/java/org/y/Stream.java", "org.y"),
+                _package("core/src/main/java/org/y/User.java", "org.y"),
+            ],
+            [],
+        )
+    )
+    imports = [
+        ImportRecord(
+            target="java.util.stream.Stream",
+            span=_span("core/src/main/java/org/y/User.java"),
+            module="core",
+            is_test=False,
+        )
+    ]
+    edges, unresolved = module_edges(imports, {"org.y": {"core"}}, scope=scope)
+    assert edges == []
+    assert unresolved == 1
+
+
+def test_nested_type_does_not_claim_a_package_name() -> None:
+    """중첩 타입은 패키지 수준 선언이 아니다. 다른 파일의 참조를 가로채면 안 된다."""
+    outer = Symbol(
+        kind=SymbolKind.CLASS,
+        name="Outer",
+        span=Span(path="a/src/main/java/org/y/Outer.java", start_line=1, end_line=100),
+        module="a",
+        language="java",
+    )
+    inner = Symbol(
+        kind=SymbolKind.CLASS,
+        name="Node",
+        span=Span(path="a/src/main/java/org/y/Outer.java", start_line=10, end_line=20),
+        module="a",
+        language="java",
+    )
+    scope = build_scope(
+        _scope_extraction(
+            [outer, inner], [_package("a/src/main/java/org/y/Outer.java", "org.y")], []
+        )
+    )
+    assert scope.declared("org.y", "Outer") == "a/src/main/java/org/y/Outer.java"
+    assert scope.declared("org.y", "Node") is None
 
 
 def _package(path: str, name: str) -> PackageRecord:
