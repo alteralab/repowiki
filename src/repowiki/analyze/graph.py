@@ -356,6 +356,14 @@ class ResolutionCounts(BaseModel):
         )
 
 
+def _qualified(name: str | None, path: str | None, scope: "NameScope | None") -> str | None:
+    """`패키지.이름` 형태의 정규화된 이름. 패키지를 모르면 `None`."""
+    if name is None or path is None or scope is None:
+        return None
+    package = scope.file_package.get(path)
+    return f"{package}.{name}" if package else None
+
+
 def type_edges(
     extraction: Extraction,
     index: dict[str, list[Symbol]],
@@ -373,6 +381,11 @@ def type_edges(
         extraction.references,
         key=lambda r: (r.span.path, r.span.start_line, r.message, r.name),
     )
+    owner_declarations = {
+        (symbol.span.path, symbol.name): symbol.span
+        for symbol in extraction.symbols
+        if symbol.kind in _TYPE_KINDS
+    }
     for reference in ordered:
         if reference.is_test:
             counts.excluded_test += 1
@@ -414,6 +427,10 @@ def type_edges(
                 dst_module=target.module,
                 src_path=reference.owner_path,
                 dst_path=target.span.path,
+                src_declaration=owner_declarations.get((reference.owner_path or "", reference.owner)),
+                dst_declaration=target.span,
+                src_qualified=_qualified(reference.owner, reference.owner_path, scope),
+                dst_qualified=_qualified(target.name, target.span.path, scope),
             )
         )
     return edges, counts

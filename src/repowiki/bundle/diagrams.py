@@ -20,6 +20,7 @@ from repowiki.models import (
     DiagramLimit,
     Module,
     ModuleEdge,
+    Span,
     Subsystem,
     TypeEdge,
     TypeEdgeKind,
@@ -143,6 +144,16 @@ def module_diagram(
     return _compile(plan, limit, f"L1-{subsystem.id}", "L1")
 
 
+def _identity(declaration: Span | None, path: str | None, name: str) -> str:
+    """노드의 정체. 선언 위치가 있으면 그것이고, 없으면 경로, 그것도 없으면 이름이다.
+
+    한 파일에 같은 이름의 중첩 선언이 여럿일 수 있어 경로만으로는 부족하다.
+    """
+    if declaration is not None:
+        return f"{declaration.path}#{declaration.start_line}"
+    return path or f"name:{name}"
+
+
 _EDGE_ARROW = {
     TypeEdgeKind.EXTENDS: "<|--",
     TypeEdgeKind.IMPLEMENTS: "<|..",
@@ -166,8 +177,8 @@ def type_diagram(
     label_of: dict[str, str] = {}
     fan_in: Counter[str] = Counter()
     for edge in in_module:
-        src_key = edge.src_path or f"name:{edge.src}"
-        dst_key = edge.dst_path or f"name:{edge.dst}"
+        src_key = _identity(edge.src_declaration, edge.src_path, edge.src)
+        dst_key = _identity(edge.dst_declaration, edge.dst_path, edge.dst)
         label_of.setdefault(src_key, edge.src)
         label_of.setdefault(dst_key, edge.dst)
         fan_in[dst_key] += 1
@@ -179,8 +190,8 @@ def type_diagram(
     seen: set[tuple[str, str, TypeEdgeKind]] = set()
     edge_lines: list[tuple[str, str, str]] = []
     for edge in in_module:
-        src_key = edge.src_path or f"name:{edge.src}"
-        dst_key = edge.dst_path or f"name:{edge.dst}"
+        src_key = _identity(edge.src_declaration, edge.src_path, edge.src)
+        dst_key = _identity(edge.dst_declaration, edge.dst_path, edge.dst)
         key = (src_key, dst_key, edge.kind)
         if key in seen:
             continue

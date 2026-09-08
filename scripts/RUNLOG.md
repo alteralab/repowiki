@@ -522,3 +522,14 @@ dubbo 0, kafka 0; 다른 파일의 동명 중첩 타입 선택 dubbo 0, kafka 0)
 "거짓 엣지 제거"로만 설명한 것은 틀렸다. 실재하는 정적, 중첩, Scala 임포트가 함께
 거부된 몫이 있었고 이번 커밋이 그것을 되살렸다. 검사 수도 커밋 시점마다 달라 기계로
 세어 적는다.
+
+### 정규화 식별자 마무리
+
+`TypeEdge`의 양 끝에 선언 위치(`src_declaration`, `dst_declaration`)와 정규화된 이름
+(`src_qualified`, `dst_qualified`)을 담는다. 예: `org.apache.commons.cli.ParseException`,
+선언 `src/main/java/org/apache/commons/cli/ParseException.java:L23-L70`.
+
+L2 다이어그램의 노드 정체도 선언 위치(`경로#시작줄`)로 바꿨다. 한 파일에 같은 이름의
+중첩 선언이 여럿이어도 갈린다. 4차 검증이 남긴 마지막 지적이 이것이었다.
+
+kafka와 dubbo 재측정에서 다이어그램 21/21이 두 파서를 통과하고 근거 위반 0건, 해시 동일.

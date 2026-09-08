@@ -114,10 +114,15 @@ class TypeEdge(BaseModel):
     span: Span
     src_module: str
     dst_module: str | None = None
-    # 양 끝의 선언 파일. 단순 이름만으로는 같은 이름의 다른 선언을 구분하지 못한다.
-    # 이 두 값이 엣지의 식별자이자 위키가 링크할 자리다.
+    # 양 끝의 선언 위치와 정규화된 이름. 단순 이름만으로는 같은 이름의 다른 선언을
+    # 구분하지 못하고, 파일 하나에 중첩 선언이 여럿이면 경로도 부족하다. 이 넷이
+    # 엣지의 식별자이자 위키가 링크할 자리다.
     src_path: str | None = None
     dst_path: str | None = None
+    src_declaration: Span | None = None
+    dst_declaration: Span | None = None
+    src_qualified: str | None = None
+    dst_qualified: str | None = None
 
 
 class EntryPointKind(StrEnum):
