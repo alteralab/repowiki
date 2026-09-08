@@ -195,13 +195,13 @@ def test_type_edges_are_order_independent() -> None:
 
 
 def test_subsystems_prefer_build_tree() -> None:
-    """빌드 트리가 상한 안에서 나뉘면 그것이 이긴다."""
+    """빌드 트리가 나뉘면 그것이 이긴다. 묶음이 많아도 Louvain으로 물러서지 않는다."""
     modules = [
         Module(id="core/a", build_file=None),
         Module(id="core/b", build_file=None),
         Module(id="tools/c", build_file=None),
     ]
-    groups = subsystems(modules, [], max_groups=15)
+    groups = subsystems(modules, [])
     assert {g.id for g in groups} == {"core", "tools"}
     assert all(g.source is SubsystemSource.BUILD_TREE for g in groups)
 

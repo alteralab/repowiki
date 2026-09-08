@@ -397,11 +397,17 @@ def _rank_positions(scores: dict[str, float]) -> dict[str, int]:
     return {path: position for position, (path, _) in enumerate(ordered, start=1)}
 
 
-def subsystems(modules: list[Module], edges: list[ModuleEdge], max_groups: int) -> list[Subsystem]:
-    """서브시스템 분할. 빌드 트리가 먼저고, 그것이 안 나뉘면 Louvain이 나눈다."""
+def subsystems(modules: list[Module], edges: list[ModuleEdge]) -> list[Subsystem]:
+    """서브시스템 분할. 빌드 트리가 먼저고, 그것이 안 나뉠 때만 Louvain이 나눈다.
+
+    빌드 트리가 상한보다 많은 묶음을 내도 Louvain으로 물러서지 않는다. 그렇게 하면
+    군집이 더 늘고(kafka 실측: 트리 23개 대 Louvain 39~40개) 시드마다 결과가 달라진다
+    (쌍대 ARI 최소 0.82). 묶음이 많은 것은 분할의 문제가 아니라 다이어그램의 문제이고,
+    그 자리에는 가독성 사다리가 있다(§2.5).
+    """
     ids = [m.id for m in modules]
     tree = _build_tree_groups(ids)
-    if 1 < len(tree) <= max_groups:
+    if len(tree) > 1:
         return [
             Subsystem(id=name, modules=sorted(members), source=SubsystemSource.BUILD_TREE)
             for name, members in sorted(tree.items())

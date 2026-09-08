@@ -93,7 +93,7 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     ranks = graph.file_ranks(type_edges, extraction.symbols)
 
     limits = load_limits()
-    groups = graph.subsystems(modules, edges, limits["L0"].max_nodes)
+    groups = graph.subsystems(modules, edges)
     flows = graph.flows(extraction.entry_points, type_edges, types, _MAX_FLOWS)
 
     compiled = [diagrams.subsystem_diagram(groups, edges, limits["L0"])]

@@ -22,8 +22,9 @@ dependencies = [
 api = ["anthropic>=1.4"]
 # Terraform 평가 그래프 스파이크(PLAN §3, Phase 2b 통과 전에는 기본 락 밖).
 terraform-eval = ["tfparse>=0.6.21"]
-# Leiden 도전자. 평가 전용이며 런타임 SBOM 밖이다(PLAN §8).
-evals = ["scikit-network>=0.33"]
+# 평가 전용이며 런타임 SBOM 밖이다(PLAN §8). Leiden 도전자와 군집 비교 지표.
+# ARI 같은 표준 지표는 직접 만들지 않는다(C-LIB-1).
+evals = ["scikit-network>=0.33", "scikit-learn>=1.7"]
 
 [project.scripts]
 repowiki = "repowiki.cli:main"
