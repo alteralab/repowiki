@@ -125,3 +125,54 @@ LangGraph 1.2.11 `StateGraph` + `SqliteSaver` + SQLite 작업 저장소로 구�
 본문이 반복됐다. 저널 조회를 세대 단위로 바꿨고 회귀 검사가 그 자리를 지킨다(C-LOCAL-2).
 
 텔레메트리는 진입점에서 `LANGSMITH_TRACING=false`와 `LANGCHAIN_TRACING_V2=false`로 끈다.
+
+### SC-1.2 오라클 대조 (파이썬 통과, 자바 부분)
+
+정답은 사람이 아니라 도구가 낸다(PLAN §6 3). 표본은 seed 고정 무작위다.
+
+**파이썬, 정답은 표준 라이브러리 `ast`** (`evals/oracles/python_ast_oracle.py`)
+
+| 대상 | 표본 | 정답 선언 | precision | recall |
+|---|---|---|---|---|
+| airflow, seed 42 | 30 | 216 | 1.0000 | 1.0000 |
+| airflow, seed 42 | 200 | 1,492 | 1.0000 | 1.0000 |
+| airflow, seed 7 | 200 | 1,884 | 1.0000 | 1.0000 |
+
+파싱 실패로 제외된 파일 0건. SC-1.2의 파이썬 몫은 0.98 하한을 넘겼다.
+
+**자바, 두 번째 원천은 ast-grep `outline`** (`evals/oracles/java_outline_oracle.py`).
+같은 파서를 쓰므로 독립 오라클이 아니다. 독립 오라클(javaparser) 반입은 남았다.
+
+| 대상 | 표본 | kind 룰 | outline | outline 기준 recall |
+|---|---|---|---|---|
+| commons-cli | 36 | 795 | 618 | 1.0000 |
+| dubbo | 60 | 606 | 477 | 1.0000 |
+| kafka | 60 | 1,043 | 788 | 1.0000 |
+
+kind 룰은 outline이 내는 선언을 하나도 빠뜨리지 않았고 더 많이 낸다(kafka 표본에서
+필드 225, 중첩 클래스 22, enum 4, 메서드 2, 인터페이스 1, record 1). outline이 중첩
+타입과 필드를 빠뜨린다는 리서치 02와 15의 판정을 이 규모에서 재확인했다. kind 룰이
+더 내는 선언이 옳은지는 독립 오라클이 판정할 몫이다.
+
+이 대조에서 찾은 규약 차이: kind 룰은 선언자(`name = 값`)를, outline은 애노테이션과
+수식어를 포함한 선언 전체를 가리킨다. 줄이 최대 1 어긋난다(commons-cli 8건, dubbo
+14건). 결함이 아니라 규약 차이라 허용치 3줄을 두고 따로 센다. 인용 span의 규약은
+Phase 3에서 사람이 읽을 때 정한다.
+
+### SC-0.5 의존 상한 검사 (통과)
+
+`scripts/depcheck.py`가 런타임 폐포만 센다. dev 그룹과 extra는 반입 이미지에 없으므로
+상한의 대상이 아니다.
+
+| 항목 | 값 | 상한 | 판정 |
+|---|---|---|---|
+| 파이썬 직접 의존 | 9 | 12 | 이내 |
+| Node 직접 의존 | 4 | 20 | 이내 |
+| 런타임 네이티브 휠 | 12 | 15 | 이내 |
+| 락 전체 해석 패키지 | 89 | 없음 | 참고 |
+| 런타임 폐포 | 48 | 없음 | 참고 |
+
+네이티브 12개: ast-grep-cli, charset-normalizer, orjson, ormsgpack, pydantic-core,
+PyYAML, regex, sqlite-vec, uuid-utils, websockets, xxhash, zstandard. 리서치 15 §7이
+예측한 15개와 다른 이유는 anthropic이 `[api]` extra로 내려가 jiter와 markupsafe가
+런타임 폐포 밖이고, mkdocs 계열이 Fumadocs 채택으로 빠졌기 때문이다.
