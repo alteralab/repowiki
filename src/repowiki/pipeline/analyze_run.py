@@ -24,6 +24,7 @@ from repowiki.analyze import (
     structure,
     symbols,
     toolchain,
+    helm,
     terraform,
     tsmodules,
 )
@@ -266,6 +267,27 @@ def _module_of_path(resolver, roots: list[str], table=None, names_of=None):
     return resolve
 
 
+# 한 차트가 담을 수 있는 파일 수의 상한. 이보다 큰 차트는 templates 가 수백 개인 것이고,
+# 그때는 읽는 예산이 아니라 계획 층이 무엇을 실을지의 문제가 된다.
+_MAX_HELM_FILES = 4000
+
+
+def _helm(root: Path, tracked: list[str]):
+    """Helm 사실. `Chart.yaml`이 없으면 아무것도 읽지 않고 `None`이다."""
+    charts = [path for path in tracked if PurePosixPath(path).name == helm.CHART_FILE]
+    if not charts:
+        return None
+    roots = {str(PurePosixPath(path).parent) for path in charts}
+    wanted = [
+        path
+        for path in tracked
+        if PurePosixPath(path).name in (helm.CHART_FILE, helm.VALUES_FILE)
+        or any(path.startswith(f"{base}/templates/") for base in roots)
+    ]
+    read = _read_text(root, sorted(wanted), _MAX_HELM_FILES)
+    return helm.build(read.texts, corpus.load_secret_rules())
+
+
 def _ts_declaring(ts_resolver, table, imports) -> dict[tuple[str, str], str]:
     """TypeScript 임포트 하나하나가 실제로 닿는 선언 파일.
 
@@ -487,12 +509,14 @@ def analyze_repo(root: Path) -> AnalyzeResult:
         root, tracked, kept, roots, facts
     )
     terraform_facts = terraform.build(matches, facts)
+    helm_facts = _helm(root, tracked)
     facts_out = RepoFacts(
         clusters=concepts,
         type_labels=labels,
         corpus=corpus_facts,
         toolchain=toolchain_facts,
         terraform=terraform_facts,
+        helm=helm_facts,
         call_edges=call_edges,
         history=history_facts,
         entities=entity_facts,

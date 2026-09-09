@@ -402,6 +402,67 @@ class CorpusFacts(BaseModel):
     config_keys: list[ConfigKey] = Field(default_factory=list)
 
 
+class HelmChart(BaseModel):
+    """차트 하나의 정체. `Chart.yaml`이 선언한 것이다."""
+
+    name: str
+    version: str = ""
+    app_version: str = ""
+    directory: str
+    """차트 뿌리 디렉토리. 한 저장소에 차트가 여럿이면 이것이 경계다."""
+    span: Span
+
+
+class HelmDependency(BaseModel):
+    """차트가 다른 차트에 기대는 자리. 차트 사이의 결합이다."""
+
+    chart: str
+    """기대는 쪽 차트 이름."""
+    name: str
+    version: str = ""
+    repository: str = ""
+    condition: str = ""
+    """이 의존을 켜고 끄는 values 키. 없으면 언제나 켜진다."""
+    span: Span
+
+
+class HelmValue(BaseModel):
+    """`values.yaml`의 스칼라 하나. 열쇠는 점 표기 경로다."""
+
+    chart: str
+    key: str
+    value: str
+    span: Span
+
+
+class HelmUse(BaseModel):
+    """템플릿이 values 키를 쓰는 자리. 이 값이 어디에 쓰이는가의 답이다."""
+
+    chart: str
+    key: str
+    span: Span
+
+
+class HelmImage(BaseModel):
+    """실행될 컨테이너 이미지. repository 와 tag 가 짝을 이룬 것이다."""
+
+    chart: str
+    repository: str
+    tag: str = ""
+    span: Span
+
+
+class HelmFacts(BaseModel):
+    """Helm 저장소의 선언과 참조. 렌더하지 않는다(SPEC SC-2b.1)."""
+
+    charts: list[HelmChart] = Field(default_factory=list)
+    dependencies: list[HelmDependency] = Field(default_factory=list)
+    values: list[HelmValue] = Field(default_factory=list)
+    uses: list[HelmUse] = Field(default_factory=list)
+    images: list[HelmImage] = Field(default_factory=list)
+    unresolved: list[str] = Field(default_factory=list)
+
+
 # 블록 종류에서 참조 접두어로. `variable "x"`를 가리키는 참조는 `var.x`이지 `variable.x`가
 # 아니다. 주소는 참조가 쓰는 형태여야 엣지가 선언에 닿는다.
 _TERRAFORM_PREFIX = {"variable": "var"}
@@ -489,4 +550,5 @@ class RepoFacts(BaseModel):
     corpus: CorpusFacts | None = None
     toolchain: ToolchainFacts | None = None
     terraform: TerraformFacts | None = None
+    helm: HelmFacts | None = None
     unresolved: list[str] = Field(default_factory=list)
