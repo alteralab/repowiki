@@ -800,8 +800,25 @@ def _history_job(facts: RepoFacts) -> PageJob | None:
     for symbol in facts.symbols:
         if symbol.kind in _TYPE_LIKE and symbol.span.path in hot_paths:
             by_path.setdefault(symbol.span.path, symbol.span)
+    # 자리를 선언의 머리로 좁힌다. 이력 쪽이 그 파일에서 필요한 것은 "무엇이 여기 사는가"
+    # 이지 그 타입의 본문 전부가 아니다. 좁히지 않으면 3만 줄짜리 시험 클래스가 근거 자리
+    # 하나가 되고, 원문은 어차피 앞쪽만 잘려 실린다. 그 잘린 앞쪽은 필드 선언이라 이력이
+    # 말하려는 것과 상관이 없다(2026-09-10 실측: 가장 많이 잘린 자리 셋이 전부 시험
+    # 파일이었고 각각 3만, 1만 5천, 1만 4천 줄이 잘렸다).
     evidence = [
-        (path, by_path[path], f"자주 바뀌는 파일 {path}") for path in hot_paths if path in by_path
+        (
+            path,
+            Span(
+                path=path,
+                start_line=by_path[path].start_line,
+                end_line=min(
+                    by_path[path].end_line, by_path[path].start_line + _HOTSPOT_LINES
+                ),
+            ),
+            f"자주 바뀌는 파일 {path}",
+        )
+        for path in hot_paths
+        if path in by_path
     ]
     return _job(
         "history-hotspots",
@@ -932,6 +949,9 @@ def _data_job(facts: RepoFacts) -> PageJob | None:
         "B4",
     )
 
+
+# 핫스팟 근거 한 자리가 들 줄 수. 선언의 머리가 그 파일이 무엇인지 말한다.
+_HOTSPOT_LINES = 40
 
 _GLOSSARY_AREAS = 12
 _GLOSSARY_TERMS_PER_AREA = 6
