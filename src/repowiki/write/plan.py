@@ -940,14 +940,21 @@ _GLOSSARY_TERMS_PER_AREA = 6
 def _glossary_job(facts: RepoFacts) -> PageJob | None:
     """낱말 사전. 이 저장소에서 쓰는 말이 어느 코드 실체인지 잇는 쪽이다.
 
-    조사한 DeepWiki 저장소 10곳(kafka, pytorch, vllm, grafana, prometheus, redis, node,
-    elasticsearch, kubernetes, langchain, MinerU)이 예외 없이 마지막 쪽으로 이것을 둔다.
     처음 온 사람이 회의에서 듣는 말과 코드에서 보는 이름이 다르면 둘을 잇는 자리가 없다.
+    이름 있는 대형 저장소는 대체로 이 쪽을 둔다. 다만 보편은 아니다 — 2026-09-10에
+    사이트맵 조각에서 고르게 뽑은 저장소 37곳에서는 마지막 쪽이 Glossary 인 것이 3곳뿐이고,
+    내가 골랐던 대형 16곳에서는 12곳이었다. 앞선 커밋 메시지가 "예외가 없다"고 적은 것은
+    표본 편향이었다.
 
     결정층이 낼 수 있는 것은 후보와 그 선언 자리까지다. 무엇이 이 저장소의 낱말이고 그것이
     무슨 뜻인지는 원문을 읽어야 나오므로 쓰는 층의 몫이다.
+
+    묶음은 큰 것부터 고른다. 사실에 담긴 순서는 디렉토리 사전순이라 그대로 앞에서 자르면
+    구성원 하나짜리 묶음과 빌드 도구 디렉토리가 낱말이 된다(kafka 실측 2026-09-10:
+    `api-checker` 1개, `gradle` 6개, `scripts` 14개가 들어갔다). 큰 묶음이 그 저장소가
+    실제로 이야기하는 것이다.
     """
-    groups = list(facts.clusters)[:_GLOSSARY_AREAS]
+    groups = sorted(facts.clusters, key=lambda c: (-len(c.members), c.title))[:_GLOSSARY_AREAS]
     if not groups:
         return None
     labels = {node.key: node.label for node in clusters.type_nodes(facts.symbols, facts.file_ranks)}
