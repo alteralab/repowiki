@@ -1,0 +1,19 @@
+id: scala-ref-field-type
+language: scala
+message: ref.field_type
+# `val x: T`와 `var x: T`의 타입. 클래스 본문 안의 것만이 필드다 — 메서드 안의 것은
+# 지역 변수이고 그것은 타입 엣지의 종류가 아니다.
+#
+# 제네릭 인자 안쪽은 잡지 않는다. `Map[String, T]`의 `T`는 그 타입의 인자이고, 저장소에
+# 우연히 같은 이름이 있으면 없는 엣지가 사실이 된다(2026-09-09 TypeScript 에서 같은
+# 결함을 겪었다).
+rule:
+  kind: type_identifier
+  any:
+    - {inside: {kind: val_definition, field: type}}
+    - {inside: {kind: var_definition, field: type}}
+    - {inside: {kind: val_declaration, field: type}}
+    - {inside: {kind: var_declaration, field: type}}
+    - {inside: {kind: generic_type, field: type, inside: {kind: val_definition, field: type}}}
+    - {inside: {kind: generic_type, field: type, inside: {kind: var_definition, field: type}}}
+  inside: {kind: template_body, stopBy: end}

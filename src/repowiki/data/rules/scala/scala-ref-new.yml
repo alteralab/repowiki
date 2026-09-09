@@ -1,0 +1,7 @@
+id: scala-ref-new
+language: scala
+message: ref.new
+# `new W(...)`. 자바의 `object_creation_expression`에 해당한다.
+rule:
+  kind: instance_expression
+  has: {kind: type_identifier, nthChild: 1, pattern: $NAME}
