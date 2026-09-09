@@ -77,6 +77,13 @@ description: repowiki로 저장소 하나의 아키텍처 위키를 끝까지 �
 **값이 여럿인 것은 표다.** 다만 표는 작업이 준 것만 쓴다. 손으로 표를 지으면 그 숫자에
 출처가 없고 게이트가 잡는다.
 
+**쪽 이름을 짓는다.** 계획 층이 주는 제목은 대표 타입 둘을 이은 임시 이름이다
+(`LogSegment와 AbstractIndex`). 그대로 내면 사이드바가 읽히지 않고 게이트가 잡는다
+(`unnamed-page`). 이 묶음이 **무엇을 맡는지**로 짓는다. DeepWiki 저장소 열 곳의 2단 제목은
+전부 그런 이름이다: `Query Engine`, `OCR Engine`, `Persistence and Replication`,
+`Layout Detection & Reading Order`. 타입 이름이 곧 그 역할인 경우(`Options`)는 그대로 둬도
+된다. 지어낸 이름이 아니라 원문을 읽고 나온 이름이어야 한다.
+
 **형제 쪽을 건다.** `next`가 낸 "형제 페이지" 절에 경로가 있다. 링크가 없으면 위키가
 그물이 아니라 목록이 된다.
 

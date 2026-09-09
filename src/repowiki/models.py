@@ -261,6 +261,7 @@ class PageType(StrEnum):
     QUALITY = "quality"
     USAGE = "usage"
     DATA_MODEL = "data-model"
+    GLOSSARY = "glossary"
 
 
 class FactTable(BaseModel):

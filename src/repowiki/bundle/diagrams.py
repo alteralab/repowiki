@@ -79,7 +79,18 @@ def _render(plan: _Plan, shown: list[str]) -> tuple[str, int]:
 
 
 def _compile(plan: _Plan, limit: DiagramLimit, diagram_id: str, level: str) -> Diagram:
-    """노드 상한과 소스 문자 상한을 함께 만족할 때까지 노드를 줄인다."""
+    """노드 상한과 소스 문자 상한을 함께 만족할 때까지 노드를 줄인다.
+
+    그림이 스스로 밝히는 단과 그 그림을 깎을 때 쓴 한도는 같아야 한다. 다르면 통과할 수
+    없는 그림이 만들어진다. 게이트가 밝힌 단으로 검사하기 때문이다. 실제로 그렇게 어긋나
+    있었고(2026-09-09, COLLAB을 L1 한도로 깎아 kafka가 스무 건 위반으로 죽었다) 사람이
+    그것을 게이트에서 뒤늦게 읽었다. 여기서 먼저 터뜨린다.
+    """
+    if limit.level != level:
+        raise ValueError(
+            f"{diagram_id}는 {level}단이라고 밝히면서 {limit.level}단 한도로 깎였다. "
+            "게이트는 밝힌 단으로 검사하므로 이 그림은 통과할 수 없다"
+        )
     if limit.layout != "dagre":
         plan = plan.model_copy(
             update={"directive": f'%%{{init: {{"layout": "{limit.layout}"}}}}%%'}

@@ -102,3 +102,8 @@ pages:
   stack:
     max_diagrams: 0
     target_words: 400
+  glossary:
+    # 낱말 사전. 도메인 낱말을 코드 실체에 잇는 쪽이라 그릴 것이 없고 목록이 본문이다.
+    # 조사한 DeepWiki 저장소 10곳이 모두 이 쪽을 마지막에 둔다(2026-09-09 실측).
+    max_diagrams: 0
+    target_words: 700

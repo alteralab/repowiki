@@ -900,6 +900,55 @@ def _data_job(facts: RepoFacts) -> PageJob | None:
     )
 
 
+_GLOSSARY_AREAS = 12
+_GLOSSARY_TERMS_PER_AREA = 6
+
+
+def _glossary_job(facts: RepoFacts) -> PageJob | None:
+    """낱말 사전. 이 저장소에서 쓰는 말이 어느 코드 실체인지 잇는 쪽이다.
+
+    조사한 DeepWiki 저장소 10곳(kafka, pytorch, vllm, grafana, prometheus, redis, node,
+    elasticsearch, kubernetes, langchain, MinerU)이 예외 없이 마지막 쪽으로 이것을 둔다.
+    처음 온 사람이 회의에서 듣는 말과 코드에서 보는 이름이 다르면 둘을 잇는 자리가 없다.
+
+    결정층이 낼 수 있는 것은 후보와 그 선언 자리까지다. 무엇이 이 저장소의 낱말이고 그것이
+    무슨 뜻인지는 원문을 읽어야 나오므로 쓰는 층의 몫이다.
+    """
+    groups = list(facts.clusters)[:_GLOSSARY_AREAS]
+    if not groups:
+        return None
+    labels = {node.key: node.label for node in clusters.type_nodes(facts.symbols, facts.file_ranks)}
+    declarations = {f"{s.span.path}#{s.name}": s.span for s in facts.symbols if not s.parent}
+    evidence: list[tuple[str, Span, str]] = []
+    terms: list[dict] = []
+    for group in groups:
+        picked: list[str] = []
+        for key in group.members[:_GLOSSARY_TERMS_PER_AREA]:
+            name = labels.get(key, "")
+            span = declarations.get(key)
+            if not name or span is None:
+                continue
+            picked.append(name)
+            evidence.append((name, span, f"{group.title}의 {name} 선언"))
+        if picked:
+            terms.append({"area": group.title, "candidates": picked})
+    if not evidence:
+        return None
+    return _job(
+        "glossary",
+        "glossary.md",
+        PageType.GLOSSARY,
+        "낱말 사전",
+        "이 저장소에서 쓰는 말이 어느 코드 실체를 가리키는지 선언 자리와 함께 잇는다",
+        {"terms": terms},
+        evidence,
+        [],
+        [],
+        "Z1",
+        parent="overview-architecture",
+    )
+
+
 def build_jobs(facts: RepoFacts) -> list[PageJob]:
     """쓸 페이지를 정하고 각 페이지의 작업을 만든다.
 
@@ -918,6 +967,8 @@ def build_jobs(facts: RepoFacts) -> list[PageJob]:
         _history_job(facts),
         _quality_job(facts),
         _usage_job(facts),
+        # 낱말 사전은 언제나 마지막이다. 조사한 DeepWiki 저장소 10곳이 모두 그렇다.
+        _glossary_job(facts),
     ]
     jobs += [job for job in optional if job is not None]
     return jobs

@@ -189,7 +189,7 @@ def _area_diagrams(groups, call_edges, limits):
             # 묶음의 구성원 열쇠는 `경로#이름`이다. 그림의 라벨은 이름 쪽이다.
             names = [key.split("#", 1)[1] for key in group.members if "#" in key]
             children.append((child.title, names))
-        diagram = diagrams.area_diagram(area.title, children, call_edges, limits["L1"])
+        diagram = diagrams.area_diagram(area.title, children, call_edges, limits["AREA"])
         if diagram is not None:
             found.append(diagram)
     return found
@@ -316,18 +316,18 @@ def _member_diagrams(symbols, type_edges, call_edges, ranks, limits, leads, labe
     found = []
     for symbol in types:
         detail = diagrams.type_detail_diagram(
-            symbol.name, symbols, type_edges, limits["L2"], labels
+            symbol.name, symbols, type_edges, limits["TYPE"], labels
         )
         if detail is not None:
             found.append(detail)
         collaboration = diagrams.collaboration_diagram(
-            symbol.name, call_edges, limits["L1"], test_types
+            symbol.name, call_edges, limits["COLLAB"], test_types
         )
         if collaboration is not None:
             found.append(collaboration)
         busiest = _busiest_members(symbol.name, call_edges)
         for member in busiest[:_MAX_SEQUENCES_PER_TYPE]:
-            sequence = diagrams.member_sequence(symbol.name, member, call_edges, limits["FLOW"])
+            sequence = diagrams.member_sequence(symbol.name, member, call_edges, limits["SEQ"])
             if sequence is not None:
                 found.append(sequence)
     return found

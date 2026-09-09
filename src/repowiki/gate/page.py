@@ -12,6 +12,8 @@
    바뀌면 안 되고, 작업이 주지 않은 표가 있으면 그 숫자의 출처가 없다.
 6. 문단에 견줘 목록이 얼마나 있는가. 처음 보는 코드베이스를 훑는 사람은 산문을 정독하지
    않는다. 이름과 뜻이 짝지어진 것은 목록이라야 눈으로 집힌다.
+7. 제목을 지었는가. 계획 층이 주는 제목은 대표 타입 이름을 이은 임시 이름이라 사이드바에
+   그대로 나가면 목록이 읽히지 않는다.
 
 사각: 인용이 문장을 실제로 지지하는지는 보지 못한다. 그 판정은 사람과 판정자 선별의 몫이고
 이 게이트는 존재와 범위만 본다(C-GATE-2).
@@ -44,6 +46,11 @@ WORD_FLOOR_RATIO = 0.5
 MIN_BULLET_RATIO = 0.5
 # 이 문단 수 아래에서는 묻지 않는다. 문단 셋짜리 쪽은 목록이 없어도 눈으로 집힌다.
 MIN_PARAGRAPHS_FOR_BULLETS = 4
+# 계획 층이 개념 쪽에 붙이는 임시 제목의 형태다. 대표 타입 둘을 이은 것이라 정체가 없다.
+# 2026-09-09 실측: kafka에서 개념·영역 쪽 81개 중 57개(70%)가 이 형태였다. 같은 날 조사한
+# DeepWiki 저장소 10곳의 2단 제목은 전부 기능 이름이다("Query Engine", "OCR Engine").
+# ast-grep-ignore: regex-on-structure — 어휘: 임시 제목의 고정 형태 판정이다.
+_FALLBACK_TITLE = re.compile(r"^[A-Z]\w*(\.\w+)?와 [A-Z]\w*(\.\w+)?$")
 
 # ast-grep-ignore: regex-on-structure — 어휘: 인용 표기는 `E숫자` 고정 형식이다.
 _CITE = re.compile(r"\[\^(E\d+)\]")
@@ -222,6 +229,18 @@ def check_page(job: PageJob, output: PageOutput) -> list[PageViolation]:
                 job_id=job.id,
                 rule="too-short",
                 detail=f"본문 {words}단어가 {job.type.value} 페이지의 하한 {floor}단어에 못 미친다",
+            )
+        )
+
+    if _FALLBACK_TITLE.match(output.title.strip()):
+        violations.append(
+            PageViolation(
+                job_id=job.id,
+                rule="unnamed-page",
+                detail=(
+                    f"제목이 계획 층의 임시 이름 그대로다: {output.title!r}. "
+                    "이 묶음이 무엇을 맡는지로 이름을 짓는다"
+                ),
             )
         )
 
