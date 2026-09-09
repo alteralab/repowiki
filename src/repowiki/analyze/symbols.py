@@ -36,6 +36,7 @@ _TERRAFORM_MESSAGES = frozenset(
         "ref.module_source",
         "ref.iterator",
         "ref.provider",
+        "owner.block",
     }
 )
 

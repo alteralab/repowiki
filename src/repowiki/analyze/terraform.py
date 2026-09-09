@@ -22,6 +22,8 @@ import re
 from collections import Counter
 from pathlib import PurePosixPath
 
+from pydantic import BaseModel
+
 from repowiki.adapters.astgrep import AstMatch
 from repowiki.analyze.domain import DomainFacts, is_test
 
@@ -93,22 +95,70 @@ def _blocks(matches: list[AstMatch], facts: DomainFacts) -> list[TerraformBlock]
     return sorted(found, key=lambda b: (b.span.path, b.span.start_line, b.address))
 
 
-def _owner(blocks: list[TerraformBlock], span: Span) -> str:
-    """이 자리를 감싸는 최상위 블록의 주소. 없으면 파일 이름이다.
+class _Owner(BaseModel):
+    """참조의 소유자가 될 수 있는 자리. 선언일 수도 있고 아닐 수도 있다."""
+
+    path: str
+    start_line: int
+    end_line: int
+    address: str
+
+
+def _owner_spans(
+    blocks: list[TerraformBlock], matches: list[AstMatch]
+) -> list[_Owner]:
+    """소유자가 될 수 있는 자리 전부. 선언과, 선언이 아닌 최상위 블록이다.
+
+    `terraform`과 `moved`와 `check` 같은 블록은 주소가 없어 선언으로 낼 수 없다. 그래도
+    그 안의 참조에는 소유자가 있어야 한다. 없으면 서로 다른 블록의 관계가 한 파일 노드로
+    뭉치고, 블록 수준의 결합이 사라진다(2026-09-10 적대적 리뷰).
+
+    이것들은 `TerraformFacts.blocks`에 넣지 않는다. 선언이 아니기 때문이다 — 넣으면
+    위키가 없는 선언을 있다고 말한다(C-REPORT-2).
+    """
+    found = [
+        _Owner(
+            path=block.span.path,
+            start_line=block.span.start_line,
+            end_line=block.span.end_line,
+            address=block.address,
+        )
+        for block in blocks
+    ]
+    for match in matches:
+        if match.message != "owner.block":
+            continue
+        kind = match.captures.get("KIND", "").strip()
+        if not kind:
+            continue
+        name = match.captures.get("NAME", "").strip()
+        found.append(
+            _Owner(
+                path=match.path,
+                start_line=match.start_line,
+                end_line=match.end_line,
+                address=f"{kind}.{name}" if name else kind,
+            )
+        )
+    return found
+
+
+def _owner(owners: list[_Owner], span: Span) -> str:
+    """이 자리를 감싸는 가장 안쪽 자리의 주소. 없으면 파일 이름이다.
 
     가장 안쪽을 고른다. 최상위 블록은 겹치지 않지만 같은 파일의 두 블록이 이어져 있으므로
-    줄 범위로 골라야 한다.
+    줄 범위로 골라야 한다. 같은 크기로 겹치면 주소로 갈라 순서를 고정한다.
     """
     inside = [
-        block
-        for block in blocks
-        if block.span.path == span.path
-        and block.span.start_line <= span.start_line
-        and span.end_line <= block.span.end_line
+        owner
+        for owner in owners
+        if owner.path == span.path
+        and owner.start_line <= span.start_line
+        and span.end_line <= owner.end_line
     ]
     if not inside:
         return span.path.rsplit("/", 1)[-1]
-    return min(inside, key=lambda b: b.span.end_line - b.span.start_line).address
+    return min(inside, key=lambda o: (o.end_line - o.start_line, o.address)).address
 
 
 def _edge_kind(head: str) -> str:
@@ -209,6 +259,7 @@ def build(matches: list[AstMatch], facts: DomainFacts) -> TerraformFacts | None:
         return None
 
     counts: Counter[str] = Counter()
+    owners = _owner_spans(blocks, matches)
     iterators = _iterators(matches)
     edges: list[TerraformEdge] = []
     for match in matches:
@@ -221,7 +272,7 @@ def build(matches: list[AstMatch], facts: DomainFacts) -> TerraformFacts | None:
             if head in iterators.get(match.path, ()):
                 counts["반복 이름"] += 1
                 continue
-        edge = make(match, _owner(blocks, span), span, counts)
+        edge = make(match, _owner(owners, span), span, counts)
         if edge is not None:
             edges.append(edge)
 

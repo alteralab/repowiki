@@ -1,0 +1,16 @@
+id: terraform-owner-block
+language: hcl
+message: owner.block
+# 정의 규칙이 없는 최상위 블록. `terraform`, `moved`, `import`, `check`, `removed`, `locals`
+# 가 그것이다. 이것들은 선언이 아니라서 주소가 없지만, 그 안의 참조에는 소유자가 있어야
+# 한다. 없으면 서로 다른 블록의 관계가 한 파일 노드로 뭉친다(2026-09-10 적대적 리뷰).
+#
+# 라벨이 있으면 함께 잡는다. `check "healthy"`와 `check "ready"`는 다른 자리다.
+rule:
+  kind: block
+  inside: {kind: body, inside: {kind: config_file}}
+  has: {kind: identifier, nthChild: 1, regex: "^(terraform|moved|import|check|removed|locals)$", pattern: $KIND}
+  all:
+    - any:
+        - has: {kind: string_lit, nthChild: 2, has: {kind: template_literal, pattern: $NAME}}
+        - not: {has: {kind: string_lit, nthChild: 2}}
