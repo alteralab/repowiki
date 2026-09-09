@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 
 import yaml
 
@@ -42,6 +43,14 @@ from repowiki.write import tables as fact_tables
 _ROOT_SLUG = "root"
 _DEFAULT_BUDGET = {"max_diagrams": 4, "target_words": 700}
 _MAX_EVIDENCE = 60
+# 한 파일이 한 쪽의 근거에서 차지할 수 있는 최대 자리. 이 상한이 없으면 멤버가 많은 타입
+# 하나가 근거 예산을 다 먹고 다른 파일이 밀려난다. 실측(kafka, 2026-09-10): 81쪽 중 73쪽이
+# 상한 60에 걸려 있었고, 한 쪽에서 파일 하나가 근거의 27%(중앙), p90 67%, 최대 100%를
+# 차지했다. 한 쪽은 근거 60개 중 38개가 한 파일이었다.
+#
+# 넘치는 것을 버리지 않는다. 뒤로 미룬다 — 다른 파일이 자리를 잡은 뒤 남으면 다시 담는다.
+# 그래야 근거가 넓어지면서도 예산을 놀리지 않는다.
+_MAX_PER_FILE = 6
 _MAX_SYMBOLS = 40
 _MAX_MODULE_PAGES = 12
 _MAX_CONCEPT_PAGES = 40
@@ -84,17 +93,31 @@ def _evidence(items: list[tuple[str, Span, str]]) -> list[Evidence]:
     같은 자리가 두 번 들어오면 하나로 줄인다. 같은 줄을 가리키는 근거가 둘이면 페이지는
     같은 것을 두 이름으로 인용하게 된다.
     """
-    found: list[Evidence] = []
+    unique: list[tuple[Span, str]] = []
     seen: set[tuple[str, int, int]] = set()
     for _, span, note in items:
         key = (span.path, span.start_line, span.end_line)
         if key in seen:
             continue
         seen.add(key)
-        found.append(Evidence(id=f"E{len(found) + 1}", span=span, note=note))
-        if len(found) >= _MAX_EVIDENCE:
-            break
-    return found
+        unique.append((span, note))
+
+    # 1차: 파일마다 상한까지만 담는다. 2차: 남은 자리를 미뤄 둔 것으로 채운다.
+    # 순서는 그대로 둔다 — 계획 층이 준 순서가 중요도이고 여기서 다시 매기지 않는다.
+    counted: Counter[str] = Counter()
+    first: list[tuple[Span, str]] = []
+    deferred: list[tuple[Span, str]] = []
+    for span, note in unique:
+        if counted[span.path] < _MAX_PER_FILE:
+            counted[span.path] += 1
+            first.append((span, note))
+        else:
+            deferred.append((span, note))
+    chosen = (first + deferred)[:_MAX_EVIDENCE]
+    return [
+        Evidence(id=f"E{position + 1}", span=span, note=note)
+        for position, (span, note) in enumerate(chosen)
+    ]
 
 
 def _rank_key(facts: RepoFacts) -> dict[str, int]:
@@ -510,6 +533,16 @@ def _concept_job(
     evidence += [
         (e.dst_type, e.span, f"{e.src_type}.{e.src_member}가 {e.dst_type}.{e.dst_member}를 부른다")
         for e in outgoing[:15]
+    ]
+    # 이 묶음을 바깥에서 부르는 자리. `calls_in`으로 수는 이미 세면서 근거로는 안 넘기고
+    # 있었다. 그래서 근거가 묶음 안쪽 파일에만 갇혔다. 실측(kafka, 2026-09-10): 묶음
+    # 449개 중 375개에 바깥 호출자가 있고 그 파일 수가 중앙 5개다.
+    #
+    # 부르는 쪽을 읽어야 이 묶음의 경계면 계약이 실제로 어떻게 쓰이는지 쓸 수 있다.
+    # 안쪽만 읽으면 "이 타입은 이런 메서드를 가진다"에서 닫힌다.
+    evidence += [
+        (e.src_type, e.span, f"{e.src_type}.{e.src_member}가 이 묶음의 {e.dst_type}를 부른다")
+        for e in incoming[:15]
     ]
 
     ranked = _by_rank(facts, types, lambda s: s.span.path)
