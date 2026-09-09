@@ -486,7 +486,7 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     corpus_facts, toolchain_facts, corpus_notes = _corpus_and_toolchain(
         root, tracked, kept, roots, facts
     )
-    terraform_facts = terraform.build(matches, roots, facts)
+    terraform_facts = terraform.build(matches, facts)
     facts_out = RepoFacts(
         clusters=concepts,
         type_labels=labels,

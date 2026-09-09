@@ -34,6 +34,8 @@ _TERRAFORM_MESSAGES = frozenset(
         # 선언 사이의 관계이고, 그 그래프는 analyze/terraform.py 가 따로 낸다.
         "ref.use",
         "ref.module_source",
+        "ref.iterator",
+        "ref.provider",
     }
 )
 

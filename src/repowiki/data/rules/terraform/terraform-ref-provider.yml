@@ -1,0 +1,25 @@
+id: terraform-ref-provider
+language: hcl
+message: ref.provider
+# `provider = aws.west`. 문법으로는 리소스 참조와 같은 모양이라 일반 참조 규칙이
+# `aws.west`를 리소스로 읽는다. 저장소에 우연히 `resource "aws" "west"`가 있으면
+# provider 선택이 그 리소스에 대한 거짓 엣지가 된다(2026-09-09 적대적 리뷰).
+#
+# 별칭이 없는 형태(`provider = aws`)도 있으므로 둘째 조각은 선택이다.
+rule:
+  kind: attribute
+  all:
+    - has: {kind: identifier, regex: "^provider$", nthChild: 1}
+    - has:
+        kind: expression
+        has: {kind: variable_expr, has: {kind: identifier, pattern: $NAME}}
+    - any:
+        - has:
+            kind: expression
+            has: {kind: get_attr, nthChild: 2, has: {kind: identifier, pattern: $ALIAS}}
+        - not: {has: {kind: expression, has: {kind: get_attr}}}
+  inside:
+    kind: body
+    inside:
+      kind: block
+      inside: {kind: body, inside: {kind: config_file}}

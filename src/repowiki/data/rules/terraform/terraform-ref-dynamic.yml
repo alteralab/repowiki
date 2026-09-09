@@ -1,0 +1,11 @@
+id: terraform-ref-dynamic
+language: hcl
+message: ref.iterator
+# `dynamic "ebs" { ... }`의 라벨. 그 블록 안에서 `ebs.value`와 `ebs.key`로 쓰이는
+# 임시 이름이고 선언이 아니다. `iterator =`로 이름을 바꿀 수 있지만 그때도 라벨은 남는다.
+rule:
+  kind: string_lit
+  has: {kind: template_literal, pattern: $NAME}
+  inside:
+    kind: block
+    has: {kind: identifier, regex: "^dynamic$", nthChild: 1}

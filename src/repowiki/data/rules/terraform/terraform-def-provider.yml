@@ -1,9 +1,24 @@
 id: terraform-def-provider
 language: hcl
 message: def.provider
+# alias 가 있으면 정체의 일부다. 한 저장소가 같은 제공자를 지역마다 여러 번 구성하는 것이
+# 흔하고, alias 를 빼면 그 전부가 한 선언으로 합쳐진다(2026-09-09 tf-vpc 에서
+# `provider.aws` 하나에 13개가 겹쳤다).
 rule:
   kind: block
   inside: {kind: body, inside: {kind: config_file}}
   all:
     - has: {kind: identifier, regex: "^provider$", nthChild: 1}
     - has: {kind: string_lit, nthChild: 2, has: {kind: template_literal, pattern: $NAME}}
+    - any:
+        - has:
+            kind: body
+            has:
+              kind: attribute
+              all:
+                - has: {kind: identifier, regex: "^alias$", nthChild: 1}
+                - has: {kind: expression, has: {kind: template_literal, stopBy: end, pattern: $ALIAS}}
+        - not:
+            has:
+              kind: body
+              has: {kind: attribute, has: {kind: identifier, regex: "^alias$", nthChild: 1}}

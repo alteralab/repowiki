@@ -417,7 +417,7 @@ class TerraformBlock(BaseModel):
     kind: str
     """블록 종류. `resource`, `data`, `module`, `variable`, `output`, `provider`."""
     type_name: str = ""
-    """`resource`와 `data`의 첫 라벨. 나머지 종류는 빈 문자열이다."""
+    """`resource`와 `data`의 첫 라벨. `provider`는 alias 다. 나머지는 빈 문자열이다."""
     name: str
     span: Span
     module: str
@@ -438,6 +438,9 @@ class TerraformBlock(BaseModel):
             address = f"{type_name}.{name}"
         elif kind == "data":
             address = f"data.{type_name}.{name}"
+        elif kind == "provider":
+            # alias 가 있으면 정체의 일부다. `provider = aws.west`가 가리키는 이름이 그것이다.
+            address = f"provider.{name}.{type_name}" if type_name else f"provider.{name}"
         else:
             address = f"{_TERRAFORM_PREFIX.get(kind, kind)}.{name}"
         return cls(address=address, **values)

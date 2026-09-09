@@ -1,0 +1,13 @@
+id: terraform-ref-iterator
+language: hcl
+message: ref.iterator
+# `for x in ...`과 `for k, v in ...`이 묶는 반복 이름. 이 이름은 선언이 아니라 그 표현식
+# 안에서만 사는 임시 이름이다.
+#
+# 이것을 모아 두지 않으면 `[for x in var.items : x.id]`의 `x.id`가 참조로 나가고,
+# 저장소 어디든 `resource "x" "id"`가 있으면 반복 변수 사용이 리소스 의존으로 발표된다
+# (2026-09-09 적대적 리뷰가 재현했다). 이름 금지 목록으로는 못 막는다. 사용자가 이름을
+# 마음대로 정하기 때문이다.
+rule:
+  kind: identifier
+  inside: {kind: for_intro}

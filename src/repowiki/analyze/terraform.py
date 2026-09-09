@@ -18,16 +18,43 @@
 
 from __future__ import annotations
 
+import re
 from collections import Counter
+from pathlib import PurePosixPath
 
 from repowiki.adapters.astgrep import AstMatch
 from repowiki.analyze.domain import DomainFacts, is_test
-from repowiki.analyze.structure import module_of
+
+_ROOT_DIR = "."
+
+
+def terraform_module(path: str) -> str:
+    """이 `.tf` 파일이 속한 Terraform 모듈. 그 파일이 있는 디렉토리다.
+
+    저장소의 빌드 모듈과 다르다. 빌드 모듈은 pom.xml 이나 package.json 이 정하고
+    Terraform 디렉토리를 알지 못해서, 일반적인 저장소의 루트와 `modules/*`와
+    `examples/*`가 전부 한 모듈이 된다. 그러면 서로 다른 모듈의 `var.x`와 `local.x`와
+    리소스가 같은 노드로 보이고, 어느 디렉토리에 선언이 없어야 할 참조도 다른 디렉토리에
+    같은 주소가 있으면 이어진다. 실측에서 tf-vpc 의 주소 138개가 그렇게 충돌했다
+    (2026-09-09 적대적 리뷰).
+
+    Terraform 자신의 규칙이 이것이다. 한 디렉토리의 `.tf` 파일들이 한 모듈이고,
+    다른 디렉토리는 `module` 블록으로만 부를 수 있다.
+    """
+    parent = str(PurePosixPath(path).parent)
+    return _ROOT_DIR if parent in ("", ".") else parent
 from repowiki.models import Span, TerraformBlock, TerraformEdge, TerraformFacts
 
 # 참조 머리 가운데 선언을 가리키지 않는 것. 반복문 변수와 개수와 경로다.
 # 이것을 엣지로 내면 모든 리소스가 `each`에 기대는 것으로 그려진다.
 _NOT_A_DECLARATION = frozenset({"each", "count", "path", "terraform", "self"})
+
+# URL 안의 사용자 정보(`https://user:token@host/...`). 모듈 소스는 원격 주소를 그대로
+# 담을 수 있고 그 자리에 토큰이 들어간다. 키 이름이 없으므로 `corpus.mask`가 못 잡는다.
+# 2026-09-09 적대적 리뷰가 `git::https://user:token@host/repo`가 facts.json 에 그대로
+# 실리는 것을 재현했다. SC-2b.4 위반이다.
+# ast-grep-ignore: regex-on-structure — 어휘: URL 의 userinfo 자리 판정이다.
+_USERINFO = re.compile(r"(?<=//)[^/@\s]+@")
 
 _LABELLED = {"def.resource", "def.data"}
 _SINGLE = {"def.module", "def.variable", "def.output", "def.provider", "def.local"}
@@ -37,9 +64,7 @@ def _kind_of(message: str) -> str:
     return message.split(".", 1)[1]
 
 
-def _blocks(
-    matches: list[AstMatch], roots: list[str], facts: DomainFacts
-) -> list[TerraformBlock]:
+def _blocks(matches: list[AstMatch], facts: DomainFacts) -> list[TerraformBlock]:
     """선언 매치를 블록으로. 순서는 파일과 줄 순서다 — 결정적이어야 한다."""
     found: list[TerraformBlock] = []
     for match in matches:
@@ -51,12 +76,17 @@ def _blocks(
         found.append(
             TerraformBlock.make(
                 kind=_kind_of(match.message),
-                type_name=match.captures.get("TYPE", "").strip(),
+                # provider 는 alias 가 정체의 일부다. 다른 종류는 첫 라벨이다.
+                type_name=(
+                    match.captures.get("ALIAS", "").strip()
+                    if match.message == "def.provider"
+                    else match.captures.get("TYPE", "").strip()
+                ),
                 name=name,
                 span=Span(
                     path=match.path, start_line=match.start_line, end_line=match.end_line
                 ),
-                module=module_of(match.path, roots),
+                module=terraform_module(match.path),
                 is_test=is_test(match.path, facts),
             )
         )
@@ -87,20 +117,27 @@ def _edge_kind(head: str) -> str:
 
 
 def _source_edge(
-    match: AstMatch, src: str, span: Span, roots: list[str], counts: Counter[str]
+    match: AstMatch, src: str, span: Span, counts: Counter[str]
 ) -> TerraformEdge | None:
-    """`module` 블록의 `source`. 대상은 주소가 아니라 경로나 레지스트리 이름이다."""
+    """`module` 블록의 `source`. 대상은 주소가 아니라 경로나 레지스트리 이름이다.
+
+    URL 의 사용자 정보는 가린다. 어디서 가져오는지는 남기고 무엇으로 인증하는지는 지운다.
+    """
     target = match.captures.get("NAME", "").strip()
     if not target:
         counts["빈 모듈 소스"] += 1
         return None
+    masked = _USERINFO.sub("<자격증명 가림>@", target)
+    if masked != target:
+        counts["자격증명을 가린 모듈 소스"] += 1
+        target = masked
     return TerraformEdge(
-        src=src, dst=target, kind="source", span=span, module=module_of(match.path, roots)
+        src=src, dst=target, kind="source", span=span, module=terraform_module(match.path)
     )
 
 
 def _use_edge(
-    match: AstMatch, src: str, span: Span, roots: list[str], counts: Counter[str]
+    match: AstMatch, src: str, span: Span, counts: Counter[str]
 ) -> TerraformEdge | None:
     """표현식 안의 참조 하나. 머리가 선언을 가리키지 않으면 엣지가 아니다."""
     head = match.captures.get("HEAD", "").strip()
@@ -122,37 +159,83 @@ def _use_edge(
     else:
         dst = f"{head}.{name}"
     return TerraformEdge(
-        src=src, dst=dst, kind=_edge_kind(head), span=span, module=module_of(match.path, roots)
+        src=src, dst=dst, kind=_edge_kind(head), span=span, module=terraform_module(match.path)
     )
 
 
-_EDGE_BUILDERS = {"ref.module_source": _source_edge, "ref.use": _use_edge}
+def _provider_edge(
+    match: AstMatch, src: str, span: Span, counts: Counter[str]
+) -> TerraformEdge | None:
+    """`provider = aws.west`. 이 리소스가 어느 제공자 구성을 쓰는가."""
+    name = match.captures.get("NAME", "").strip()
+    if not name:
+        counts["이름 없는 provider 선택"] += 1
+        return None
+    alias = match.captures.get("ALIAS", "").strip()
+    dst = f"provider.{name}.{alias}" if alias else f"provider.{name}"
+    return TerraformEdge(
+        src=src, dst=dst, kind="provider", span=span, module=terraform_module(match.path)
+    )
 
 
-def build(
-    matches: list[AstMatch], roots: list[str], facts: DomainFacts
-) -> TerraformFacts | None:
+_EDGE_BUILDERS = {
+    "ref.module_source": _source_edge,
+    "ref.use": _use_edge,
+    "ref.provider": _provider_edge,
+}
+
+
+def _iterators(matches: list[AstMatch]) -> dict[str, set[str]]:
+    """파일마다 그 파일이 묶는 반복 이름. `for`의 변수와 `dynamic` 블록의 라벨이다.
+
+    정확한 어휘 범위가 아니라 파일 단위로 모은다. ast-grep 은 이름을 범위에 묶어 주지
+    않으므로 그보다 좁게 잡을 수 없다. 넓게 제외하는 쪽으로 기운 판정이다 — 제외를 덜 하면
+    없는 결합이 사실이 되고, 더 하면 있는 결합이 빠진다. 두 실수의 값이 다르다.
+    """
+    found: dict[str, set[str]] = {}
+    for match in matches:
+        if match.message != "ref.iterator":
+            continue
+        name = (match.captures.get("NAME") or match.text).strip().strip('"')
+        if name:
+            found.setdefault(match.path, set()).add(name)
+    return found
+
+
+def build(matches: list[AstMatch], facts: DomainFacts) -> TerraformFacts | None:
     """Terraform 사실. 선언이 하나도 없으면 `None`이다."""
-    blocks = _blocks(matches, roots, facts)
+    blocks = _blocks(matches, facts)
     if not blocks:
         return None
 
     counts: Counter[str] = Counter()
+    iterators = _iterators(matches)
     edges: list[TerraformEdge] = []
     for match in matches:
         make = _EDGE_BUILDERS.get(match.message)
         if make is None:
             continue
         span = Span(path=match.path, start_line=match.start_line, end_line=match.end_line)
-        edge = make(match, _owner(blocks, span), span, roots, counts)
+        if match.message == "ref.use":
+            head = match.captures.get("HEAD", "").strip()
+            if head in iterators.get(match.path, ()):
+                counts["반복 이름"] += 1
+                continue
+        edge = make(match, _owner(blocks, span), span, counts)
         if edge is not None:
             edges.append(edge)
 
     # 선언에 닿지 않는 참조는 엣지로 내지 않는다. `for k, v in ...`의 `v`와 `dynamic`
     # 블록의 반복 이름이 그런 것이고, 그것들은 무엇에 기대는지를 말하지 않는다. 이으면
     # 위키가 없는 결합을 그린다(C-BRANCH-3). 대신 세어서 어디로 갔는지 남긴다(C-REPORT-2).
-    known = {block.address for block in blocks}
-    kept = [edge for edge in edges if edge.kind == "source" or edge.dst in known]
+    # 같은 Terraform 모듈 안에서만 선언을 찾는다. 저장소 전체에서 찾으면 다른 디렉토리의
+    # 같은 이름이 이 디렉토리의 참조를 받아 준다.
+    known = {(block.module, block.address) for block in blocks}
+    kept = [
+        edge
+        for edge in edges
+        if edge.kind == "source" or (edge.module, edge.dst) in known
+    ]
     counts["선언에 닿지 않는 참조"] += len(edges) - len(kept)
 
     kept.sort(key=lambda e: (e.span.path, e.span.start_line, e.src, e.dst, e.kind))
