@@ -277,6 +277,10 @@ class Resolver(BaseModel):
     module_functions: dict[tuple[str, str], Symbol] = Field(default_factory=dict)
     imported: dict[str, dict[str, str]] = Field(default_factory=dict)
     free_by_name: dict[str, list[Symbol]] = Field(default_factory=dict)
+    # `(부르는 파일, 들여온 이름) -> 그 이름을 선언한 파일`. TypeScript 전용이다.
+    # 이 모듈은 TypeScript 의 경로 규칙을 알지 않는다. 상대 경로와 `paths` 무늬와 barrel 을
+    # 푸는 것은 analyze/tsmodules.py 의 일이고, 여기는 그것이 낸 답만 받는다(C-DEPTH-3).
+    ts_declaring: dict[tuple[str, str], str] = Field(default_factory=dict)
 
 
 def _member_in(resolver: Resolver, path: str, type_name: str, member: str) -> Symbol | None:
@@ -329,16 +333,23 @@ def _resolve_self(site: CallSite, resolver: Resolver) -> CallEdge | str:
 def _resolve_bare(site: CallSite, resolver: Resolver) -> CallEdge | str:
     """수신자가 없는 호출. 언어마다 뜻이 다르다.
 
-    자바와 스칼라의 `m()`은 `this.m()`이다. 파이썬의 `m()`은 그렇지 않다 — 감싸는 클래스에
-    같은 이름의 메서드가 있어도 그것을 부르는 것이 아니라 모듈 수준이나 임포트된 이름을
-    부르는 것이다. 두 언어를 같이 다루면 파이썬에서 없는 호출이 사실이 된다.
+    자바와 스칼라의 `m()`은 `this.m()`이다. 파이썬과 TypeScript 의 `m()`은 그렇지 않다.
+    감싸는 클래스에 같은 이름의 메서드가 있어도 그것을 부르는 것이 아니라 모듈 수준이나
+    임포트된 이름을 부르는 것이다. 두 갈래를 같이 다루면 없는 호출이 사실이 된다.
+
+    같은 모듈 함수를 먼저 보는 것은 두 언어가 같고, 임포트를 증명하는 방법이 다르다.
+    파이썬은 점 표기를 경로 조각으로 펴고, TypeScript 는 상대 경로와 `paths` 무늬와
+    barrel 을 지나야 해서 이 모듈이 풀 수 없다. 그래서 그 답을 표로 받아 둔다.
     """
-    if site.language != "python":
+    if site.language not in ("python", "typescript", "tsx"):
         return _resolve_self(site, resolver)
 
     same_file = resolver.module_functions.get((site.span.path, site.method))
     if same_file is not None:
         return _edge(site, _owner_of(same_file), same_file, "module")
+
+    if site.language in ("typescript", "tsx"):
+        return _resolve_bare_ts(site, resolver)
 
     target_module = resolver.imported.get(site.span.path, {}).get(site.method)
     if target_module is None:
@@ -347,6 +358,26 @@ def _resolve_bare(site: CallSite, resolver: Resolver) -> CallEdge | str:
     if declaration is None:
         return "external"
     return _edge(site, _owner_of(declaration), declaration, "import")
+
+
+def _resolve_bare_ts(site: CallSite, resolver: Resolver) -> CallEdge | str:
+    """TypeScript 의 수신자 없는 호출. 들여온 이름이 어느 파일에서 선언됐는지로 푼다.
+
+    표에 없으면 그 이름을 들여오지 않았다는 뜻이고, 이으면 임포트하지도 않은 함수를
+    부른다고 주장하게 된다(C-BRANCH-3). 표가 가리킨 파일에 그 이름의 모듈 수준 함수가
+    없으면 저장소 밖이거나 함수가 아닌 것을 부른 것이다.
+    """
+    declaring = resolver.ts_declaring.get((site.span.path, site.method))
+    if not declaring:
+        return "unknown_receiver"
+    found = [
+        symbol
+        for symbol in resolver.free_by_name.get(site.method, [])
+        if symbol.span.path == declaring
+    ]
+    if len(found) != 1:
+        return "external"
+    return _edge(site, _owner_of(found[0]), found[0], "import")
 
 
 def _module_segments(target: str, from_path: str) -> list[str] | None:
@@ -524,12 +555,22 @@ def imported_names(imports) -> dict[str, dict[str, str]]:
     return dict(table)
 
 
-def build_resolver(symbols: list[Symbol], bindings: list[Binding], imports) -> Resolver:
-    """해석에 쓰는 표를 한 번에 만든다."""
+def build_resolver(
+    symbols: list[Symbol],
+    bindings: list[Binding],
+    imports,
+    ts_declaring: dict[tuple[str, str], str] | None = None,
+) -> Resolver:
+    """해석에 쓰는 표를 한 번에 만든다.
+
+    `ts_declaring`은 TypeScript 임포트가 실제로 닿는 선언 파일이다. 주지 않으면 그 언어의
+    수신자 없는 호출은 풀리지 않는다. 틀리게 잇는 것보다 안 잇는 것이 낫다.
+    """
     return Resolver(
         scopes=build_scopes(bindings),
         members=member_table(symbols),
         module_functions=module_functions(symbols),
         imported=imported_names(imports),
         free_by_name=free_by_name(symbols),
+        ts_declaring=ts_declaring or {},
     )

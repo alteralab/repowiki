@@ -265,6 +265,31 @@ def _module_of_path(resolver, roots: list[str], table=None, names_of=None):
     return resolve
 
 
+def _ts_declaring(ts_resolver, table, imports) -> dict[tuple[str, str], str]:
+    """TypeScript 임포트 하나하나가 실제로 닿는 선언 파일.
+
+    `(부르는 파일, 들여온 이름) -> 선언 파일`이다. 이 표가 임포트 증명이고, 호출 해석기는
+    이것만 보고 판단한다. 경로 산술과 barrel 따라가기는 여기서 끝난다(C-DEPTH-3).
+
+    이름마다 따로 푼다. 모듈 엣지는 파일 대 파일이라 첫 이름으로 대표해도 되지만, 호출은
+    이름마다 다른 파일에 있을 수 있다. `export { a } from './x'; export { b } from './y'`가
+    그런 barrel 이다.
+    """
+    if ts_resolver is None or table is None:
+        return {}
+    found: dict[tuple[str, str], str] = {}
+    for record in imports:
+        if not record.specifier or not record.names:
+            continue
+        for name in record.names:
+            target = tsmodules.declaring_path(
+                table, ts_resolver, record.specifier, record.span.path, [name]
+            )
+            if target:
+                found.setdefault((record.span.path, name), target)
+    return found
+
+
 def _structure_diagrams(groups, modules, edges, limits, root_name, entry_modules):
     """묶음 그림과 모듈 그림. 그릴 값이 없는 것은 컴파일러가 `None`을 낸다.
 
@@ -398,7 +423,12 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     bindings, sites = calls.collect(matches, extraction.symbols, roots, facts)
     call_edges, call_counts = calls.resolve(
         sites,
-        calls.build_resolver(extraction.symbols, bindings, extraction.imports),
+        calls.build_resolver(
+            extraction.symbols,
+            bindings,
+            extraction.imports,
+            _ts_declaring(ts_resolver, ts_exports, extraction.imports),
+        ),
         lambda name, site: graph.resolve_in_scope(
             name, site.span.path, site.module, types, scope
         ),

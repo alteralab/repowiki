@@ -1,0 +1,6 @@
+id: typescript-ref-field-type
+language: typescript
+message: ref.field_type
+rule:
+  kind: type_identifier
+  inside: {kind: public_field_definition, stopBy: end}

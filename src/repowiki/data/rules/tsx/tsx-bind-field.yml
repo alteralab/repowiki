@@ -1,0 +1,13 @@
+id: tsx-bind-field
+language: tsx
+message: bind.field
+# 필드의 이름과 선언 타입을 한 매치에서 묶는다. `type` 필드는 `type_annotation`이라
+# 그 텍스트가 `: S`다. 콜론이 붙은 채로는 타입 이름과 맞지 않으므로 안쪽을 잡는다.
+rule:
+  kind: public_field_definition
+  all:
+    - has: {field: name, kind: property_identifier, pattern: $NAME}
+    - has:
+        field: type
+        kind: type_annotation
+        has: {pattern: $TYPE}

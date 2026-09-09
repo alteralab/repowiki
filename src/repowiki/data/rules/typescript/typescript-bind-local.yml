@@ -1,0 +1,12 @@
+id: typescript-bind-local
+language: typescript
+message: bind.local
+# 타입 표기가 있는 지역 변수.
+rule:
+  kind: variable_declarator
+  all:
+    - has: {field: name, kind: identifier, pattern: $NAME}
+    - has:
+        field: type
+        kind: type_annotation
+        has: {pattern: $TYPE}

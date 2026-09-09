@@ -1,0 +1,6 @@
+id: typescript-ref-new
+language: typescript
+message: ref.new
+rule:
+  kind: new_expression
+  has: {field: constructor, pattern: $NAME}

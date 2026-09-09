@@ -1,0 +1,10 @@
+id: tsx-ref-extends
+language: tsx
+message: ref.extends
+# 클래스와 인터페이스의 상속 자리는 노드가 다르다. 클래스 쪽은 `extends_clause`의
+# `identifier`이고 인터페이스 쪽은 `extends_type_clause`의 `type_identifier`다.
+# 하나로 묶어 두지 않으면 인터페이스 계층이 통째로 빠진다(2026-09-09 AST 실측).
+rule:
+  any:
+    - {kind: identifier, inside: {kind: extends_clause}}
+    - {kind: type_identifier, inside: {kind: extends_type_clause, stopBy: end}}

@@ -1,0 +1,10 @@
+id: tsx-ref-param-type
+language: tsx
+message: ref.param_type
+# 선택 파라미터(`p?: T`)는 노드 종류가 다르다. `any`는 `inside` 바깥에 둔다 —
+# `inside` 안의 갈래에는 `stopBy`를 붙일 수 없다(ast-grep 0.45.3).
+rule:
+  kind: type_identifier
+  any:
+    - {inside: {kind: required_parameter, stopBy: end}}
+    - {inside: {kind: optional_parameter, stopBy: end}}

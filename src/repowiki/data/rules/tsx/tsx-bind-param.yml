@@ -1,0 +1,11 @@
+id: tsx-bind-param
+language: tsx
+message: bind.param
+rule:
+  kind: required_parameter
+  all:
+    - has: {field: pattern, kind: identifier, pattern: $NAME}
+    - has:
+        field: type
+        kind: type_annotation
+        has: {pattern: $TYPE}

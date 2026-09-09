@@ -1,0 +1,14 @@
+id: typescript-bind-call-bare
+language: typescript
+message: bind.call_bare
+# 수신자가 없는 호출. TypeScript 에서 이것은 자바처럼 `this.m()`이 아니라 파이썬처럼
+# 모듈 수준 함수이거나 들여온 이름이다. 해석은 analyze/calls.py 가 한다.
+#
+# 데코레이터를 뺀다. `@Body()`는 문법상 호출이고 `Body`도 실제로 들여온 이름이라
+# 잇는 것 자체는 틀리지 않지만, 사람이 호출 그래프에서 보려는 것이 아니다. nestjs 에서
+# 임포트 호출의 다수가 이것이었다(2026-09-09 실측).
+rule:
+  kind: call_expression
+  all:
+    - has: {field: function, kind: identifier, pattern: $NAME}
+    - not: {inside: {kind: decorator}}

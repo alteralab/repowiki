@@ -1,0 +1,6 @@
+id: typescript-ref-implements
+language: typescript
+message: ref.implements
+rule:
+  kind: type_identifier
+  inside: {kind: implements_clause, stopBy: end}

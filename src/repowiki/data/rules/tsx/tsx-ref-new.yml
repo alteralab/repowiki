@@ -1,0 +1,6 @@
+id: tsx-ref-new
+language: tsx
+message: ref.new
+rule:
+  kind: new_expression
+  has: {field: constructor, pattern: $NAME}

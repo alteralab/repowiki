@@ -1,0 +1,11 @@
+id: tsx-bind-method
+language: tsx
+message: bind.method
+rule:
+  kind: method_definition
+  all:
+    - has: {field: name, kind: property_identifier, pattern: $NAME}
+    - has:
+        field: return_type
+        kind: type_annotation
+        has: {pattern: $TYPE}

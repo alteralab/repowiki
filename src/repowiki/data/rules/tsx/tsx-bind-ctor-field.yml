@@ -1,0 +1,15 @@
+id: tsx-bind-ctor-field
+language: tsx
+message: bind.field
+# 생성자 파라미터 프로퍼티(`constructor(private s: S)`)는 AST에서 파라미터로 보이지만
+# 클래스의 필드를 선언한다. 접근 제어자가 있는 파라미터만이 그것이다(2026-09-09 실측).
+# 이것을 필드로 잡지 않으면 그 클래스의 `this.s.m()`이 통째로 안 풀린다.
+rule:
+  kind: required_parameter
+  all:
+    - has: {kind: accessibility_modifier}
+    - has: {field: pattern, kind: identifier, pattern: $NAME}
+    - has:
+        field: type
+        kind: type_annotation
+        has: {pattern: $TYPE}

@@ -308,3 +308,74 @@ def test_same_named_types_in_different_files_do_not_share_members() -> None:
     assert ("a/Client.java", "Client", "send") in table
     assert ("b/Client.java", "Client", "send") in table
     assert table[("a/Client.java", "Client", "send")].span.path == "a/Client.java"
+
+
+def _ts_free(path: str, name: str = "helper") -> Symbol:
+    return Symbol(
+        kind=SymbolKind.FUNCTION,
+        name=name,
+        span=Span(path=path, start_line=3, end_line=6),
+        module=".",
+        language="typescript",
+        is_test=False,
+    )
+
+
+def _ts_site(method: str = "helper", path: str = "src/main.ts") -> CallSite:
+    return CallSite(
+        receiver="",
+        method=method,
+        span=Span(path=path, start_line=9, end_line=9),
+        module=".",
+        language="typescript",
+        owner_type="Runner",
+        owner_member="run",
+    )
+
+
+def test_a_typescript_bare_call_needs_the_declaring_file() -> None:
+    """경로 산술의 답을 표로 받는다. 이 모듈은 `./util`을 풀지 않는다."""
+    helper = _ts_free("src/util.ts")
+    resolver = build_resolver(
+        [helper], [], [], {("src/main.ts", "helper"): "src/util.ts"}
+    )
+    edges, counts = resolve([_ts_site()], resolver, lambda _name, _site: None)
+    assert [(e.dst_type, e.dst_member, e.receiver_kind) for e in edges] == [
+        ("util", "helper", "import")
+    ]
+    assert counts.total() == 1
+
+
+def test_a_typescript_bare_call_without_the_table_is_not_resolved() -> None:
+    """이름이 저장소에서 유일해도 잇지 않는다. 들여왔다는 증명이 없다."""
+    resolver = build_resolver([_ts_free("src/util.ts")], [], [], {})
+    edges, counts = resolve([_ts_site()], resolver, lambda _name, _site: None)
+    assert edges == []
+    assert counts.unknown_receiver == 1
+
+
+def test_a_typescript_bare_call_points_at_the_named_file_only() -> None:
+    """표가 가리킨 파일에 그 함수가 없으면 저장소 밖이다. 같은 이름의 다른 파일로 가지 않는다."""
+    resolver = build_resolver(
+        [_ts_free("src/other.ts")], [], [], {("src/main.ts", "helper"): "src/util.ts"}
+    )
+    edges, counts = resolve([_ts_site()], resolver, lambda _name, _site: None)
+    assert edges == []
+    assert counts.external == 1
+
+
+def test_a_typescript_bare_call_is_not_attributed_to_the_enclosing_class() -> None:
+    """TypeScript 의 `m()`은 자바와 달리 `this.m()`이 아니다."""
+    method = Symbol(
+        kind=SymbolKind.METHOD,
+        name="helper",
+        span=Span(path="src/main.ts", start_line=4, end_line=5),
+        module=".",
+        language="typescript",
+        is_test=False,
+        parent="Runner",
+    )
+    resolver = build_resolver([method], [], [], {})
+    edges, counts = resolve([_ts_site()], resolver, lambda _name, _site: None)
+    assert edges == []
+    assert counts.unknown_receiver == 1

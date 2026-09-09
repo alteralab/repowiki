@@ -7,8 +7,15 @@ extensions:
   ".py": python
   ".ts": typescript
   ".tsx": typescript
+  # ESM 과 CJS 를 확장자로 가르는 TypeScript. 문법은 `.ts`와 같고 ast-grep 도 같은 문법으로
+  # 읽는다. 표에 없으면 심볼은 나오는데 추적 목록에 없어서 근거 게이트가 없는 경로라고
+  # 잡는다(2026-09-09 nestjs 에서 vitest.config.mts 로 실제로 났다).
+  ".mts": typescript
+  ".cts": typescript
   ".js": javascript
   ".jsx": javascript
+  ".mjs": javascript
+  ".cjs": javascript
   ".go": go
 # ast-grep 룰이 실제로 있는 언어. 없는 언어는 심볼과 타입 사실을 내지 않고
 # 프로파일에만 남는다(C-REPORT-2: 조용히 다른 것으로 대체하지 않는다).
