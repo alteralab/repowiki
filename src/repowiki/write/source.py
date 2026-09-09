@@ -33,20 +33,45 @@ def excerpt(text: str, start_line: int, end_line: int, budget: int = MAX_LINES_P
 def fill(evidence: list, texts: dict[str, str], page_budget: int = MAX_LINES_PER_PAGE) -> int:
     """근거 목록에 원문을 채운다. 채운 줄 수를 낸다.
 
-    페이지 예산을 다 쓰면 뒤쪽 근거는 원문 없이 남는다. 자리와 설명은 그대로 있으므로 여전히
-    인용할 수 있다 — 다만 그 자리를 읽지 않고 쓰는 것은 쓰는 층의 판단이다.
+    예산을 앞에서부터 다 쓰지 않는다. 그렇게 하면 앞쪽의 큰 클래스 몇이 예산을 먹고 뒤쪽
+    근거가 통째로 원문 없이 남는다. 실측(kafka, 2026-09-10): 근거 4664자리 가운데 739개
+    (16%)가 원문이 없었고, 어떤 쪽은 예순 중 서른여섯이 비어 있었다. 쓰는 층은 그 자리를
+    읽지 못한 채 인용만 하게 된다.
+
+    두 벌로 나눠 준다. 먼저 자리마다 같은 몫까지 채우고, 남은 예산을 앞에서부터 더 준다.
+    작은 선언은 첫 벌에서 통째로 들어오고, 큰 클래스는 둘째 벌에서 더 받는다.
+
+    사각: 예산이 근거 수보다 작으면 여전히 뒤쪽이 빈다. 자리와 설명은 그대로 있으므로
+    인용은 되지만, 그 자리를 읽지 않고 쓰는 것은 쓰는 층의 판단이다.
     """
+    filled = [item for item in evidence if texts.get(item.span.path) is not None]
+    if not filled:
+        return 0
+
+    share = max(1, min(MAX_LINES_PER_SPAN, page_budget // len(filled)))
     used = 0
-    for item in evidence:
-        if used >= page_budget:
-            break
-        text = texts.get(item.span.path)
-        if text is None:
-            continue
-        remaining = min(MAX_LINES_PER_SPAN, page_budget - used)
-        body = excerpt(text, item.span.start_line, item.span.end_line, remaining)
+    for item in filled:
+        body = excerpt(
+            texts[item.span.path], item.span.start_line, item.span.end_line, share
+        )
         if not body:
             continue
         item.text = body
         used += len(body.splitlines())
+
+    # 남은 예산을 앞에서부터 더 준다. 순서가 곧 중요도다.
+    for item in filled:
+        if used >= page_budget:
+            break
+        already = len(item.text.splitlines()) if item.text else 0
+        if already >= MAX_LINES_PER_SPAN:
+            continue
+        want = min(MAX_LINES_PER_SPAN, already + (page_budget - used))
+        body = excerpt(
+            texts[item.span.path], item.span.start_line, item.span.end_line, want
+        )
+        if not body:
+            continue
+        item.text = body
+        used += len(body.splitlines()) - already
     return used
