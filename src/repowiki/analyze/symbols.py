@@ -18,6 +18,25 @@ from repowiki.analyze.domain import DomainFacts, is_test, language_of
 from repowiki.analyze.structure import module_of
 from repowiki.models import EntryPoint, EntryPointKind, Span, Symbol, SymbolKind
 
+# Terraform 선언은 코드의 심볼이 아니다. 리소스는 클래스도 함수도 아니라서 `SymbolKind`에
+# 넣을 자리가 없고, 억지로 넣으면 위키가 없는 종류를 있다고 말한다(C-REPORT-2).
+# analyze/terraform.py 가 원본 매치에서 직접 읽는다.
+_TERRAFORM_MESSAGES = frozenset(
+    {
+        "def.resource",
+        "def.data",
+        "def.module",
+        "def.variable",
+        "def.output",
+        "def.provider",
+        "def.local",
+        # 참조도 코드의 타입 참조가 아니다. `var.cidr`은 타입 사이의 관계가 아니라
+        # 선언 사이의 관계이고, 그 그래프는 analyze/terraform.py 가 따로 낸다.
+        "ref.use",
+        "ref.module_source",
+    }
+)
+
 _DEF_MESSAGES = {
     "def.class": SymbolKind.CLASS,
     "def.interface": SymbolKind.INTERFACE,
@@ -372,6 +391,9 @@ def extract(matches: list[AstMatch], roots: list[str], facts: DomainFacts) -> Ex
     unknown: set[str] = set()
 
     for match in matches:
+        if match.message in _TERRAFORM_MESSAGES:
+            # analyze/terraform.py 가 원본 매치에서 읽는다. 미상으로 세지 않는다.
+            continue
         handler = _handler_for(match.message)
         if handler is None:
             unknown.add(match.message)

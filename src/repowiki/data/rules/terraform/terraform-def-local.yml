@@ -1,0 +1,16 @@
+id: terraform-def-local
+language: hcl
+message: def.local
+# `locals { a = 1 b = 2 }`의 속성 하나하나가 지역 값 하나의 선언이다. 블록에 라벨이 없고
+# 이름이 속성 쪽에 있어 다른 블록과 모양이 다르다.
+# 이 룰이 없으면 `local.x` 참조가 선언 없는 자리를 가리킨다(2026-09-09 terraform-aws-vpc
+# 에서 그런 엣지가 391건이었다).
+rule:
+  kind: attribute
+  has: {kind: identifier, nthChild: 1, pattern: $NAME}
+  inside:
+    kind: body
+    inside:
+      kind: block
+      inside: {kind: body, inside: {kind: config_file}}
+      has: {kind: identifier, regex: "^locals$", nthChild: 1}

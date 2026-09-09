@@ -402,6 +402,69 @@ class CorpusFacts(BaseModel):
     config_keys: list[ConfigKey] = Field(default_factory=list)
 
 
+# 블록 종류에서 참조 접두어로. `variable "x"`를 가리키는 참조는 `var.x`이지 `variable.x`가
+# 아니다. 주소는 참조가 쓰는 형태여야 엣지가 선언에 닿는다.
+_TERRAFORM_PREFIX = {"variable": "var"}
+
+
+class TerraformBlock(BaseModel):
+    """Terraform 선언 하나. 블록 종류와 라벨과 자리다.
+
+    코드의 `Symbol`과 합치지 않는다. 리소스는 클래스도 함수도 아니고, 그 자리에 억지로
+    넣으면 위키가 없는 종류를 있다고 말하게 된다(C-REPORT-2).
+    """
+
+    kind: str
+    """블록 종류. `resource`, `data`, `module`, `variable`, `output`, `provider`."""
+    type_name: str = ""
+    """`resource`와 `data`의 첫 라벨. 나머지 종류는 빈 문자열이다."""
+    name: str
+    span: Span
+    module: str
+    is_test: bool = False
+
+    address: str = ""
+    """Terraform 주소. 참조 표현식이 가리키는 이름과 같은 형태다.
+
+    계산 속성이 아니라 필드다. 사실 파일은 JSON 이고 계산 속성은 거기 실리지 않는다.
+    안 실으면 쓰는 층이 이 값을 다시 만들어야 하고, 그 규칙이 두 자리에 생긴다(C-DUP-2).
+    """
+
+    @classmethod
+    def make(cls, **values) -> "TerraformBlock":
+        """주소를 함께 채워 만든다. 주소의 규칙은 이 자리가 정본이다."""
+        kind, type_name, name = values["kind"], values.get("type_name", ""), values["name"]
+        if kind == "resource":
+            address = f"{type_name}.{name}"
+        elif kind == "data":
+            address = f"data.{type_name}.{name}"
+        else:
+            address = f"{_TERRAFORM_PREFIX.get(kind, kind)}.{name}"
+        return cls(address=address, **values)
+
+
+class TerraformEdge(BaseModel):
+    """선언 하나가 다른 선언을 쓰는 자리. 참조 표현식 하나가 엣지 하나다."""
+
+    src: str
+    """쓰는 쪽의 주소. 최상위 블록 밖의 참조는 파일 이름이다."""
+    dst: str
+    """쓰이는 쪽의 주소."""
+    kind: str
+    """무엇을 쓰는가. `module`, `var`, `local`, `data`, `resource`, `source`."""
+    span: Span
+    module: str
+
+
+class TerraformFacts(BaseModel):
+    """Terraform 저장소의 선언과 그 사이 엣지."""
+
+    blocks: list[TerraformBlock] = Field(default_factory=list)
+    edges: list[TerraformEdge] = Field(default_factory=list)
+    unresolved: list[str] = Field(default_factory=list)
+    """이은 것과 못 이은 것의 계수. 조용히 사라지는 것이 없어야 한다(C-REPORT-2)."""
+
+
 class RepoFacts(BaseModel):
     """결정층의 산출 전부. LLM 층은 이 자료만 읽는다(PLAN §2.1)."""
 
@@ -422,4 +485,5 @@ class RepoFacts(BaseModel):
     type_labels: dict[str, str] = Field(default_factory=dict)
     corpus: CorpusFacts | None = None
     toolchain: ToolchainFacts | None = None
+    terraform: TerraformFacts | None = None
     unresolved: list[str] = Field(default_factory=list)

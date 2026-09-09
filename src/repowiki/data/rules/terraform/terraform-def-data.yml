@@ -1,0 +1,12 @@
+id: terraform-def-data
+language: hcl
+message: def.data
+# 최상위 `data "타입" "이름"` 블록. 라벨 둘이 함께 정체를 만든다.
+# 중첩 블록(`lifecycle`, `dynamic`)을 잡지 않도록 최상위만 본다.
+rule:
+  kind: block
+  inside: {kind: body, inside: {kind: config_file}}
+  all:
+    - has: {kind: identifier, regex: "^data$", nthChild: 1}
+    - has: {kind: string_lit, nthChild: 2, has: {kind: template_literal, pattern: $TYPE}}
+    - has: {kind: string_lit, nthChild: 3, has: {kind: template_literal, pattern: $NAME}}

@@ -17,6 +17,10 @@ extensions:
   ".mjs": javascript
   ".cjs": javascript
   ".go": go
+  # Terraform. ast-grep 의 `hcl` 문법으로 읽는다. 룰 디렉토리 이름은 `terraform`이지만
+  # 룰 파일의 `language:`는 `hcl`이다 — ast-grep 이 아는 이름이 그것이다.
+  ".tf": terraform
+  ".tfvars": terraform
 # ast-grep 룰이 실제로 있는 언어. 없는 언어는 심볼과 타입 사실을 내지 않고
 # 프로파일에만 남는다(C-REPORT-2: 조용히 다른 것으로 대체하지 않는다).
-analyzed: [java, python, scala, typescript]
+analyzed: [java, python, scala, typescript, terraform]

@@ -1,0 +1,18 @@
+id: terraform-ref-source
+language: hcl
+message: ref.module_source
+# `module "x" { source = "..." }`의 source. 모듈 사이 엣지의 근거다.
+# 최상위 module 블록 안의 것만 본다 — 다른 블록에도 `source`라는 이름은 있을 수 있다.
+rule:
+  kind: attribute
+  all:
+    - has: {kind: identifier, regex: "^source$", nthChild: 1}
+    - has:
+        kind: expression
+        has: {kind: template_literal, stopBy: end, pattern: $NAME}
+  inside:
+    kind: body
+    inside:
+      kind: block
+      inside: {kind: body, inside: {kind: config_file}}
+      has: {kind: identifier, regex: "^module$", nthChild: 1}

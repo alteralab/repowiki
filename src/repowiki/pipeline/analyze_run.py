@@ -24,6 +24,7 @@ from repowiki.analyze import (
     structure,
     symbols,
     toolchain,
+    terraform,
     tsmodules,
 )
 from repowiki.analyze.domain import is_test
@@ -478,11 +479,13 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     corpus_facts, toolchain_facts, corpus_notes = _corpus_and_toolchain(
         root, tracked, kept, roots, facts
     )
+    terraform_facts = terraform.build(matches, roots, facts)
     facts_out = RepoFacts(
         clusters=concepts,
         type_labels=labels,
         corpus=corpus_facts,
         toolchain=toolchain_facts,
+        terraform=terraform_facts,
         call_edges=call_edges,
         history=history_facts,
         entities=entity_facts,

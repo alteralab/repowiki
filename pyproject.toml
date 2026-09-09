@@ -22,6 +22,7 @@ dependencies = [
     "langgraph-checkpoint-sqlite==3.1.1",
     # langchain-core 는 langgraph 가 끌어온다(langchain-core<2,>=1.4.7). 직접 의존으로 두면
     # 두 자리에서 판을 고정하게 되고, 그 둘이 어긋날 수 있다.
+    # Terraform 선언과 스팬 (PLAN §2.7),
 ]
 
 [project.optional-dependencies]

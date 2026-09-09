@@ -1,0 +1,9 @@
+id: terraform-def-provider
+language: hcl
+message: def.provider
+rule:
+  kind: block
+  inside: {kind: body, inside: {kind: config_file}}
+  all:
+    - has: {kind: identifier, regex: "^provider$", nthChild: 1}
+    - has: {kind: string_lit, nthChild: 2, has: {kind: template_literal, pattern: $NAME}}

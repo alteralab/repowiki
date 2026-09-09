@@ -1,0 +1,21 @@
+id: terraform-ref-use
+language: hcl
+message: ref.use
+# 표현식 안의 참조 하나. `var.cidr`, `module.network.subnet_id`, `data.aws_ami.ubuntu.id`,
+# `aws_instance.web.id`가 모두 이 형태다. 머리가 `variable_expr`이고 그 뒤에 `get_attr`이
+# 붙는다(2026-09-09 AST 실측).
+#
+# 머리와 첫 속성 둘을 함께 잡는다. 머리만으로는 `module`이라는 낱말일 뿐이고, 무엇에
+# 기대는지는 그다음 이름이 말한다.
+rule:
+  kind: expression
+  has:
+    kind: variable_expr
+    has: {kind: identifier, pattern: $HEAD}
+  all:
+    - has: {kind: get_attr, nthChild: 2, has: {kind: identifier, pattern: $NAME}}
+    # `data.aws_ami.ubuntu`는 이름이 두 단계다. 셋째 조각이 없으면 선언에 못 닿는다.
+    # 다른 머리에서는 이 자리가 속성 이름이라 쓰지 않는다.
+    - any:
+        - has: {kind: get_attr, nthChild: 3, has: {kind: identifier, pattern: $SECOND}}
+        - not: {has: {kind: get_attr, nthChild: 3}}
