@@ -22,6 +22,36 @@ def test_a_merge_key_is_expanded_not_recorded() -> None:
     assert not [key for key in got if "<<" in key]
 
 
+def test_an_explicit_key_beats_a_merged_one() -> None:
+    """YAML 은 명시한 키가 머지로 온 것을 이긴다. 반대로 하면 값이 조용히 뒤바뀐다."""
+    got = dict((key, value) for key, value, _ in _keys(
+        "base: &b {x: base}\ntarget: {x: explicit, <<: *b}\n"
+    ))
+    assert got["target.x"] == "explicit"
+
+
+def test_the_first_mapping_in_a_merge_sequence_wins() -> None:
+    """`<<: [*a, *b]`는 앞엣것이 이긴다. 발견 순서로 마지막을 쓰면 반대가 된다."""
+    got = dict((key, value) for key, value, _ in _keys(
+        "a: &a {x: first}\nb: &b {x: second}\nt: {<<: [*a, *b]}\n"
+    ))
+    assert got["t.x"] == "first"
+
+
+def test_the_merge_rules_match_pyyaml() -> None:
+    """정답은 PyYAML 자신이다. 우리 규칙이 그것과 갈리면 우리가 틀린 것이다."""
+    import yaml as _yaml
+
+    for text, holder in (
+        ("base: &b {x: base}\ntarget: {x: explicit, <<: *b}\n", "target"),
+        ("a: &a {x: first}\nb: &b {x: second}\nt: {<<: [*a, *b]}\n", "t"),
+        ("base: &b\n  x: 1\ntarget:\n  <<: *b\n", "target"),
+    ):
+        truth = str(_yaml.safe_load(text)[holder]["x"])
+        got = dict((key, value) for key, value, _ in _keys(text))[f"{holder}.x"]
+        assert got == truth, f"{text!r}: PyYAML {truth!r}, 우리 {got!r}"
+
+
 def test_a_key_containing_a_dot_is_not_a_dotted_path() -> None:
     """`a.b: x`와 `a: {b: x}`는 다른 선언이다. 둘을 합치면 참조가 엉뚱한 쪽에 붙는다.
 

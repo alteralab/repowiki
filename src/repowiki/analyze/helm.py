@@ -51,7 +51,7 @@ def chart_root(path: str) -> str:
     return str(PurePosixPath(path).parent)
 
 
-def _keys(text: str) -> list[tuple[str, str, int]]:
+def _keys(text: str, dropped: list[str] | None = None) -> list[tuple[str, str, int]]:
     """YAML 의 키를 점 표기 경로와 값과 줄 번호와 함께 낸다.
 
     `safe_load`가 아니라 `compose_all`을 쓴다. `safe_load`는 값만 내고 자리를 버리며,
@@ -59,20 +59,35 @@ def _keys(text: str) -> list[tuple[str, str, int]]:
     차트의 values 와 이미지와 참조가 통째로 사라지면서 계수에도 안 남는다
     (2026-09-10 적대적 리뷰가 재현했다). 자리가 없는 사실은 이 도구가 실을 수 없다(SC-1.7).
 
-    같은 경로가 여러 번 나오면 마지막 것만 남긴다. YAML 의 중복 키는 뒤엣것이 이기고,
-    둘 다 내면 있지도 않은 선언이 하나 더 생긴다.
+    같은 경로가 여러 번 나오면 YAML 의 규칙대로 고른다. 규칙이 둘이고 서로 반대다.
+
+      같은 매핑 안에 같은 키가 두 번 있으면 **뒤엣것**이 이긴다.
+      머지(`<<`)로 온 것은 명시한 것에 지고, 머지 목록은 **앞엣것**이 이긴다.
+
+    그래서 어느 쪽에서 왔는지를 함께 들고 다닌다. 자리로 가르려 하면 틀린다 — 앵커가
+    가리키는 노드는 원 선언의 줄을 그대로 들고 있어서 명시 키와 자리가 겹칠 수 있다.
     """
-    found: list[tuple[str, str, int]] = []
+    found: list[tuple[str, str, int, bool]] = []
     try:
         for node in yaml.compose_all(text):
             if node is not None:
-                _walk(node, "", found, set())
+                _walk(node, "", found, set(), False, dropped if dropped is not None else [])
     except yaml.YAMLError:
         return []
-    last: dict[str, tuple[str, str, int]] = {}
+    chosen: dict[str, tuple[str, str, int, bool]] = {}
     for item in found:
-        last[item[0]] = item
-    return [last[key] for key in dict.fromkeys(item[0] for item in found)]
+        previous = chosen.get(item[0])
+        if previous is None:
+            chosen[item[0]] = item
+        elif not previous[3] and not item[3]:
+            # 둘 다 명시 키다. 같은 매핑의 중복이므로 뒤엣것이 이긴다.
+            chosen[item[0]] = item
+        elif previous[3] and not item[3]:
+            # 먼저 담긴 것이 머지고 이번 것이 명시다. 명시가 이긴다.
+            chosen[item[0]] = item
+        # 나머지는 먼저 담긴 것이 이긴다. 머지 목록의 앞엣것이 그렇다.
+    order = dict.fromkeys(item[0] for item in found)
+    return [(key, chosen[key][1], chosen[key][2]) for key in order]
 
 
 # 값이 비어 있는 선언의 표시. `affinity: {}`도 선언이고 템플릿이 그것을 쓴다.
@@ -80,42 +95,72 @@ def _keys(text: str) -> list[tuple[str, str, int]]:
 EMPTY = "(빈 값)"
 
 
-def _walk(node, prefix: str, out: list[tuple[str, str, int]], seen: set[int]) -> None:
+def _is_merge(key) -> bool:
+    """이 열쇠가 머지 지시(`<<`)인가. 키가 아니라 "여기에 저것을 펴라"는 뜻이다."""
+    return key.tag == "tag:yaml.org,2002:merge" or key.value == "<<"
+
+
+def _merge_sources(value) -> list:
+    """머지가 가리키는 매핑들. 목록이면 앞엣것이 이긴다(YAML 1.1 머지 규칙)."""
+    return list(value.value) if isinstance(value, yaml.SequenceNode) else [value]
+
+
+def _walk(
+    node,
+    prefix: str,
+    out: list[tuple[str, str, int, bool]],
+    seen: set[int],
+    merged_in: bool,
+    dropped: list[str],
+) -> None:
     """매핑을 따라 내려가며 키를 모은다. 목록 안은 열쇠가 없으므로 들어가지 않는다.
 
     빈 매핑과 빈 목록도 키다. `affinity: {}`와 `tolerations: []`는 차트가 "이 자리를
     비워 두었다"고 선언한 것이고, 템플릿이 `.Values.affinity`로 실제로 쓴다. 스칼라만
     걷으면 그 참조가 선언에 안 닿아 엣지가 통째로 사라진다(2026-09-10 실측:
     prometheus-community 에서 6438건이 그렇게 빠졌다).
+
+    머지의 우선순위는 YAML 이 정한다. 명시한 키가 머지로 가져온 것을 이기고, 머지 목록은
+    앞엣것이 뒤엣것을 이긴다. 발견 순서대로 담고 마지막을 채택하면 둘 다 반대가 된다
+    (2026-09-10 적대적 리뷰가 `target: {x: explicit, <<: *base}`가 `base`로 기록되는
+    것을 재현했다). 그래서 명시 키를 먼저 담고 머지를 뒤에 담되, 채택은 `_keys`가
+    **먼저 담긴 것**으로 한다.
     """
     if not isinstance(node, yaml.MappingNode) or id(node) in seen:
         return
     seen = seen | {id(node)}
+    merges: list = []
     for key, value in node.value:
         if not isinstance(key, yaml.ScalarNode):
             continue
-        # 머지 키(`<<: *base`)는 키가 아니라 지시다. 그대로 두면 `target.<<`와
-        # `target.<<.x`라는 없는 선언이 생긴다. 가리키는 것을 이 자리에 편다.
-        if key.tag == "tag:yaml.org,2002:merge" or key.value == "<<":
-            for merged in value.value if isinstance(value, yaml.SequenceNode) else [value]:
-                _walk(merged, prefix, out, seen)
+        if _is_merge(key):
+            merges.extend(_merge_sources(value))
             continue
         # 키에 점이 들어 있으면 점 표기로 이을 수 없다. `a.b: x`와 `a: {b: x}`는 서로
         # 다른 선언인데 둘 다 `a.b`가 되고, `.Values.a.b` 참조가 엉뚱한 쪽에 붙는다.
         # Helm 에서 점 든 키는 `index .Values "a.b"`로만 닿으므로 이 참조 규칙의 대상이
         # 아니다. 세지 않고 넘긴다 — 없는 것을 있다고 하지 않는다(C-BRANCH-3).
         if "." in str(key.value):
+            # 세지 않고 넘기면 사라진 것이 안 보인다. 자리와 함께 남긴다.
+            # 실측(helm-prom, 2026-09-10): 점 든 리터럴 키 18개와 그 아래 하나를 합쳐
+            # 19개가 이렇게 빠지고, 그 이름과 똑같은 점 표기 참조는 0개였다.
+            # `nodeSelector.kubernetes.io/os`, `annotations.prometheus.io/scrape` 같은
+            # 것들이다. 엣지로 잇지 않는 판단은 그대로 두되 잃었다는 사실은 남긴다.
+            dropped.append(f"{prefix}.{key.value}" if prefix else str(key.value))
             continue
         path = f"{prefix}.{key.value}" if prefix else key.value
         line = key.start_mark.line + 1
         if isinstance(value, yaml.ScalarNode):
-            out.append((path, value.value, line))
+            out.append((path, value.value, line, merged_in))
         elif not value.value:
-            out.append((path, EMPTY, line))
+            out.append((path, EMPTY, line, merged_in))
         else:
             # 안이 채워진 매핑과 목록은 그 자체도 키이고 안쪽도 키다. 템플릿이 둘 다 쓴다.
-            out.append((path, EMPTY, line))
-            _walk(value, path, out, seen)
+            out.append((path, EMPTY, line, merged_in))
+            _walk(value, path, out, seen, merged_in, dropped)
+    # 머지는 명시 키를 다 담은 뒤에 담는다. 목록의 앞엣것이 이기므로 순서를 지킨다.
+    for merged in merges:
+        _walk(merged, prefix, out, seen, True, dropped)
 
 
 def _chart_of(text: str, path: str) -> tuple[HelmChart, list[HelmDependency]] | None:
@@ -228,7 +273,8 @@ def _values_of(
         if name is None:
             counts["차트 밖의 values.yaml"] += 1
             continue
-        for key, value, line in _keys(texts[path]):
+        dropped: list[str] = []
+        for key, value, line in _keys(texts[path], dropped):
             found.append(
                 HelmValue(
                     chart=name,
@@ -237,6 +283,7 @@ def _values_of(
                     span=Span(path=path, start_line=line, end_line=line),
                 )
             )
+        counts["점이 든 values 키"] += len(dropped)
     return found
 
 
