@@ -9,14 +9,25 @@
 
 from __future__ import annotations
 
+from repowiki.bundle.links import Citer, citer_for
 from repowiki.models import FactTable, RepoFacts, Span, Symbol, SymbolKind
 
 _MAX_ROWS = 30
 _MEMBER_KINDS = {SymbolKind.METHOD, SymbolKind.CONSTRUCTOR, SymbolKind.FUNCTION}
 
 
-def _cite(span: Span) -> str:
-    return f"`{span.path}:L{span.start_line}-L{span.end_line}`"
+def _cite(span: Span, citer: Citer | None = None) -> str:
+    """표의 근거 칸. 소스로 갈 수 있으면 링크다.
+
+    표의 값은 사람이 그대로 믿는 자리다. 그 자리에서 바로 코드로 갈 수 없으면, 믿을지 말지를
+    판단할 방법이 경로를 손으로 찾는 것뿐이다.
+    """
+    return (citer or Citer()).markdown(span)
+
+
+def _citer(facts: RepoFacts) -> Citer:
+    """이 저장소의 인용기. 원격과 분석 커밋이 링크를 만든다."""
+    return citer_for(facts.profile.remote_url, facts.profile.head_sha)
 
 
 def language_table(facts: RepoFacts) -> FactTable | None:
@@ -24,8 +35,9 @@ def language_table(facts: RepoFacts) -> FactTable | None:
     chain = facts.toolchain
     if chain is None or not chain.languages:
         return None
+    citer = _citer(facts)
     rows = [
-        [item.language, item.version, item.source, _cite(item.span)]
+        [item.language, item.version, item.source, _cite(item.span, citer)]
         for item in chain.languages[:_MAX_ROWS]
     ]
     return FactTable(
@@ -45,13 +57,14 @@ def dependency_table(facts: RepoFacts, module: str | None = None) -> FactTable |
     items = [item for item in chain.dependencies if module is None or item.module == module]
     if not items:
         return None
+    citer = _citer(facts)
     rows = [
         [
             item.name,
             item.version or "(빌드가 정함)",
             item.scope,
             item.ecosystem,
-            _cite(item.span),
+            _cite(item.span, citer),
         ]
         for item in items[:_MAX_ROWS]
     ]
@@ -70,7 +83,11 @@ def dependency_table(facts: RepoFacts, module: str | None = None) -> FactTable |
 
 
 def member_table(
-    type_name: str, path: str, symbols: list[Symbol], label: str = ""
+    type_name: str,
+    path: str,
+    symbols: list[Symbol],
+    label: str = "",
+    citer: Citer | None = None,
 ) -> FactTable | None:
     """한 타입의 멤버. 사람이 "이 타입으로 무엇을 할 수 있는가"를 먼저 읽는 자리다.
 
@@ -87,7 +104,7 @@ def member_table(
         [
             f"`{symbol.name}`",
             symbol.kind.value,
-            _cite(symbol.span),
+            _cite(symbol.span, citer),
         ]
         for symbol in ordered[:_MAX_ROWS]
     ]
@@ -103,7 +120,12 @@ def member_table(
     )
 
 
-def type_inventory(title: str, labels: dict[str, str], symbols: list[Symbol]) -> FactTable | None:
+def type_inventory(
+    title: str,
+    labels: dict[str, str],
+    symbols: list[Symbol],
+    citer: Citer | None = None,
+) -> FactTable | None:
     """묶음이 담은 타입 목록. 페이지가 무엇을 다루는지 한눈에 보이는 자리다."""
     if not symbols:
         return None
@@ -112,7 +134,7 @@ def type_inventory(title: str, labels: dict[str, str], symbols: list[Symbol]) ->
         [
             f"`{labels.get(f'{s.span.path}#{s.name}', s.name)}`",
             s.kind.value,
-            _cite(s.span),
+            _cite(s.span, citer),
         ]
         for s in ordered[:_MAX_ROWS]
     ]
@@ -135,8 +157,9 @@ def config_table(facts: RepoFacts, prefix: str | None = None) -> FactTable | Non
     ]
     if not items:
         return None
+    citer = _citer(facts)
     rows = [
-        [f"`{item.key}`", f"`{item.value}`" if item.value else "", _cite(item.span)]
+        [f"`{item.key}`", f"`{item.value}`" if item.value else "", _cite(item.span, citer)]
         for item in items[:_MAX_ROWS]
     ]
     return FactTable(
@@ -182,6 +205,7 @@ def callers_table(type_name: str, facts: RepoFacts) -> FactTable | None:
     incoming = [e for e in facts.call_edges if e.dst_type == type_name]
     if not incoming:
         return None
+    citer = _citer(facts)
     ordered = sorted(
         incoming, key=lambda e: (e.dst_member, e.src_type, e.src_member, e.span.start_line)
     )
@@ -197,7 +221,7 @@ def callers_table(type_name: str, facts: RepoFacts) -> FactTable | None:
                 f"`{edge.dst_member}`",
                 f"`{edge.src_type}.{edge.src_member}`",
                 edge.receiver_kind,
-                _cite(edge.span),
+                _cite(edge.span, citer),
             ]
         )
         if len(rows) >= _MAX_ROWS:
@@ -211,16 +235,18 @@ def callers_table(type_name: str, facts: RepoFacts) -> FactTable | None:
     )
 
 
-def test_inventory(symbols: list[Symbol]) -> FactTable | None:
+def test_inventory(symbols: list[Symbol], citer: Citer | None = None) -> FactTable | None:
     """테스트 파일과 그 안의 검사 수. 사용 예 쪽이 무엇을 근거로 삼는지 보이는 자리다."""
     counted: dict[str, int] = {}
+    first: dict[str, Span] = {}
     for symbol in symbols:
         if symbol.is_test and symbol.kind in _MEMBER_KINDS:
             counted[symbol.span.path] = counted.get(symbol.span.path, 0) + 1
+            first.setdefault(symbol.span.path, symbol.span)
     if not counted:
         return None
     rows = [
-        [f"`{path}`", str(count)]
+        [_cite(Span(path=path, start_line=1, end_line=1), citer), str(count)]
         for path, count in sorted(counted.items(), key=lambda item: (-item[1], item[0]))[:_MAX_ROWS]
     ]
     return FactTable(

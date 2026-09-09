@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
-from repowiki.bundle.links import Forge, load_forges, source_url
+from repowiki.bundle.links import Citer, Forge, load_forges, source_url
 from repowiki.models import PageJob, PageOutput, RepoFacts, Span
 
 WIKI_VERSION = "repowiki/0.1.0"
@@ -131,14 +131,8 @@ def _cite_text(span: Span) -> str:
 
 
 def _linked(span: Span, remote: str, commit: str, forges: list[Forge]) -> str:
-    """자리 하나의 표기. 링크를 만들 수 있으면 링크로, 아니면 코드 표기로 낸다.
-
-    원격이 없는 작업본(반입 환경)에서는 링크가 없는 것이 정상이고, 그때도 경로와 줄은
-    그대로 남아 사람이 손으로 찾아갈 수 있다.
-    """
-    url = source_url(remote, commit, span, forges)
-    label = _cite_text(span)
-    return f"[`{label}`]({url})" if url else f"`{label}`"
+    """자리 하나의 표기. 표기의 정본은 `bundle/links.py`의 인용기다(C-DUP-2)."""
+    return Citer(remote_url=remote, commit=commit, forges=forges).markdown(span)
 
 
 def _footnotes(

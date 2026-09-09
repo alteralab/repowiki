@@ -15,7 +15,7 @@ from __future__ import annotations
 from urllib.parse import quote
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from repowiki.analyze.domain import DATA_DIR
 from repowiki.models import Span
@@ -122,3 +122,36 @@ def source_url(remote_url: str, commit: str, span: Span, forges: list[Forge]) ->
         return ""
     anchor = forge.line.format(start=span.start_line, end=span.end_line)
     return f"{base}{forge.blob.format(commit=safe_commit)}/{safe_path}{anchor}"
+
+
+class Citer(BaseModel):
+    """자리 하나를 인용 표기로 바꾸는 것. 위키의 모든 인용이 이 하나를 지난다.
+
+    각주와 표와 머리말이 각자 링크를 만들면 형식이 갈라진다. 사람은 같은 자리를 가리키는
+    두 표기를 다른 자리로 읽는다(C-DUP-2).
+    """
+
+    model_config = {"frozen": True}
+
+    remote_url: str = ""
+    commit: str = ""
+    forges: list[Forge] = Field(default_factory=list)
+
+    def url(self, span: Span) -> str:
+        """이 자리의 웹 주소. 만들 수 없으면 빈 문자열이다."""
+        return source_url(self.remote_url, self.commit, span, self.forges)
+
+    def markdown(self, span: Span) -> str:
+        """인용 표기. 링크를 만들 수 있으면 링크로, 아니면 코드 표기로 낸다.
+
+        원격이 없는 작업본(반입 환경)에서는 링크가 없는 것이 정상이고, 그때도 경로와 줄은
+        그대로 남아 사람이 손으로 찾아갈 수 있다.
+        """
+        label = f"{span.path}:L{span.start_line}-L{span.end_line}"
+        target = self.url(span)
+        return f"[`{label}`]({target})" if target else f"`{label}`"
+
+
+def citer_for(remote_url: str, commit: str) -> Citer:
+    """사실에서 인용기를 만든다. 호스팅 규칙은 데이터가 소유한다."""
+    return Citer(remote_url=remote_url, commit=commit, forges=load_forges())

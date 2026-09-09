@@ -24,6 +24,7 @@ from pydantic import BaseModel
 
 from repowiki.analyze import clusters
 from repowiki.analyze.domain import DATA_DIR
+from repowiki.bundle.links import Citer, citer_for
 from repowiki.models import (
     Cluster,
     Diagram,
@@ -148,6 +149,11 @@ def _budget(page_type: PageType) -> dict:
 def target_words(page_type: PageType) -> int:
     """이 종류의 쪽이 목표하는 분량. 게이트의 하한이 이 값에서 나온다."""
     return _budget(page_type).get("target_words", _DEFAULT_BUDGET["target_words"])
+
+
+def _citer(facts: RepoFacts) -> Citer:
+    """이 저장소의 인용기. 표의 근거 칸이 소스 링크가 된다."""
+    return citer_for(facts.profile.remote_url, facts.profile.head_sha)
 
 
 def _keep(tables: list[FactTable | None]) -> list[FactTable]:
@@ -446,7 +452,7 @@ def _concept_job(
         diagrams,
         _keep(
             [
-                fact_tables.type_inventory(group.title, labels, types),
+                fact_tables.type_inventory(group.title, labels, types, _citer(facts)),
                 _member_table_for(facts, labels, types, members),
                 fact_tables.callers_table(lead_name, facts),
             ]
@@ -464,7 +470,9 @@ def _member_table_for(facts: RepoFacts, labels: dict[str, str], types: list, mem
     name, path = _richest(types, members)
     if not name:
         return None
-    return fact_tables.member_table(name, path, facts.symbols, labels.get(f"{path}#{name}", name))
+    return fact_tables.member_table(
+        name, path, facts.symbols, labels.get(f"{path}#{name}", name), _citer(facts)
+    )
 
 
 def _richest(types: list, members: list) -> tuple[str, str]:
@@ -777,7 +785,7 @@ def _usage_job(facts: RepoFacts) -> PageJob | None:
         payload,
         evidence,
         [],
-        _keep([fact_tables.test_inventory(facts.symbols)]),
+        _keep([fact_tables.test_inventory(facts.symbols, _citer(facts))]),
         "6",
     )
 

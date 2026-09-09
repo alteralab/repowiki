@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from repowiki.adapters.jobs import Job, JobError, JobStore
 from repowiki.adapters.site import build, install, scaffold
 from repowiki.bundle.emit import Frontmatter, frontmatter_of, render_index, render_llms_full, render_llms_txt, render_page
+from repowiki.bundle.placeholders import expand, names
 from repowiki.bundle.site_emit import meta_files, to_site_page
 from repowiki.gate.page import PageViolation, check_page
 from repowiki.models import PageJob, PageOutput, RepoFacts
@@ -104,18 +105,19 @@ def _brief(job: PageJob) -> str:
     sibling_lines = "\n".join(
         f"- {item.get('title', '')}: `{item.get('path', '')}`" for item in job.siblings
     )
+    slots = names(job.diagrams, job.tables)
+    slot_lines = "\n".join(f"- `{slot}`" for slot in slots)
     diagram_note = (
-        "이 작업의 `job.json`에 있는 `diagrams[].source`를 그대로 ```mermaid 블록에 넣어라."
-        " 새로 그리거나 고치지 마라."
-        if job.diagrams
-        else "이 페이지에는 다이어그램이 없다."
+        "도식과 표는 아래 자리표시자로 넣는다. 손으로 옮겨 적지 마라 — 제출할 때 도구가"
+        " 사실의 소스로 바꾼다. 준 것은 하나도 빠뜨리지 말고, 주지 않은 도식이나 표를 만들지"
+        " 마라."
+        if slots
+        else "이 페이지에는 도식과 표가 없다. 새로 만들지 마라."
     )
     table_note = (
-        "이 작업의 `job.json`에 있는 `tables`를 아래 형식 그대로 본문에 넣어라."
-        " 값을 한 칸도 바꾸지 마라. 형식은 `**제목**` 다음 빈 줄, 그다음 파이프 표이고,"
-        " 각주가 있으면 표 뒤에 빈 줄과 함께 둔다."
-        if job.tables
-        else "이 페이지에는 표가 없다. 표를 새로 만들지 마라."
+        f"쓸 수 있는 자리표시자는 이것뿐이다.\n\n{slot_lines}"
+        if slots
+        else "표를 새로 만들면 게이트가 거부한다."
     )
     return f"""# 작업 {job.id}
 
@@ -154,6 +156,70 @@ def _brief(job: PageJob) -> str:
 """
 
 
+def describe(workspace: Workspace, job_id: str, evidence_ids: list[str]) -> str:
+    """작업 하나를 사람이 읽을 형태로 낸다.
+
+    `job.json`은 기계가 읽는 형태라 사람이 훑기에 나쁘다. 근거의 원문은 요청한 것만 싣는다 —
+    전부 실으면 이 출력이 저장소가 된다.
+    """
+    job_file = workspace.job_dir(job_id) / "job.json"
+    if not job_file.exists():
+        raise FileNotFoundError(f"없는 작업이다: {job_id}")
+    job = PageJob.model_validate_json(job_file.read_text(encoding="utf-8"))
+    wanted = set(evidence_ids)
+
+    lines = [
+        f"# {job.id}",
+        "",
+        f"- 쓸 파일: `{job.path}`",
+        f"- 종류: `{job.type.value}`  섹션: `{job.section}`",
+        f"- 제목: {job.title}",
+        f"- 목적: {job.purpose}",
+        "",
+        "## 자리표시자",
+        "",
+        *(f"- `{slot}`" for slot in names(job.diagrams, job.tables)),
+        "",
+        "## 형제 페이지",
+        "",
+        *(f"- {item.get('title', '')}: `{item.get('path', '')}`" for item in job.siblings),
+        "",
+        "## 사실",
+        "",
+        "```json",
+        json.dumps(job.facts, ensure_ascii=False, indent=1),
+        "```",
+        "",
+        f"## 근거 {len(job.evidence)}건",
+        "",
+    ]
+    for item in job.evidence:
+        lines.append(f"- `{item.id}` {item.note}: `{item.span.cite()}`")
+    if wanted:
+        lines += ["", "## 요청한 근거의 원문", ""]
+        for item in job.evidence:
+            if item.id not in wanted:
+                continue
+            lines += [f"### `{item.id}` {item.note}", "", f"`{item.span.cite()}`", ""]
+            lines += ["```", item.text or "(원문을 싣지 못했다)", "```", ""]
+    return "\n".join(lines)
+
+
+def take(workspace: Workspace, job_id: str, worker: str) -> Job:
+    """작업 하나를 이름으로 지정해 빌린다.
+
+    `next`는 대기 순서대로 준다. 사람이 특정 쪽을 먼저 쓰고 싶을 때 그 순서에 매이지 않게
+    한다. 이미 빌린 사람이 있으면 그 사실을 말하고 멈춘다.
+    """
+    store = JobStore(workspace.store_path)
+    store.recover()
+    job = store.lease_id(job_id, worker)
+    if job is None:
+        state = store.state_of(job_id)
+        raise JobError(f"빌릴 수 없다: {job_id} 상태가 `{state}`다")
+    return job
+
+
 def next_job(workspace: Workspace, worker: str) -> Job | None:
     """대기 중인 작업 하나를 빌린다."""
     store = JobStore(workspace.store_path)
@@ -168,6 +234,10 @@ def submit(workspace: Workspace, page_path: Path, worker: str) -> list[PageViola
     if not job_file.exists():
         raise FileNotFoundError(f"없는 작업이다: {output.job_id}")
     job = PageJob.model_validate_json(job_file.read_text(encoding="utf-8"))
+    # 자리표시자를 먼저 편다. 게이트가 보는 것은 편 뒤의 본문이다.
+    output = output.model_copy(
+        update={"body_markdown": expand(output.body_markdown, job.diagrams, job.tables)}
+    )
 
     store = JobStore(workspace.store_path)
     state = store.state_of(job.id)
@@ -204,11 +274,15 @@ def bundle(workspace: Workspace, out: Path, facts: RepoFacts) -> tuple[Path, int
 
     store = JobStore(workspace.store_path)
     for job in build_jobs(facts):
-        page_file = workspace.job_dir(job.id) / "page.json"
-        # 게이트를 통과해 끝난 작업만 낸다. 거부된 제출이 디렉토리에 남아 있어도 싣지 않는다.
-        if not page_file.exists() or store.state_of(job.id) != "done":
+        # 위키에 실리는 것은 게이트를 지나 저널에 확정된 내용이다. 작업 디렉토리의
+        # `page.json`은 제출 뒤에도 고칠 수 있어서, 그것을 읽으면 게이트를 지나지 않은
+        # 글이 위키에 실린다(C-GATE-1).
+        if store.state_of(job.id) != "done":
             continue
-        output = PageOutput.model_validate_json(page_file.read_text(encoding="utf-8"))
+        accepted = store.response_of(job.id)
+        if accepted is None:
+            continue
+        output = PageOutput.model_validate_json(accepted)
         rendered = render_page(job, output, facts, stamp)
         target = wiki / job.path
         target.parent.mkdir(parents=True, exist_ok=True)

@@ -53,23 +53,22 @@ npm ci --prefix src/repowiki/data/site-template
 
 ## 쓰는 법
 
-네 단계다. 분석하고, 쪽을 계획하고, 쪽을 쓰고, 묶는다.
+세 단계다. 분석하고 계획하고, 쪽을 쓰고, 묶는다.
 
 ```sh
-# 1. 분석한다. 작업본은 이미 클론되어 있어야 한다.
-uv run repowiki analyze ~/work/commons-cli --out ./out
+# 1. 분석과 계획을 한 번에. 종료 코드가 0이어야 한다.
+uv run repowiki run ~/work/commons-cli --out ./out
 
-# 2. 쪽을 계획한다. 근거 자리의 원문이 브리핑에 함께 실린다.
-uv run repowiki write --out ./out
+# 2. 쪽을 쓴다. 아래 "쪽을 쓰는 두 가지 길"을 보라.
 
-# 3. 쪽을 쓴다. 아래 "쪽을 쓰는 두 가지 길"을 보라.
-
-# 4. 묶는다.
+# 3. 묶는다.
 uv run repowiki bundle --out ./out
 
-# 5. 사이트로 띄운다 (선택).
+# 4. 사이트로 띄운다 (선택).
 uv run repowiki site --out ./out --open
 ```
+
+`run`은 `analyze`와 `write`를 이어 돌린다. 따로 돌려야 하면 그 둘을 직접 부른다.
 
 `./out`에 이런 것이 생긴다.
 
@@ -90,14 +89,18 @@ out/
 ### 쪽을 쓰는 두 가지 길
 
 **세션 드라이버 (기본).** Claude Code 같은 세션 안에서 사람이나 에이전트가 한 쪽씩 받아
-쓴다. API 키가 필요 없다.
+쓴다. API 키가 필요 없다. Claude Code에서는 `.claude/skills/write-wiki`가 이 흐름을 굳혀 둔다.
 
 ```sh
-uv run repowiki job next --out ./out --worker session
-#   → 작업 하나를 빌리고 brief.md 경로를 알려 준다
+uv run repowiki job status --out ./out                 # 무엇이 남았는지
+uv run repowiki job take concept-help --out ./out      # 이름으로 지정해 받는다
+uv run repowiki job next --out ./out                   # 또는 대기 순서대로
 
-# brief.md를 읽고 page.json을 그 디렉토리에 쓴 뒤
-uv run repowiki job submit ./out/.repowiki/jobs/<작업 id>/page.json --out ./out --worker session
+uv run repowiki job show concept-help --out ./out                    # 사실과 근거 목록
+uv run repowiki job show concept-help --out ./out --source E1,E5     # 근거의 원문
+
+# page.json을 그 작업 디렉토리에 쓴 뒤
+uv run repowiki job submit ./out/.repowiki/jobs/concept-help/page.json --out ./out
 ```
 
 `page.json`의 형식은 이렇다.
@@ -112,6 +115,20 @@ uv run repowiki job submit ./out/.repowiki/jobs/<작업 id>/page.json --out ./ou
   "citations": ["E1", "E2"]
 }
 ```
+
+### 도식과 표는 자리표시자로 넣는다
+
+게이트는 작업이 준 도식과 표가 **글자 그대로** 있어야 통과시킨다. 손으로 옮겨 적으면
+옮기다 틀리는 일이 규칙 위반과 구별되지 않는다. 그래서 자리표시자를 쓴다.
+
+```markdown
+{{diagram:TYPE-Option}}
+
+{{table:members-Option}}
+```
+
+제출할 때 도구가 사실의 소스로 편다. 쓸 수 있는 이름은 `job show`의 "자리표시자" 절에
+그대로 나온다. 없는 이름을 쓰면 제출이 거부된다.
 
 **API 드라이버.** 배치로 돌릴 때 쓴다.
 

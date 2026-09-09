@@ -22,8 +22,9 @@ from repowiki.analyze.graph import (
 from repowiki.analyze.structure import module_of
 from repowiki.analyze.symbols import Extraction, ImportRecord, PackageRecord, Reference
 from repowiki.bundle.diagrams import subsystem_diagram, type_diagram
-from repowiki.gate.mermaid import check_limits
+from repowiki.gate.mermaid import check_limits, check_page_blocks
 from repowiki.models import (
+    Diagram,
     DiagramLimit,
     Module,
     ModuleEdge,
@@ -216,7 +217,7 @@ def test_diagram_degrades_instead_of_overflowing() -> None:
     diagram = subsystem_diagram(groups, edges, limit)
     assert diagram.node_count <= 15
     assert diagram.degraded_reason is not None
-    assert check_limits([diagram], {"L0": limit}, 1) == []
+    assert check_limits([diagram], {"L0": limit}) == []
 
 
 def test_single_oversized_label_never_exceeds_the_limit() -> None:
@@ -227,7 +228,7 @@ def test_single_oversized_label_never_exceeds_the_limit() -> None:
     diagram = subsystem_diagram(groups, [], limit)
     assert len(diagram.source) <= limit.max_source_chars
     assert diagram.degraded_reason is not None
-    assert check_limits([diagram], {"L0": limit}, 1) == []
+    assert check_limits([diagram], {"L0": limit}) == []
 
 
 def test_type_diagram_is_absent_without_edges() -> None:
@@ -577,3 +578,23 @@ def test_flow_diagram_needs_a_module_boundary() -> None:
         kind=EntryPointKind.MAIN, name="main", span=_span("a/Entry.java", 5), module="a"
     )
     assert flows([entry], edges, index, limit=5) == []
+
+
+def test_page_block_limit_uses_the_lowest_cap_of_the_levels_the_page_carries() -> None:
+    """한 쪽의 블록 상한은 그 쪽이 실은 층 중 가장 낮은 값이다."""
+    wide = DiagramLimit(level="L0", max_nodes=6, max_source_chars=2000, max_blocks_per_page=5)
+    narrow = DiagramLimit(level="SEQ", max_nodes=8, max_source_chars=2000, max_blocks_per_page=2)
+    limits = {"L0": wide, "SEQ": narrow}
+
+    def _d(level: str, position: int) -> Diagram:
+        return Diagram(
+            id=f"{level}-{position}", level=level, source="flowchart LR", node_count=1, edge_count=0
+        )
+
+    assert check_page_blocks("p", [_d("L0", 1), _d("SEQ", 2)], limits) == []
+    over = check_page_blocks("p", [_d("L0", 1), _d("SEQ", 2), _d("SEQ", 3)], limits)
+    assert [v.rule for v in over] == ["blocks-per-page"]
+
+
+def test_a_page_without_diagrams_has_nothing_to_check() -> None:
+    assert check_page_blocks("p", [], {}) == []

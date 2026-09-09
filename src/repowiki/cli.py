@@ -19,11 +19,13 @@ from repowiki.pipeline.write_run import (
     Workspace,
     build_site,
     bundle,
+    describe,
     load_facts,
     next_job,
     prepare,
     status,
     submit,
+    take,
     write_manifest,
 )
 
@@ -45,7 +47,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
         )
 
     limits = load_limits()
-    violations = check_limits(facts.diagrams, limits, len(facts.diagrams))
+    violations = check_limits(facts.diagrams, limits)
     for violation in violations:
         print(f"한도 위반 {violation.diagram_id} {violation.rule}: {violation.detail}", file=sys.stderr)
 
@@ -173,6 +175,32 @@ def _cmd_site(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_job_show(args: argparse.Namespace) -> int:
+    workspace = Workspace(root=str(Path(args.out).resolve()))
+    wanted = [item.strip() for item in (args.source or "").split(",") if item.strip()]
+    print(describe(workspace, args.job, wanted))
+    return 0
+
+
+def _cmd_job_take(args: argparse.Namespace) -> int:
+    workspace = Workspace(root=str(Path(args.out).resolve()))
+    job = take(workspace, args.job, args.worker)
+    directory = workspace.job_dir(job.id)
+    print(f"작업 {job.id}")
+    print(f"  지시문 {directory / 'brief.md'}")
+    print(f"  제출   repowiki job submit {directory / 'page.json'} --out {args.out}")
+    return 0
+
+
+def _cmd_run(args: argparse.Namespace) -> int:
+    """분석과 계획을 한 번에 돌린다. 쪽을 쓰는 것은 사람이나 세션의 일이다."""
+    code = _cmd_analyze(args)
+    if code != 0:
+        return code
+    print()
+    return _cmd_write(args)
+
+
 def _cmd_status(args: argparse.Namespace) -> int:
     workspace = Workspace(root=str(Path(args.out).resolve()))
     counts = status(workspace)
@@ -213,9 +241,31 @@ def main(argv: list[str] | None = None) -> int:
     job_submit.add_argument("--worker", default="session")
     job_submit.set_defaults(handler=_cmd_job_submit)
 
+    job_show = job_sub.add_parser("show", help="작업 하나를 사람이 읽을 형태로 낸다")
+    job_show.add_argument("job", help="작업 id")
+    job_show.add_argument("--out", default="out")
+    job_show.add_argument(
+        "--source", default="", help="원문을 함께 볼 근거 id 목록(쉼표로 구분, 예: E1,E5)"
+    )
+    job_show.set_defaults(handler=_cmd_job_show)
+
+    job_take = job_sub.add_parser("take", help="작업 하나를 이름으로 지정해 받는다")
+    job_take.add_argument("job", help="작업 id")
+    job_take.add_argument("--out", default="out")
+    job_take.add_argument("--worker", default="session")
+    job_take.set_defaults(handler=_cmd_job_take)
+
     job_status = job_sub.add_parser("status", help="작업 상태를 본다")
     job_status.add_argument("--out", default="out")
     job_status.set_defaults(handler=_cmd_status)
+
+    run = sub.add_parser("run", help="분석과 페이지 계획을 한 번에 돌린다")
+    run.add_argument("repo", help="분석할 작업본 경로")
+    run.add_argument("--out", default="out", help="산출 디렉토리")
+    run.add_argument(
+        "--skip-parse", action="store_true", help="Mermaid 파서 게이트를 건너뛴다(Node 없는 환경)"
+    )
+    run.set_defaults(handler=_cmd_run)
 
     bundle_cmd = sub.add_parser("bundle", help="제출된 페이지를 위키로 낸다")
     bundle_cmd.add_argument("--out", default="out")

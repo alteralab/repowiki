@@ -115,8 +115,35 @@ def serve(directory: Path, port: int) -> tuple[ThreadingHTTPServer, str]:
     return server, f"http://127.0.0.1:{server.server_address[1]}/"
 
 
+# 문자 집합을 붙여 내보낼 형식. 붙이지 않으면 브라우저가 인코딩을 추측하고, 한글 본문이
+# 깨져 보인다(`llms.txt`가 그랬다). 파일은 정상 UTF-8인데 헤더가 그 사실을 말하지 않은 것이다.
+_TEXT_TYPES = (
+    "text/plain",
+    "text/html",
+    "text/markdown",
+    "text/css",
+    "text/csv",
+    "application/javascript",
+    "application/json",
+    "application/xml",
+)
+
+
 class _QuietHandler(SimpleHTTPRequestHandler):
-    """요청 로그를 표준 오류로 쏟지 않는 핸들러."""
+    """요청 로그를 표준 오류로 쏟지 않고, 글자 파일에 문자 집합을 붙이는 핸들러."""
+
+    extensions_map = {
+        **SimpleHTTPRequestHandler.extensions_map,
+        ".md": "text/markdown",
+        ".mdx": "text/markdown",
+        ".txt": "text/plain",
+    }
+
+    def guess_type(self, path: str) -> str:
+        """이 파일의 형식. 글자 파일이면 UTF-8이라고 밝힌다."""
+        found = super().guess_type(path)
+        base = found.split(";", 1)[0].strip()
+        return f"{base}; charset=utf-8" if base in _TEXT_TYPES else found
 
     def log_message(self, *_args: object) -> None:
         return

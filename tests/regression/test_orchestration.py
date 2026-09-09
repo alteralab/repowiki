@@ -13,7 +13,9 @@ from pathlib import Path
 import pytest
 
 from repowiki.adapters.jobs import Job, JobError, JobStore
+from repowiki.models import PageOutput, RepoFacts, RepoKind, RepoProfile
 from repowiki.pipeline.graph import MAX_ATTEMPTS, GraphState, build_graph
+from repowiki.pipeline.write_run import bundle, next_job, prepare, submit
 
 
 def _store(tmp_path: Path, count: int = 3) -> JobStore:
@@ -158,3 +160,64 @@ def test_finished_job_is_not_resurrected_by_a_bad_submit(tmp_path: Path) -> None
     with pytest.raises(JobError, match="이미 끝난 작업은 되돌리지 않는다"):
         store.reject(job.id, "게이트 실패")
     assert store.counts() == {"done": 1}
+
+
+def _long_body(mark: str) -> str:
+    """분량 하한을 넘기는 본문. 이 검사가 보려는 것은 분량이 아니라 무엇이 실리느냐다."""
+    filler = " ".join(["이 저장소는 하나의 모듈로 되어 있다."] * 90)
+    return f"{mark}\n\n{filler}"
+
+
+def _minimal_facts() -> RepoFacts:
+    """가장 작은 사실. 개요 쪽 하나만 나온다."""
+    return RepoFacts(
+        profile=RepoProfile(
+            root_name="tiny", kind=RepoKind.CODE, head_sha="abc123", file_count=1, languages={}
+        ),
+        modules=[],
+        module_edges=[],
+        subsystems=[],
+        symbols=[],
+        type_edges=[],
+        entry_points=[],
+        file_ranks=[],
+        flows=[],
+        diagrams=[],
+    )
+
+
+def test_bundle_carries_what_the_gate_accepted_not_what_the_file_says(tmp_path: Path) -> None:
+    """게이트를 지난 뒤 파일을 고쳐도 위키는 지난 것을 싣는다.
+
+    작업 디렉토리는 사람과 에이전트가 쓰는 자리라 언제든 고칠 수 있다. 위키에 실리는 것이
+    그 파일이면 게이트는 지나갈 수 있는 문이지 관문이 아니다(C-GATE-1).
+    """
+    facts = _minimal_facts()
+    out = tmp_path / "out"
+    workspace, count = prepare(out, facts)
+    assert count == 1
+    job = next_job(workspace, "w1")
+    assert job is not None
+
+    page = workspace.job_dir(job.id) / "page.json"
+    accepted = PageOutput(
+        job_id=job.id,
+        title="개요",
+        description="설명",
+        body_markdown=_long_body("게이트를 지난 글이다."),
+        citations=[],
+    )
+    page.write_text(accepted.model_dump_json(), encoding="utf-8")
+    assert submit(workspace, page, "w1") == []
+
+    page.write_text(
+        accepted.model_copy(
+            update={"body_markdown": _long_body("지나지 않은 글이다.")}
+        ).model_dump_json(),
+        encoding="utf-8",
+    )
+    wiki, written = bundle(workspace, out, facts)
+    body = (wiki / job.page_path).read_text(encoding="utf-8")
+    assert "게이트를 지난 글이다." in body
+    assert "지나지 않은 글이다." not in body
+    assert written == 1

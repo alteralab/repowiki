@@ -23,9 +23,13 @@ class LimitViolation(BaseModel):
 
 
 def check_limits(
-    diagrams: list[Diagram], limits: dict[str, DiagramLimit], blocks_per_page: int
+    diagrams: list[Diagram], limits: dict[str, DiagramLimit]
 ) -> list[LimitViolation]:
-    """소스 문자 수, 노드 수, 페이지당 블록 수를 검사한다."""
+    """도식 하나하나의 소스 문자 수와 노드 수를 검사한다.
+
+    쪽당 블록 수는 여기서 보지 않는다. 이 함수가 보는 것은 사실 전체이고, 사실 전체는 한
+    쪽이 아니다. 그 검사는 쪽이 정해진 뒤에 `check_page_blocks`가 한다.
+    """
     violations: list[LimitViolation] = []
     for diagram in diagrams:
         limit = limits.get(diagram.level)
@@ -54,13 +58,26 @@ def check_limits(
                     detail=f"{diagram.node_count}개 > 상한 {limit.max_nodes}개",
                 )
             )
-    first_limit = next(iter(limits.values()), None)
-    if first_limit is not None and blocks_per_page > first_limit.max_blocks_per_page:
-        violations.append(
-            LimitViolation(
-                diagram_id="page",
-                rule="blocks-per-page",
-                detail=f"{blocks_per_page}블록 > 상한 {first_limit.max_blocks_per_page}블록",
-            )
-        )
     return violations
+
+
+def check_page_blocks(
+    page_id: str, diagrams: list[Diagram], limits: dict[str, DiagramLimit]
+) -> list[LimitViolation]:
+    """한 쪽이 실은 블록 수를 검사한다. 상한은 그 쪽이 실은 층 중 가장 낮은 값이다."""
+    if not diagrams:
+        return []
+    caps = [
+        limits[diagram.level].max_blocks_per_page
+        for diagram in diagrams
+        if diagram.level in limits
+    ]
+    if not caps or len(diagrams) <= min(caps):
+        return []
+    return [
+        LimitViolation(
+            diagram_id=page_id,
+            rule="blocks-per-page",
+            detail=f"{len(diagrams)}블록 > 상한 {min(caps)}블록",
+        )
+    ]

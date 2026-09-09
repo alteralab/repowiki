@@ -39,6 +39,24 @@ levels:
     max_source_chars: 2000
     max_blocks_per_page: 50
     layout: dagre
+  TYPE:
+    # 한 타입의 상세. 상자 하나에 멤버가 들어가고 이웃이 둘러선다. classDiagram이라 dagre다.
+    max_nodes: 25
+    max_source_chars: 2400
+    max_blocks_per_page: 50
+    layout: dagre
+  COLLAB:
+    # 한 타입이 어디에 기대는지. 중심에서 뻗는 별 모양이라 교차가 적고 상한이 넉넉하다.
+    max_nodes: 20
+    max_source_chars: 2000
+    max_blocks_per_page: 50
+    layout: elk
+  SEQ:
+    # 멤버 하나의 호출 순서. 참가자는 타입이고 세로로 길어지므로 참가자 수가 상한이다.
+    max_nodes: 8
+    max_source_chars: 2000
+    max_blocks_per_page: 50
+    layout: dagre
 # 페이지 종류마다 실을 도식과 표의 예산. 한 상한을 모든 쪽에 물리면 안 된다 — 쪽마다
 # 성격이 다르다. 구조 개요는 저장소 전체를 여러 각도에서 보여야 하고, 버전 표만 있는
 # 쪽에는 그릴 것이 없다.

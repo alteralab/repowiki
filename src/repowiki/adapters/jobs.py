@@ -87,6 +87,31 @@ class JobStore:
                 (job_id, page_path, payload, input_hash, STATE_PENDING),
             )
 
+    def lease_id(self, job_id: str, worker: str) -> Job | None:
+        """이름으로 지정해 빌린다. 대기 중이 아니면 `None`.
+
+        `lease`는 대기 순서대로 준다. 사람이 특정 쪽을 먼저 쓰고 싶을 때 그 순서에 매이지
+        않게 하려고 이 자리를 둔다.
+        """
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM jobs WHERE id = ? AND state = ?", (job_id, STATE_PENDING)
+            ).fetchone()
+            if row is None:
+                return None
+            conn.execute(
+                "UPDATE jobs SET state = ?, leased_by = ?, leased_at = ? WHERE id = ?",
+                (STATE_LEASED, worker, time.time(), row["id"]),
+            )
+            return Job(
+                id=row["id"],
+                page_path=row["page_path"],
+                payload=row["payload"],
+                input_hash=row["input_hash"],
+                generation=row["generation"],
+                attempts=row["attempts"],
+            )
+
     def lease(self, worker: str) -> Job | None:
         """대기 중인 작업 하나를 빌린다. 없으면 `None`."""
         with self._connect() as conn:
@@ -107,6 +132,20 @@ class JobStore:
                 generation=row["generation"],
                 attempts=row["attempts"],
             )
+
+    def response_of(self, job_id: str) -> str | None:
+        """그 작업의 현재 세대가 확정한 응답. 없으면 `None`.
+
+        게이트를 지난 내용은 이 저널에 있다. 작업 디렉토리의 파일은 제출 뒤에 누구든 고칠 수
+        있으므로, 위키에 실리는 것은 파일이 아니라 이 값이어야 한다(C-GATE-1).
+        """
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT r.response FROM journal r JOIN jobs j ON j.id = r.job_id"
+                " AND j.generation = r.generation WHERE r.job_id = ?",
+                (job_id,),
+            ).fetchone()
+            return row["response"] if row is not None else None
 
     def journal(self, job_id: str, generation: int, worker: str, response: str) -> None:
         """응답을 먼저 확정한다. 이 시점 이후로는 LLM을 다시 부르지 않는다."""
