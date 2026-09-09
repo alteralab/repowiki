@@ -91,3 +91,25 @@ def test_a_pointer_is_not_a_secret() -> None:
     # 진짜 비밀은 계속 가린다
     assert mask("adminPassword", "p", rules) == rules.redaction
     assert mask("anything", "-----BEGIN PRIVATE KEY-----", rules) == rules.redaction
+
+
+def test_a_certificate_is_not_a_secret_but_a_private_key_is() -> None:
+    """PEM 은 머리로 갈린다. 인증서와 공개키는 공개하라고 있는 것이다.
+
+    `-----BEGIN` 하나로 잡으면 "이 차트가 어느 CA 를 신뢰하는가"를 위키가 못 말한다.
+    """
+    import base64
+
+    rules = load_secret_rules()
+    public = ("-----BEGIN CERTIFICATE-----", "-----BEGIN PUBLIC KEY-----")
+    private = (
+        "-----BEGIN PRIVATE KEY-----",
+        "-----BEGIN RSA PRIVATE KEY-----",
+        "-----BEGIN OPENSSH PRIVATE KEY-----",
+    )
+    for value in public:
+        assert mask("caBundle", value, rules) == value
+        assert mask("blob", base64.b64encode(value.encode()).decode(), rules) != rules.redaction
+    for value in private:
+        assert mask("caBundle", value, rules) == rules.redaction
+        assert mask("blob", base64.b64encode(value.encode()).decode(), rules) == rules.redaction
