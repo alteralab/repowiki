@@ -87,6 +87,16 @@ class JobStore:
                 (job_id, page_path, payload, input_hash, STATE_PENDING),
             )
 
+    def page_paths(self) -> list[str]:
+        """작업이 담긴 순서대로의 쪽 경로. 그 순서가 계획이 정한 사이드바의 순서다.
+
+        `rowid`로 훑는다. `add`가 부른 순서가 곧 그 값이라, 계획 층이 "개요가 먼저이고
+        개념이 본문이며 나머지가 뒤따른다"로 정한 순서가 그대로 남는다.
+        """
+        with self._connect() as conn:
+            rows = conn.execute("SELECT page_path FROM jobs ORDER BY rowid").fetchall()
+            return [row["page_path"] for row in rows]
+
     def lease_id(self, job_id: str, worker: str) -> Job | None:
         """이름으로 지정해 빌린다. 대기 중이 아니면 `None`.
 

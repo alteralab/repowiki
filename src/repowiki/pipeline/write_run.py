@@ -327,12 +327,20 @@ def build_site(
     wiki = out / "wiki"
     if not wiki.exists():
         raise FileNotFoundError(f"위키가 없다: {wiki}. `repowiki bundle`을 먼저 돌린다")
+    # 계획이 정한 순서를 지킨다. 사전순으로 훑으면 사이드바가 그 판단을 잃는다.
+    order = {
+        path: position
+        for position, path in enumerate(JobStore(Workspace(root=str(out)).store_path).page_paths())
+    }
     pages: dict[str, str] = {}
-    for markdown in sorted(wiki.rglob("*.md")):
+    for markdown in sorted(
+        wiki.rglob("*.md"),
+        key=lambda p: order.get(p.relative_to(wiki).as_posix(), len(order)),
+    ):
         relative = markdown.relative_to(wiki).as_posix()
         page = to_site_page(relative, markdown.read_text(encoding="utf-8"))
         pages[page.path] = page.content
-    pages.update(meta_files(sorted(pages), repo_name))
+    pages.update(meta_files(list(pages), repo_name))
 
     target = out / "site"
     # 원격 주소는 인용 고리와 같은 정규화를 거친다. 두 자리에서 다르게 만들면 사이트가

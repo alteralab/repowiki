@@ -152,6 +152,39 @@ def _sources_to_component(body: str) -> str:
 # ast-grep-ignore: regex-on-structure — 어휘: 중괄호 한 글자 판정이다.
 _BRACE = re.compile(r"[{}]")
 
+# 저장소 안의 쪽을 가리키는 링크. 위키는 Markdown 이라 `.md`로 걸고, 그것이 GitHub 에서
+# 도는 형태다. 사이트의 라우트에는 확장자가 없어 그대로 두면 전부 404 다(2026-09-10
+# kafka 81쪽에서 858건이 그랬다).
+#
+# 밖으로 나가는 주소는 건드리지 않는다. 인용 각주가 GitHub 의 `AGENTS.md`를 가리키고,
+# 그 `.md`는 진짜 파일 이름이다.
+# ast-grep-ignore: regex-on-structure — 어휘: Markdown 링크의 고정 형식 판정이다.
+_LOCAL_LINK = re.compile(r"\]\((?!\w+:)([^)\s]+?)\.md(#[^)\s]*)?\)")
+
+
+def _local_links(body: str) -> str:
+    """저장소 안을 가리키는 `.md` 링크를 사이트의 자리로 옮긴다.
+
+    두 가지를 한다.
+
+    확장자를 벗긴다. 위키 원문은 `.md`를 단 채로 둔다 — 그것이 GitHub 에서 도는 형태이고
+    위키의 정본이다. 사이트의 라우트에는 확장자가 없다.
+
+    그리고 한 단 올린다. 정적 내보내기가 `a/b.md`를 `a/b/index.html`로 만들므로 쪽 하나가
+    자기 이름의 디렉토리를 갖게 되고, 그 안에서 보면 상대 경로의 기준이 한 단 깊어진다.
+    `glossary.md`가 `concepts/x.md`를 가리키면 사이트에서는 `glossary/concepts/x`를
+    찾는다(2026-09-10 kafka 에서 91건이 그랬다).
+
+    올리는 것은 쪽의 깊이와 무관하게 언제나 한 단이다. 모든 쪽이 자기 이름의 디렉토리를
+    하나씩 갖기 때문이다. `..`를 하나 더 붙이면 된다.
+    """
+    def move(match: re.Match) -> str:
+        target, anchor = match.group(1), match.group(2) or ""
+        prefix = "" if target.startswith("/") else "../"
+        return f"]({prefix}{target}{anchor})"
+
+    return _LOCAL_LINK.sub(move, body)
+
 
 def _mdx_safe(body: str) -> str:
     """MDX 가 코드로 읽을 글자를 막는다. 코드 울타리 안과 컴포넌트 호출은 건드리지 않는다.
@@ -174,6 +207,11 @@ def _mdx_safe(body: str) -> str:
     return "\n".join(out)
 
 
+def _day(stamp: str) -> str:
+    """RFC 3339 시각에서 날짜만. 시각까지 보이면 읽는 사람이 쓰지 않을 정밀도다."""
+    return stamp.split("T", 1)[0] if "T" in stamp else stamp
+
+
 def _escape(value: str) -> str:
     return value.replace('"', "'")
 
@@ -184,34 +222,56 @@ def to_site_page(wiki_path: str, raw: str) -> SitePage:
     title = head.get("title") or wiki_path
     description = head.get("description", "")
     commit = head.get("analyzed_commit", "")
+    # `generated: {by: ..., at: ...}` 한 줄에서 시각만 꺼낸다. `_front_matter`가 값을
+    # 문자열로 두므로 여기서 가른다.
+    generated = head.get("generated", "")
+    stamp = ""
+    if "at:" in generated:
+        stamp = generated.split("at:", 1)[1].strip().strip("{}").strip().strip('"').strip("'")
     banner = ""
     if commit:
         # 사이트가 렌더하는 컴포넌트로 넣는다. `:::` 지시문 문법은 이 템플릿에서
         # 글자 그대로 나온다.
         banner = "\n<Callout title=\"분석 커밋\">`" + commit[:12] + "`</Callout>\n"
+    # 이 쪽이 언제 만들어졌는지. 위키는 생성물이라 언제 것인지가 읽는 사람의 판단에
+    # 들어간다. 분석 커밋은 "무엇을 보고 썼는가"이고 이것은 "언제 썼는가"다. 둘이 다르다 —
+    # 같은 커밋을 두 번 분석할 수 있고, 그때 바뀌는 것은 이쪽이다.
+    footer = f"\n\n---\n\n*이 쪽은 {_day(stamp)}에 만들어졌다.*" if stamp else ""
     content = (
         "---\n"
         f'title: "{_escape(title)}"\n'
         f'description: "{_escape(description)}"\n'
         "---\n"
         f"{banner}\n"
-        f"{_mdx_safe(_sources_to_component(_mermaid_to_component(body))).strip()}\n"
+        f"{_mdx_safe(_local_links(_sources_to_component(_mermaid_to_component(body)))).strip()}{footer}\n"
     )
     return SitePage(path=wiki_path.removesuffix(".md") + ".mdx", content=content)
 
 
 def meta_files(paths: list[str], repo_name: str) -> dict[str, str]:
-    """디렉토리마다 차례 파일을 만든다. 루트 차례가 사이드바의 뼈대다."""
+    """디렉토리마다 차례 파일을 만든다. 루트 차례가 사이드바의 뼈대다.
+
+    `paths`의 순서가 곧 사이드바의 순서다. 정렬하지 않는다 — 계획 층이 "개요가 먼저이고
+    개념이 본문이며 나머지가 뒤따른다"로 정한 순서를 여기서 사전순으로 다시 줄 세우면
+    그 판단이 버려진다. 실제로 그랬다: kafka 위키에서 `overview`가 `areas`, `concepts`,
+    `glossary`, `history` 뒤 다섯 번째로 밀렸다(2026-09-10).
+
+    실측이 그 판단을 받친다. DeepWiki 저장소 53곳(내가 고른 16곳과 사이트맵 조각에서
+    고르게 뽑은 37곳)에서 첫 1단 항목이 예외 없이 Overview 다.
+    """
     tree: dict[str, list[str]] = {}
-    for path in sorted(paths):
+    for path in paths:
         parts = path.split("/")
         directory = "/".join(parts[:-1])
         tree.setdefault(directory, []).append(parts[-1].removesuffix(".mdx"))
 
     files: dict[str, str] = {}
-    root_pages = sorted(
-        {directory.split("/")[0] for directory in tree if directory}
-        | {name for name in tree.get("", []) if name != "index"}
+    # 디렉토리는 처음 나온 순서, 뿌리 쪽은 그 뒤에 온 순서다.
+    root_pages = list(
+        dict.fromkeys(
+            [directory.split("/")[0] for directory in tree if directory]
+            + [name for name in tree.get("", []) if name != "index"]
+        )
     )
     files["meta.json"] = json.dumps(
         {"title": f"{repo_name} 아키텍처 위키", "root": True, "pages": root_pages},

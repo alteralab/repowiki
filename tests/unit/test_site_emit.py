@@ -50,3 +50,41 @@ def test_a_page_without_a_source_list_is_untouched() -> None:
     page = to_site_page("x.md", f"---\ntitle: t\n---\n{body}")
     assert "<Files>" not in page.content
     assert "본문만 있다." in page.content
+
+
+def test_the_sidebar_keeps_the_order_it_was_given() -> None:
+    """계획이 정한 순서가 사이드바의 순서다. 사전순으로 다시 줄 세우면 그 판단이 버려진다.
+
+    실측이 그 판단을 받친다. DeepWiki 저장소 53곳에서 첫 1단 항목이 예외 없이 Overview 다.
+    """
+    import json
+
+    from repowiki.bundle.site_emit import meta_files
+
+    given = ["overview/a.mdx", "areas/b.mdx", "concepts/c.mdx", "glossary.mdx"]
+    root = json.loads(meta_files(given, "x")["meta.json"])
+    assert root["pages"] == ["overview", "areas", "concepts", "glossary"]
+
+
+def test_an_internal_link_loses_its_extension_and_gains_a_level() -> None:
+    """정적 내보내기가 쪽마다 디렉토리를 만들어 상대 경로의 기준이 한 단 깊어진다."""
+    page = to_site_page(
+        "glossary.md", '---\ntitle: t\n---\n[a](concepts/x.md) [b](https://h/y.md)'
+    )
+    assert "](../concepts/x)" in page.content
+    # 밖으로 나가는 주소는 건드리지 않는다. 그 `.md`는 진짜 파일 이름이다.
+    assert "](https://h/y.md)" in page.content
+
+
+def test_a_page_carries_the_day_it_was_made() -> None:
+    """위키는 생성물이라 언제 것인지가 읽는 사람의 판단에 들어간다.
+
+    분석 커밋은 "무엇을 보고 썼는가"이고 이것은 "언제 썼는가"다. 같은 커밋을 두 번
+    분석할 수 있고 그때 바뀌는 것은 이쪽이다.
+    """
+    page = to_site_page(
+        "x.md",
+        '---\ntitle: t\ngenerated: {by: "repowiki/0.1.0", at: "2026-09-09T23:14:12+00:00"}\n---\n본문.',
+    )
+    assert "2026-09-09" in page.content
+    assert "23:14" not in page.content
