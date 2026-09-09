@@ -2,7 +2,14 @@ id: tsx-bind-call
 language: tsx
 message: bind.call
 # 수신자가 있는 호출. 수신자 이름을 스코프에서 풀어야 대상 타입이 정해진다.
-# 데코레이터는 뺀다 — `tsx-bind-call-bare`와 같은 이유다.
+#
+# 널 아님 단언(`a!.m()`)은 수신자가 `non_null_expression`이라 그 텍스트가 `a!`다.
+# 그대로 두면 해석기가 이름 하나로 보지 않고 표현식으로 판정해 버린다. 안쪽 이름을
+# 잡아야 실제 호출이 살아난다(2026-09-09 nestjs 에서 이 형태가 121건이었다).
+#
+# 데코레이터는 뺀다. `@Body()`는 문법상 호출이고 `Body`도 실제로 들여온 이름이라
+# 잇는 것 자체는 틀리지 않지만, 사람이 호출 그래프에서 보려는 것이 아니다.
+# 바깥 데코레이터 호출만 빠지고 그 인자 안의 호출(`forwardRef(...)`)은 남는다.
 rule:
   kind: call_expression
   all:
@@ -10,6 +17,8 @@ rule:
         field: function
         kind: member_expression
         all:
-          - has: {field: object, pattern: $RECV}
+          - any:
+              - has: {field: object, kind: non_null_expression, has: {pattern: $RECV}}
+              - has: {field: object, pattern: $RECV}
           - has: {field: property, kind: property_identifier, pattern: $NAME}
     - not: {inside: {kind: decorator}}

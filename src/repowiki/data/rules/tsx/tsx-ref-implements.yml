@@ -4,3 +4,10 @@ message: ref.implements
 rule:
   kind: type_identifier
   inside: {kind: implements_clause, stopBy: end}
+  all:
+    # 제네릭 인자와 타입 매개변수 안쪽은 잡지 않는다. `implements I<T>`의 `T`는 그
+    # 타입의 매개변수이지 실제 타입이 아니고, 저장소에 우연히 같은 이름의 클래스가 있으면
+    # 없는 엣지가 사실이 된다(2026-09-09 Codex 리뷰가 실제 거짓 엣지를 재현했다).
+    # 제네릭 인자 자체의 관계가 필요하면 그것은 따로 낼 일이지 여기서 섞을 것이 아니다.
+    - not: {inside: {kind: type_arguments, stopBy: end}}
+    - not: {inside: {kind: type_parameters, stopBy: end}}

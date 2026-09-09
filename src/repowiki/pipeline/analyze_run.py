@@ -279,15 +279,19 @@ def _ts_declaring(ts_resolver, table, imports) -> dict[tuple[str, str], str]:
     if ts_resolver is None or table is None:
         return {}
     found: dict[tuple[str, str], str] = {}
-    for record in imports:
+    # 입력 순서에 기대지 않는다. 같은 파일이 같은 로컬 이름을 두 번 들여오는 비정상 소스에서
+    # ast-grep 스트림 순서가 답을 정하면 결과가 결정적이지 않다(2026-09-09 Codex 리뷰).
+    for record in sorted(imports, key=lambda r: (r.span.path, r.span.start_line, r.specifier)):
         if not record.specifier or not record.names:
             continue
-        for name in record.names:
+        for name in sorted(record.names):
             target = tsmodules.declaring_path(
                 table, ts_resolver, record.specifier, record.span.path, [name]
             )
-            if target:
-                found.setdefault((record.span.path, name), target)
+            # 못 푼 것도 빈 문자열로 남긴다. "이 파일이 이 이름을 밖에서 들여왔다"는 사실
+            # 자체가 근거다. 표에 없으면 쓰는 쪽이 저장소 전역에서 같은 이름을 찾아 잇고,
+            # 그러면 외부 패키지의 타입이 저장소 안의 무관한 타입으로 둔갑한다.
+            found.setdefault((record.span.path, name), target or "")
     return found
 
 
@@ -418,7 +422,10 @@ def analyze_repo(root: Path) -> AnalyzeResult:
         is_external=_is_external_import(ts_resolver),
     )
 
-    type_edges, resolution = graph.type_edges(extraction, types, scope)
+    # 표를 한 번만 만들어 타입 엣지와 호출 그래프가 같은 것을 본다. 두 번 만들면 두 답이
+    # 갈릴 수 있고, 그러면 같은 이름이 쪽마다 다른 자리를 가리킨다(C-DUP-2).
+    ts_declaring = _ts_declaring(ts_resolver, ts_exports, extraction.imports)
+    type_edges, resolution = graph.type_edges(extraction, types, scope, ts_declaring)
     ranks = graph.file_ranks(type_edges, extraction.symbols)
 
     bindings, sites = calls.collect(matches, extraction.symbols, roots, facts)
@@ -428,10 +435,10 @@ def analyze_repo(root: Path) -> AnalyzeResult:
             extraction.symbols,
             bindings,
             extraction.imports,
-            _ts_declaring(ts_resolver, ts_exports, extraction.imports),
+            ts_declaring,
         ),
         lambda name, site: graph.resolve_in_scope(
-            name, site.span.path, site.module, types, scope
+            name, site.span.path, site.module, types, scope, ts_declaring
         ),
     )
 

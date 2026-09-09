@@ -379,3 +379,14 @@ def test_a_typescript_bare_call_is_not_attributed_to_the_enclosing_class() -> No
     edges, counts = resolve([_ts_site()], resolver, lambda _name, _site: None)
     assert edges == []
     assert counts.unknown_receiver == 1
+
+
+def test_a_typescript_import_that_leaves_the_repo_is_external_not_unknown() -> None:
+    """들여왔는데 저장소 밖인 것과 아예 못 푼 것은 다르다. 계수가 그것을 갈라야 한다."""
+    resolver = build_resolver(
+        [_ts_free("src/util.ts")], [], [], {("src/main.ts", "helper"): ""}
+    )
+    edges, counts = resolve([_ts_site()], resolver, lambda _name, _site: None)
+    assert edges == []
+    assert counts.external == 1
+    assert counts.unknown_receiver == 0

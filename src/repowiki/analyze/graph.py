@@ -319,19 +319,34 @@ def _by_path(index: dict[str, list[Symbol]], name: str, path: str) -> Symbol | N
 
 
 def resolve_in_scope(
-    name: str, ref_path: str, home: str, index: dict[str, list[Symbol]], scope: NameScope
+    name: str,
+    ref_path: str,
+    home: str,
+    index: dict[str, list[Symbol]],
+    scope: NameScope,
+    ts_declaring: dict[tuple[str, str], str] | None = None,
 ) -> Symbol | None:
-    """이름을 선언으로 푼다. 범위 순서는 넷이다.
+    """이름을 선언으로 푼다. 범위 순서는 다섯이다.
 
+    0. TypeScript 는 그 파일이 들여온 이름이 어느 파일에서 선언됐는지를 표로 받는다.
+       상대 경로와 `paths` 무늬와 barrel 을 지난 답이라 다른 어느 범위보다 강하다.
+       들여왔는데 저장소 밖이면 거기서 멈춘다.
     1. 그 파일이 명시적으로 임포트한 이름이면 그 패키지의 선언. 임포트한 패키지가
        저장소 안에 없으면 외부 타입이라 해석하지 않는다.
     2. 같은 패키지 안의 선언(임포트 없이 보이는 이름).
     3. 참조하는 모듈 안에서 유일한 선언.
     4. 저장소 전체에서 유일한 선언.
 
-    앞 둘이 뒤 둘보다 강한 근거인 이유는 언어가 그렇게 정하기 때문이다. 모듈 지역
+    앞쪽이 뒤쪽보다 강한 근거인 이유는 언어가 그렇게 정하기 때문이다. 모듈 지역
     유일성은 언어의 규칙이 아니라 추정이므로 임포트가 말해 주는 자리에서는 쓰지 않는다.
+
+    0단이 없으면 TypeScript 참조가 3단과 4단으로 떨어진다. 그러면 외부 패키지의 타입이
+    저장소 안의 같은 이름을 가진 무관한 타입으로 둔갑한다(2026-09-09 Codex 리뷰).
     """
+    if ts_declaring is not None:
+        declaring = ts_declaring.get((ref_path, name))
+        if declaring is not None:
+            return _by_path(index, name, declaring) if declaring else None
     imported = scope.file_imports.get(ref_path, {}).get(name)
     if imported is not None:
         # 그 파일이 이 이름을 명시적으로 임포트했다. 임포트한 패키지가 저장소 안에
@@ -411,6 +426,7 @@ def type_edges(
     extraction: Extraction,
     index: dict[str, list[Symbol]],
     scope: NameScope | None = None,
+    ts_declaring: dict[tuple[str, str], str] | None = None,
 ) -> tuple[list[TypeEdge], ResolutionCounts]:
     """참조를 타입 엣지로 바꾼다.
 
@@ -441,7 +457,14 @@ def type_edges(
             counts.no_owner += 1
             continue
         target = (
-            resolve_in_scope(reference.name, reference.span.path, reference.module, index, scope)
+            resolve_in_scope(
+                reference.name,
+                reference.span.path,
+                reference.module,
+                index,
+                scope,
+                ts_declaring,
+            )
             if scope is not None
             else resolve_type(reference.name, reference.module, index)
         )

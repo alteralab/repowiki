@@ -661,3 +661,44 @@ def test_an_external_import_is_counted_apart_from_an_unresolved_one() -> None:
     ]
     _, counts = module_edges(imports, {}, is_external=lambda _record: True)
     assert (counts.external, counts.unresolved) == (1, 0)
+
+
+def test_a_typescript_name_from_outside_the_repo_is_not_a_local_type() -> None:
+    """들여온 이름이 저장소 밖이면 같은 이름의 저장소 안 타입으로 잇지 않는다.
+
+    이 층이 없으면 `import { Server } from 'http'`가 저장소 안의 무관한 `Server` 클래스로
+    이어진다(2026-09-09 Codex 리뷰가 실제 거짓 엣지를 재현했다).
+    """
+    from repowiki.analyze.graph import NameScope, resolve_in_scope
+
+    inside = Symbol(
+        kind=SymbolKind.CLASS,
+        name="Server",
+        span=Span(path="src/other.ts", start_line=1, end_line=2),
+        module=".",
+        language="typescript",
+        is_test=False,
+    )
+    index = {"Server": [inside]}
+    scope = NameScope()
+    # 표가 없으면 저장소 전역 유일성으로 이어 버린다.
+    assert resolve_in_scope("Server", "src/main.ts", ".", index, scope) is inside
+    # 밖에서 들여온 것이라고 표가 말하면 잇지 않는다.
+    assert (
+        resolve_in_scope(
+            "Server", "src/main.ts", ".", index, scope, {("src/main.ts", "Server"): ""}
+        )
+        is None
+    )
+    # 표가 선언 파일을 말하면 그 파일의 것으로 잇는다.
+    assert (
+        resolve_in_scope(
+            "Server",
+            "src/main.ts",
+            ".",
+            index,
+            scope,
+            {("src/main.ts", "Server"): "src/other.ts"},
+        )
+        is inside
+    )

@@ -1,0 +1,14 @@
+id: tsx-bind-assign-new
+language: tsx
+message: bind.local
+# `x = new B()` 재대입. 선언만 보면 `let x = new A(); x = new B(); x.run()`을
+# `A.run`으로 잇는다(2026-09-09 Codex 리뷰가 실제로 그 엣지를 재현했다).
+#
+# 스코프는 호출 줄보다 앞의 것 가운데 가장 늦은 지역 결합을 고르므로, 대입을 결합으로
+# 내면 그 자리가 흐름을 따른다. 분기와 반복까지는 따르지 못한다 — 두 갈래에서 서로 다른
+# 타입을 대입하면 뒤쪽 줄의 것이 이긴다.
+rule:
+  kind: assignment_expression
+  all:
+    - has: {field: left, kind: identifier, pattern: $NAME}
+    - has: {field: right, kind: new_expression, has: {field: constructor, pattern: $TYPE}}

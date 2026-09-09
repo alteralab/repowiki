@@ -368,8 +368,11 @@ def _resolve_bare_ts(site: CallSite, resolver: Resolver) -> CallEdge | str:
     없으면 저장소 밖이거나 함수가 아닌 것을 부른 것이다.
     """
     declaring = resolver.ts_declaring.get((site.span.path, site.method))
-    if not declaring:
+    if declaring is None:
         return "unknown_receiver"
+    if not declaring:
+        # 들여오기는 했는데 저장소 밖이다. 못 푼 것과 다르다.
+        return "external"
     found = [
         symbol
         for symbol in resolver.free_by_name.get(site.method, [])
