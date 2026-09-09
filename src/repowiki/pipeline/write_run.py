@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from repowiki.adapters.jobs import Job, JobError, JobStore
 from repowiki.adapters.site import build, install, scaffold
 from repowiki.bundle.emit import Frontmatter, frontmatter_of, render_index, render_llms_full, render_llms_txt, render_page
+from repowiki.bundle.links import normalize
 from repowiki.bundle.placeholders import expand, names
 from repowiki.bundle.site_emit import meta_files, to_site_page
 from repowiki.gate.page import PageViolation, check_page
@@ -319,7 +320,9 @@ def bundle(workspace: Workspace, out: Path, facts: RepoFacts) -> tuple[Path, int
     return wiki, len(entries)
 
 
-def build_site(out: Path, repo_name: str, offline: bool) -> tuple[Path, int, float]:
+def build_site(
+    out: Path, repo_name: str, offline: bool, remote_url: str = ""
+) -> tuple[Path, int, float]:
     """위키를 Fumadocs 사이트로 만든다. 콘텐츠 변환은 순수 함수가 하고 여기서는 파일만 다룬다."""
     wiki = out / "wiki"
     if not wiki.exists():
@@ -332,7 +335,9 @@ def build_site(out: Path, repo_name: str, offline: bool) -> tuple[Path, int, flo
     pages.update(meta_files(sorted(pages), repo_name))
 
     target = out / "site"
-    scaffold(target, pages, app_name=f"{repo_name} 위키")
+    # 원격 주소는 인용 고리와 같은 정규화를 거친다. 두 자리에서 다르게 만들면 사이트가
+    # 가리키는 저장소와 인용이 가리키는 저장소가 갈릴 수 있다(C-DUP-2).
+    scaffold(target, pages, app_name=f"{repo_name} 위키", repo_url=normalize(remote_url))
     install(target, offline)
     result = build(target)
     return Path(result.out), result.pages, result.seconds

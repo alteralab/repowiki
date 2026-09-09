@@ -157,7 +157,9 @@ def _cmd_bundle(args: argparse.Namespace) -> int:
 def _cmd_site(args: argparse.Namespace) -> int:
     out = Path(args.out).resolve()
     facts = load_facts(out)
-    site_out, pages, seconds = build_site(out, facts.profile.root_name, args.offline)
+    site_out, pages, seconds = build_site(
+        out, facts.profile.root_name, args.offline, facts.profile.remote_url
+    )
     print(f"정적 사이트 {pages}쪽을 {seconds}초에 만들었다: {site_out}")
     if not args.open:
         print(f"열려면 `repowiki site --out {args.out} --open`")

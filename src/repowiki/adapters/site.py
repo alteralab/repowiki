@@ -35,6 +35,7 @@ class BuildResult(BaseModel):
 
 
 APP_NAME_TOKEN = "__REPOWIKI_APP_NAME__"
+REPO_URL_TOKEN = "__REPOWIKI_REPO_URL__"
 
 
 def _replace(source: Path, destination: Path) -> None:
@@ -49,10 +50,19 @@ def _replace(source: Path, destination: Path) -> None:
         shutil.copy2(source, destination)
 
 
-def scaffold(target: Path, content: dict[str, str], app_name: str = "repowiki") -> None:
+def scaffold(
+    target: Path,
+    content: dict[str, str],
+    app_name: str = "repowiki",
+    repo_url: str = "",
+) -> None:
     """템플릿을 옮기고 콘텐츠를 채운다. `node_modules`는 건드리지 않는다.
 
-    템플릿의 상표 자리는 표식으로 두고 여기서 저장소 이름으로 바꾼다.
+    템플릿의 상표 자리는 표식으로 두고 여기서 저장소 이름과 원격 주소로 바꾼다. 표식을
+    안 바꾸면 남의 저장소를 가리킨 채로 나간다 — 실제로 그렇게 나가고 있었다(2026-09-09,
+    모든 위키가 fumadocs 의 GitHub 과 존재하지 않는 GitLab 주소를 달고 있었다).
+
+    원격이 없으면 빈 문자열이고 사이트는 저장소 고리를 아예 내지 않는다.
     """
     if not TEMPLATE.exists():
         raise SiteError(f"사이트 템플릿이 없다: {TEMPLATE}")
@@ -64,7 +74,10 @@ def scaffold(target: Path, content: dict[str, str], app_name: str = "repowiki") 
     shared = target / "lib" / "shared.ts"
     if shared.exists():
         shared.write_text(
-            shared.read_text(encoding="utf-8").replace(APP_NAME_TOKEN, app_name), encoding="utf-8"
+            shared.read_text(encoding="utf-8")
+            .replace(APP_NAME_TOKEN, app_name)
+            .replace(REPO_URL_TOKEN, repo_url),
+            encoding="utf-8",
         )
 
     docs = target / "content" / "docs"

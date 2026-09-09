@@ -15,17 +15,11 @@ html > body[data-scroll-locked] {
   --removed-body-scroll-bar-size: 0px !important;
 }
 
-/* 사실 표. 열 폭을 내용이 정하게 두고, 넘치면 표만 가로로 민다.
-   그러지 않으면 짧은 머리말이 한 글자씩 세로로 접히고(`수신자 종류`) 마지막 열이 잘린다.
-   본문 자체는 가로로 밀리지 않아야 한다. */
-.prose table,
-#nd-page table {
-  display: block;
-  overflow-x: auto;
-  width: max-content;
-  max-width: 100%;
-}
-
+/* 사실 표의 머리말. 짧은 이름이 한 글자씩 세로로 접히는 것을 막는다(`수신자 종류`).
+   가로 넘침은 손대지 않는다 — Fumadocs 가 표를 `relative overflow-auto` 로 이미 감싸고
+   있어서 그것으로 충분하다. 여기에 `display: block`을 더하면 표가 표가 아니게 되어
+   보조 기술이 행과 열을 못 읽는다. 2026-09-09에 그 줄을 넣었다가 실측으로 빼냈다:
+   빼도 머리말은 한 줄이고 마지막 열이 보이며 본문이 가로로 밀리지 않는다. */
 .prose table th,
 #nd-page table th {
   white-space: nowrap;
