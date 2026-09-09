@@ -76,3 +76,18 @@ def test_a_base64_wrapped_secret_is_masked() -> None:
     # 평범한 값은 건드리지 않는다
     assert mask("image.repository", "nginx", rules) == "nginx"
     assert mask("replicaCount", "3", rules) == "3"
+
+
+def test_a_pointer_is_not_a_secret() -> None:
+    """`configMap.key`는 ConfigMap 안의 키 이름이고 `keyPath`는 파일 경로다.
+
+    가리면 위키가 "이 값이 어디서 오는가"를 말하지 못한다. 값이 실제로 비밀이면 값 모양
+    규칙과 base64 풀기가 잡는다.
+    """
+    rules = load_secret_rules()
+    assert mask("kubeApiServer.tlsConfig.ca.configMap.key", "ca.crt", rules) == "ca.crt"
+    assert mask("customResourceState.key", "state", rules) == "state"
+    assert mask("es.ssl.client.keyPath", "/etc/x", rules) == "/etc/x"
+    # 진짜 비밀은 계속 가린다
+    assert mask("adminPassword", "p", rules) == rules.redaction
+    assert mask("anything", "-----BEGIN PRIVATE KEY-----", rules) == rules.redaction
