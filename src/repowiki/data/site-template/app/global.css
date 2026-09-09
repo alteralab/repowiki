@@ -14,3 +14,25 @@ html > body[data-scroll-locked] {
   margin-right: 0px !important;
   --removed-body-scroll-bar-size: 0px !important;
 }
+
+/* 사실 표. 열 폭을 내용이 정하게 두고, 넘치면 표만 가로로 민다.
+   그러지 않으면 짧은 머리말이 한 글자씩 세로로 접히고(`수신자 종류`) 마지막 열이 잘린다.
+   본문 자체는 가로로 밀리지 않아야 한다. */
+.prose table,
+#nd-page table {
+  display: block;
+  overflow-x: auto;
+  width: max-content;
+  max-width: 100%;
+}
+
+.prose table th,
+#nd-page table th {
+  white-space: nowrap;
+}
+
+/* 인용 링크는 경로라 길다. 표 안에서는 줄바꿈을 허용해 잘리지 않게 한다. */
+.prose table td a,
+#nd-page table td a {
+  word-break: break-all;
+}
