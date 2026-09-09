@@ -11,6 +11,14 @@ variable "region" {
   default = "ap-northeast-2"
 }
 
+variable "cidr" {
+  type = string
+}
+
+variable "instance_type" {
+  type = string
+}
+
 module "network" {
   source = "../modules/network"
   cidr   = var.cidr

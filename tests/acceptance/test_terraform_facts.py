@@ -105,6 +105,11 @@ def test_references_that_reach_no_declaration_are_not_edges(terraform_facts):
 # 이 값을 구현이 낸 수에서 가져오면 검사가 자기 자신을 비교하게 된다.
 REFERENCES_IN_FIXTURE = 11
 
+# 첫 판의 픽스처는 `var.cidr`와 `var.instance_type`을 쓰면서 선언하지 않았다. Terraform 에서
+# 모듈 안의 `var.X`는 그 모듈의 `variable` 블록에 있어야 하므로 유효하지 않은 파일이었고,
+# 구현이 그 둘을 "선언에 닿지 않는 참조"로 세어 검사가 막혔다. 사람이 픽스처 쪽 결함으로
+# 판정했다(2026-09-09). 참조의 수는 그대로다 — 선언이 늘었을 뿐이다.
+
 
 def test_nothing_disappears_silently(terraform_facts):
     """엣지가 된 것과 계수로 남은 것의 합이 픽스처가 담은 참조 수와 같다.
