@@ -533,7 +533,8 @@ def analyze_repo(root: Path) -> AnalyzeResult:
         symbols=extraction.symbols,
         type_edges=type_edges,
         entry_points=extraction.entry_points,
-        file_ranks=ranks[:_TOP_N],
+        # 모듈마다 상위 N 개다. 저장소 전역 N 개가 아니다(PLAN §2.9(5)).
+        file_ranks=graph.top_per_module(ranks, _TOP_N),
         flows=flows,
         diagrams=compiled,
         unresolved=[

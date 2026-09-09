@@ -531,8 +531,31 @@ def file_ranks(edges: list[TypeEdge], symbols: list[Symbol]) -> list[FileRank]:
                 fused=fused,
             )
         )
-    ranks.sort(key=lambda r: r.fused, reverse=True)
+    # 같은 점수가 나오면 경로로 가른다. 점수만으로 정렬하면 같은 점수의 순서가 노드 순회에
+    # 기대고, 그것이 `PYTHONHASHSEED`를 따른다(2026-09-10 묶음 쪽에서 같은 결함을 겪었다).
+    ranks.sort(key=lambda r: (-r.fused, r.path))
     return ranks
+
+
+def top_per_module(ranks: list[FileRank], limit: int) -> list[FileRank]:
+    """모듈마다 상위 `limit`개만 남긴다. PLAN §2.9(5)가 말하는 것이 이것이다.
+
+    저장소 전역 상위 N 개로 자르면 큰 모듈 몇이 자리를 다 먹는다. 실측(kafka, 2026-09-10):
+    전역 20개가 모듈 70개 중 다섯에만 걸쳤고, 심볼이 있는 파일 6505개 가운데 순위가 있는
+    것이 20개(0.3%)였다. 나머지 99.7%는 순위가 없어 근거를 고르는 자리에서 사전순으로
+    밀렸다. 모듈별로 자르면 모든 모듈이 자기 상위를 갖는다.
+
+    입력이 이미 정렬돼 있다고 보고 순서를 지킨다 — 여기서 다시 정렬하면 그 규칙이 두
+    자리에 생긴다(C-DUP-2).
+    """
+    counted: Counter[str] = Counter()
+    kept: list[FileRank] = []
+    for rank in ranks:
+        if counted[rank.module] >= limit:
+            continue
+        counted[rank.module] += 1
+        kept.append(rank)
+    return kept
 
 
 def _rank_positions(scores: dict[str, float]) -> dict[str, int]:
