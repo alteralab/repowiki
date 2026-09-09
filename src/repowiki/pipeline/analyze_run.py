@@ -277,12 +277,16 @@ def _helm(root: Path, tracked: list[str]):
     charts = [path for path in tracked if PurePosixPath(path).name == helm.CHART_FILE]
     if not charts:
         return None
-    roots = {str(PurePosixPath(path).parent) for path in charts}
+    roots = {helm.chart_root(path) for path in charts}
+    # 저장소 루트의 차트는 뿌리가 `.`이라 `./templates/`로 찾으면 `templates/...`를 놓친다.
+    # 단일 차트 저장소가 흔한 형태이고, 그때 참조가 통째로 사라지면서 계수에도 안 남았다
+    # (2026-09-10 적대적 리뷰가 재현했다).
+    prefixes = {"templates/" if base == "." else f"{base}/templates/" for base in roots}
     wanted = [
         path
         for path in tracked
         if PurePosixPath(path).name in (helm.CHART_FILE, helm.VALUES_FILE)
-        or any(path.startswith(f"{base}/templates/") for base in roots)
+        or any(path.startswith(prefix) for prefix in prefixes)
     ]
     read = _read_text(root, sorted(wanted), _MAX_HELM_FILES)
     return helm.build(read.texts, corpus.load_secret_rules())

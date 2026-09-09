@@ -1,0 +1,48 @@
+"""Helm 색인의 단위 검사.
+
+여기서 고정하는 것은 YAML 의 까다로운 모양들이다. 이것들이 틀리면 위키가 없는 선언을
+있다고 하거나, 있는 참조를 조용히 버린다.
+"""
+
+from __future__ import annotations
+
+from repowiki.analyze.corpus import load_secret_rules, mask
+from repowiki.analyze.helm import _keys
+
+
+def test_a_multi_document_values_file_is_not_lost() -> None:
+    """`---`가 있으면 단일 문서 파서는 예외를 낸다. 삼키면 그 차트가 통째로 사라진다."""
+    assert _keys("a: 1\n---\nb: 2\n") == [("a", "1", 1), ("b", "2", 3)]
+
+
+def test_a_merge_key_is_expanded_not_recorded() -> None:
+    """`<<: *base`는 키가 아니라 지시다. 그대로 두면 `target.<<`라는 없는 선언이 생긴다."""
+    got = dict((key, value) for key, value, _ in _keys("base: &b\n  x: 1\ntarget:\n  <<: *b\n"))
+    assert "target.x" in got
+    assert not [key for key in got if "<<" in key]
+
+
+def test_a_key_containing_a_dot_is_not_a_dotted_path() -> None:
+    """`a.b: x`와 `a: {b: x}`는 다른 선언이다. 둘을 합치면 참조가 엉뚱한 쪽에 붙는다.
+
+    Helm 에서 점 든 키는 `index .Values "a.b"`로만 닿으므로 `.Values.a.b` 참조의 대상이
+    아니다. 세지 않는다.
+    """
+    got = _keys('a.b: literal\na:\n  b: nested\n')
+    assert ("a.b", "nested", 3) in got
+    assert ("a.b", "literal", 1) not in got
+
+
+def test_a_duplicate_key_keeps_the_last_value() -> None:
+    """YAML 은 뒤엣것이 이긴다. 둘 다 내면 있지도 않은 선언이 하나 더 생긴다."""
+    assert _keys("a: 1\na: 2\n") == [("a", "2", 2)]
+
+
+def test_a_base64_wrapped_secret_is_masked() -> None:
+    """Kubernetes 의 시크릿은 base64 가 기본 형태다. 겉보기가 평범해 접두어로 안 잡힌다."""
+    rules = load_secret_rules()
+    # `-----BEGIN PRIVATE KEY-----`를 base64 로 감싼 것
+    assert mask("privatePem", "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t", rules) == rules.redaction
+    # 평범한 값은 건드리지 않는다
+    assert mask("image.repository", "nginx", rules) == "nginx"
+    assert mask("replicaCount", "3", rules) == "3"

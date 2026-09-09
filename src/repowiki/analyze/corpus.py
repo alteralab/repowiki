@@ -17,6 +17,10 @@ from __future__ import annotations
 
 from pathlib import PurePosixPath
 
+import base64
+import binascii
+import re
+
 import yaml
 from pydantic import BaseModel
 
@@ -28,6 +32,9 @@ from repowiki.models import ConfigKey, CorpusFacts, FileRole, Heading, Span
 # 있어 Markdown 제목으로 읽으면 라이선스 문구가 문서의 절이 된다.
 _DOC_SUFFIXES = (".md", ".markdown", ".rst", ".adoc")
 _CONFIG_SUFFIXES = (".properties", ".yml", ".yaml", ".toml", ".ini", ".conf", ".cfg")
+# base64 로 보이는 문자열. 풀어 보기 전에 모양부터 거른다.
+# ast-grep-ignore: regex-on-structure — 어휘: base64 글자 집합 판정이다.
+_BASE64 = re.compile(r"[A-Za-z0-9+/]+={0,2}")
 _CI_MARKERS = ("/.github/workflows/", "/.gitlab-ci", "/Jenkinsfile", "/.circleci/")
 _SCRIPT_SUFFIXES = (".sh", ".bash", ".bat", ".ps1")
 _BUILD_NAMES = (
@@ -60,11 +67,30 @@ class SecretRules(BaseModel):
     key_markers: list[str]
     value_prefixes: list[str]
     redaction: str
+    decode_base64_over: int = 0
+    """이 길이를 넘는 값은 base64 로 풀어 다시 본다. 0이면 풀지 않는다."""
 
 
 def load_secret_rules() -> SecretRules:
     raw = yaml.safe_load((DATA_DIR / "secrets.yml").read_text(encoding="utf-8"))
     return SecretRules(**raw)
+
+
+def _decoded_is_secret(value: str, rules: SecretRules) -> bool:
+    """base64 로 감싼 비밀인가. 풀어서 같은 접두어 규칙으로 본다.
+
+    겉보기가 평범한 문자열이면 키 이름도 값 접두어도 잡지 못한다. Kubernetes 의 시크릿은
+    base64 가 기본 형태라 이 자리가 비면 개인키가 그대로 나간다.
+    """
+    if len(value) <= rules.decode_base64_over or not rules.decode_base64_over:
+        return False
+    if not _BASE64.fullmatch(value):
+        return False
+    try:
+        decoded = base64.b64decode(value, validate=True).decode("utf-8", errors="replace")
+    except (ValueError, binascii.Error):
+        return False
+    return any(decoded.startswith(prefix) for prefix in rules.value_prefixes)
 
 
 def mask(key: str, value: str, rules: SecretRules) -> str:
@@ -77,6 +103,8 @@ def mask(key: str, value: str, rules: SecretRules) -> str:
     if any(marker in lowered for marker in rules.key_markers):
         return rules.redaction
     if any(value.startswith(prefix) for prefix in rules.value_prefixes):
+        return rules.redaction
+    if _decoded_is_secret(value, rules):
         return rules.redaction
     return value
 

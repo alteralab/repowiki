@@ -54,18 +54,25 @@ def chart_root(path: str) -> str:
 def _keys(text: str) -> list[tuple[str, str, int]]:
     """YAML 의 키를 점 표기 경로와 값과 줄 번호와 함께 낸다.
 
-    `safe_load`가 아니라 `compose`를 쓴다. 앞의 것은 값만 내고 자리를 버린다. 자리가 없는
-    사실은 이 도구가 실을 수 없다(SC-1.7).
+    `safe_load`가 아니라 `compose_all`을 쓴다. `safe_load`는 값만 내고 자리를 버리며,
+    단일 문서 `compose`는 `---`가 있으면 예외를 낸다. 그 예외를 빈 목록으로 삼키면 그
+    차트의 values 와 이미지와 참조가 통째로 사라지면서 계수에도 안 남는다
+    (2026-09-10 적대적 리뷰가 재현했다). 자리가 없는 사실은 이 도구가 실을 수 없다(SC-1.7).
+
+    같은 경로가 여러 번 나오면 마지막 것만 남긴다. YAML 의 중복 키는 뒤엣것이 이기고,
+    둘 다 내면 있지도 않은 선언이 하나 더 생긴다.
     """
+    found: list[tuple[str, str, int]] = []
     try:
-        node = yaml.compose(text)
+        for node in yaml.compose_all(text):
+            if node is not None:
+                _walk(node, "", found, set())
     except yaml.YAMLError:
         return []
-    if node is None:
-        return []
-    found: list[tuple[str, str, int]] = []
-    _walk(node, "", found)
-    return found
+    last: dict[str, tuple[str, str, int]] = {}
+    for item in found:
+        last[item[0]] = item
+    return [last[key] for key in dict.fromkeys(item[0] for item in found)]
 
 
 # 값이 비어 있는 선언의 표시. `affinity: {}`도 선언이고 템플릿이 그것을 쓴다.
@@ -73,7 +80,7 @@ def _keys(text: str) -> list[tuple[str, str, int]]:
 EMPTY = "(빈 값)"
 
 
-def _walk(node, prefix: str, out: list[tuple[str, str, int]]) -> None:
+def _walk(node, prefix: str, out: list[tuple[str, str, int]], seen: set[int]) -> None:
     """매핑을 따라 내려가며 키를 모은다. 목록 안은 열쇠가 없으므로 들어가지 않는다.
 
     빈 매핑과 빈 목록도 키다. `affinity: {}`와 `tolerations: []`는 차트가 "이 자리를
@@ -81,10 +88,23 @@ def _walk(node, prefix: str, out: list[tuple[str, str, int]]) -> None:
     걷으면 그 참조가 선언에 안 닿아 엣지가 통째로 사라진다(2026-09-10 실측:
     prometheus-community 에서 6438건이 그렇게 빠졌다).
     """
-    if not isinstance(node, yaml.MappingNode):
+    if not isinstance(node, yaml.MappingNode) or id(node) in seen:
         return
+    seen = seen | {id(node)}
     for key, value in node.value:
         if not isinstance(key, yaml.ScalarNode):
+            continue
+        # 머지 키(`<<: *base`)는 키가 아니라 지시다. 그대로 두면 `target.<<`와
+        # `target.<<.x`라는 없는 선언이 생긴다. 가리키는 것을 이 자리에 편다.
+        if key.tag == "tag:yaml.org,2002:merge" or key.value == "<<":
+            for merged in value.value if isinstance(value, yaml.SequenceNode) else [value]:
+                _walk(merged, prefix, out, seen)
+            continue
+        # 키에 점이 들어 있으면 점 표기로 이을 수 없다. `a.b: x`와 `a: {b: x}`는 서로
+        # 다른 선언인데 둘 다 `a.b`가 되고, `.Values.a.b` 참조가 엉뚱한 쪽에 붙는다.
+        # Helm 에서 점 든 키는 `index .Values "a.b"`로만 닿으므로 이 참조 규칙의 대상이
+        # 아니다. 세지 않고 넘긴다 — 없는 것을 있다고 하지 않는다(C-BRANCH-3).
+        if "." in str(key.value):
             continue
         path = f"{prefix}.{key.value}" if prefix else key.value
         line = key.start_mark.line + 1
@@ -95,7 +115,7 @@ def _walk(node, prefix: str, out: list[tuple[str, str, int]]) -> None:
         else:
             # 안이 채워진 매핑과 목록은 그 자체도 키이고 안쪽도 키다. 템플릿이 둘 다 쓴다.
             out.append((path, EMPTY, line))
-            _walk(value, path, out)
+            _walk(value, path, out, seen)
 
 
 def _chart_of(text: str, path: str) -> tuple[HelmChart, list[HelmDependency]] | None:
@@ -273,7 +293,11 @@ def build(texts: dict[str, str], rules: SecretRules) -> HelmFacts | None:
 
 
 def _template_chart(path: str, by_directory: dict[str, str]) -> str | None:
-    """이 파일이 어느 차트의 템플릿인가. 차트 뿌리의 `templates/` 아래여야 한다."""
+    """이 파일이 어느 차트의 템플릿인가. 차트 뿌리의 `templates/` 아래여야 한다.
+
+    저장소 루트의 차트는 뿌리가 `.`이다. 조각을 이어 붙이면 빈 문자열이 되므로 그 자리를
+    `.`으로 되돌린다. 이것이 없으면 단일 차트 저장소의 템플릿이 어느 차트에도 안 붙는다.
+    """
     parts = PurePosixPath(path).parts
     if "templates" not in parts:
         return None
