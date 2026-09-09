@@ -172,10 +172,20 @@ def _source_header(
         return ""
     items = []
     for path in paths:
-        span = next(s for s in spans.values() if s.path == path)
         url = source_url(remote, commit, Span(path=path, start_line=1, end_line=1), forges)
         items.append(f"- [`{path}`]({url})" if url else f"- `{path}`")
-    return "\n".join(["> **근거 소스**", ">", *[f"> {line}" for line in items]])
+    # 접어 둔다. 근거가 예순 자리면 파일이 스무 개까지 가고, 펼쳐 두면 본문이 첫 화면에서
+    # 밀려난다. 무엇을 읽고 쓴 글인지는 필요할 때 펴 보면 된다.
+    return "\n".join(
+        [
+            "<details>",
+            f"<summary>근거 소스 {len(paths)}개</summary>",
+            "",
+            *items,
+            "",
+            "</details>",
+        ]
+    )
 
 
 def render_index(pages: list[tuple[str, Frontmatter]], repo_name: str) -> str:

@@ -177,6 +177,23 @@ def _cluster_leads(groups, nodes) -> list[str]:
     return found
 
 
+def _structure_diagrams(groups, modules, edges, limits, root_name):
+    """묶음 그림과 모듈 그림. 그릴 값이 없는 것은 컴파일러가 `None`을 낸다.
+
+    서브시스템마다 페이지가 하나씩 생긴다. L0의 노드 상한은 한 그림에 몇 개를 그리느냐이지
+    페이지를 몇 개 만드느냐가 아니다.
+    """
+    found = []
+    overview = diagrams.subsystem_diagram(groups, edges, limits["L0"])
+    if overview is not None:
+        found.append(overview)
+    for group in groups:
+        diagram = diagrams.module_diagram(group, modules, edges, limits["L1"], root_name)
+        if diagram is not None:
+            found.append(diagram)
+    return found
+
+
 def _member_diagrams(symbols, type_edges, call_edges, ranks, limits, leads, labels):
     """타입 상세와 협력과 호출 순서 그림. 랭킹 상위 타입에만 만든다.
 
@@ -280,11 +297,7 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     groups = graph.subsystems(modules, edges)
     flows = graph.flows(extraction.entry_points, type_edges, types, _MAX_FLOWS)
 
-    compiled = [diagrams.subsystem_diagram(groups, edges, limits["L0"])]
-    # 서브시스템마다 페이지가 하나씩 생긴다. L0의 노드 상한은 한 그림에 몇 개를 그리느냐이지
-    # 페이지를 몇 개 만드느냐가 아니다.
-    for group in groups:
-        compiled.append(diagrams.module_diagram(group, modules, edges, limits["L1"]))
+    compiled = _structure_diagrams(groups, modules, edges, limits, profile.root_name)
     for flow in flows:
         diagram = diagrams.flow_diagram(flow, limits["FLOW"])
         if diagram is not None:

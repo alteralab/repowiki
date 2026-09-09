@@ -21,7 +21,7 @@ from repowiki.analyze.graph import (
 )
 from repowiki.analyze.structure import module_of
 from repowiki.analyze.symbols import Extraction, ImportRecord, PackageRecord, Reference
-from repowiki.bundle.diagrams import subsystem_diagram, type_diagram
+from repowiki.bundle.diagrams import module_diagram, subsystem_diagram, type_diagram
 from repowiki.gate.mermaid import check_limits, check_page_blocks
 from repowiki.models import (
     Diagram,
@@ -223,12 +223,40 @@ def test_diagram_degrades_instead_of_overflowing() -> None:
 def test_single_oversized_label_never_exceeds_the_limit() -> None:
     """노드 하나로도 상한을 못 맞추면 다이어그램을 비운다. 상한 초과를 내보내지 않는다."""
     huge = "x" * 500
-    groups = [Subsystem(id=huge, modules=[huge], source=SubsystemSource.BUILD_TREE)]
+    groups = [
+        Subsystem(id=huge, modules=[huge], source=SubsystemSource.BUILD_TREE),
+        Subsystem(id="other", modules=["other"], source=SubsystemSource.BUILD_TREE),
+    ]
     limit = DiagramLimit(level="L0", max_nodes=15, max_source_chars=100, max_blocks_per_page=50)
-    diagram = subsystem_diagram(groups, [], limit)
+    diagram = subsystem_diagram(groups, [ModuleEdge(src=huge, dst="other", weight=1)], limit)
+    assert diagram is not None
     assert len(diagram.source) <= limit.max_source_chars
     assert diagram.degraded_reason is not None
     assert check_limits([diagram], {"L0": limit}) == []
+
+
+def test_a_lone_box_is_not_a_diagram() -> None:
+    """묶음이 하나이고 엣지가 없으면 그리지 않는다. 상자 하나는 그림이 아니라 라벨이다."""
+    limit = DiagramLimit(level="L0", max_nodes=15, max_source_chars=2000, max_blocks_per_page=50)
+    alone = [Subsystem(id="subsystem-1", modules=["."], source=SubsystemSource.BUILD_TREE)]
+    assert subsystem_diagram(alone, [], limit) is None
+    only = [Module(id=".", build_file="pom.xml", main_file_count=1)]
+    assert module_diagram(alone[0], only, [], limit) is None
+
+
+def test_the_root_module_is_labelled_with_the_repository_name() -> None:
+    """뿌리 모듈의 id는 점 하나다. 그 글자를 그대로 그리면 읽는 사람이 아무것도 못 읽는다."""
+    limit = DiagramLimit(level="L1", max_nodes=15, max_source_chars=2000, max_blocks_per_page=50)
+    group = Subsystem(id="s1", modules=[".", "web"], source=SubsystemSource.BUILD_TREE)
+    modules = [
+        Module(id=".", build_file="pom.xml", main_file_count=9),
+        Module(id="web", build_file="web/pom.xml", main_file_count=2),
+    ]
+    edges = [ModuleEdge(src="web", dst=".", weight=3)]
+    diagram = module_diagram(group, modules, edges, limit, "commons-cli")
+    assert diagram is not None
+    assert "commons-cli" in diagram.source
+    assert '["."]' not in diagram.source
 
 
 def test_type_diagram_is_absent_without_edges() -> None:

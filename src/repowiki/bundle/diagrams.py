@@ -106,10 +106,22 @@ def _compile(plan: _Plan, limit: DiagramLimit, diagram_id: str, level: str) -> D
     )
 
 
+def _is_informative(nodes: list[str], edges: list) -> bool:
+    """그릴 값이 있는가. 상자 하나에 화살표가 없으면 그림이 아니라 라벨이다.
+
+    모듈이 하나인 저장소에서 서브시스템 그림과 모듈 그림은 상자 하나짜리가 된다. 그것을
+    페이지에 실으면 읽는 사람은 무엇을 보라는 것인지 알 수 없다. 그리지 않는 쪽이 옳다.
+    """
+    return len(nodes) >= 2 or bool(edges)
+
+
 def subsystem_diagram(
     subsystems: list[Subsystem], edges: list[ModuleEdge], limit: DiagramLimit
-) -> Diagram:
-    """L0. 서브시스템을 노드로, 서브시스템 사이 import 합계를 엣지로 그린다."""
+) -> Diagram | None:
+    """L0. 서브시스템을 노드로, 서브시스템 사이 import 합계를 엣지로 그린다.
+
+    묶음이 하나뿐이고 그 사이 엣지가 없으면 그리지 않는다.
+    """
     owner = {module: sub.id for sub in subsystems for module in sub.modules}
     weights: Counter[tuple[str, str]] = Counter()
     for edge in edges:
@@ -122,36 +134,58 @@ def subsystem_diagram(
         degree[src] += weight
         degree[dst] += weight
     ordered = sorted((s.id for s in subsystems), key=lambda name: (-degree[name], name))
+    lines = [
+        (src, dst, f'  {_node_id("S", src)} -->|{weight}| {_node_id("S", dst)}')
+        for (src, dst), weight in weights.most_common()
+    ]
+    if not _is_informative(ordered, lines):
+        return None
     plan = _Plan(
         header="flowchart LR",
         nodes=ordered,
         node_lines={name: f'  {_node_id("S", name)}["{_label(name)}"]' for name in ordered},
-        edges=[
-            (src, dst, f'  {_node_id("S", src)} -->|{weight}| {_node_id("S", dst)}')
-            for (src, dst), weight in weights.most_common()
-        ],
+        edges=lines,
     )
     return _compile(plan, limit, "L0-subsystems", "L0")
 
 
 def module_diagram(
-    subsystem: Subsystem, modules: list[Module], edges: list[ModuleEdge], limit: DiagramLimit
-) -> Diagram:
-    """L1. 한 서브시스템 안의 모듈과 그 사이 엣지를 그린다."""
+    subsystem: Subsystem,
+    modules: list[Module],
+    edges: list[ModuleEdge],
+    limit: DiagramLimit,
+    root_name: str = "",
+) -> Diagram | None:
+    """L1. 한 서브시스템 안의 모듈과 그 사이 엣지를 그린다.
+
+    모듈이 하나뿐이고 그 사이 엣지가 없으면 그리지 않는다. `root_name`을 주면 저장소 뿌리
+    모듈의 라벨로 쓴다 — 뿌리 모듈의 id는 `.`이고 그 글자는 사람에게 아무 뜻이 없다.
+    """
     members = set(subsystem.modules)
     sizes = {m.id: m.main_file_count for m in modules if m.id in members}
     ordered = [name for name, _ in sorted(sizes.items(), key=lambda item: (-item[1], item[0]))]
+    lines = [
+        (e.src, e.dst, f'  {_node_id("M", e.src)} -->|{e.weight}| {_node_id("M", e.dst)}')
+        for e in sorted(edges, key=lambda e: -e.weight)
+        if e.src in members and e.dst in members
+    ]
+    if not _is_informative(ordered, lines):
+        return None
     plan = _Plan(
         header="flowchart LR",
         nodes=ordered,
-        node_lines={name: f'  {_node_id("M", name)}["{_label(name)}"]' for name in ordered},
-        edges=[
-            (e.src, e.dst, f'  {_node_id("M", e.src)} -->|{e.weight}| {_node_id("M", e.dst)}')
-            for e in sorted(edges, key=lambda e: -e.weight)
-            if e.src in members and e.dst in members
-        ],
+        node_lines={
+            name: f'  {_node_id("M", name)}["{_label(_module_label(name, root_name))}"]'
+            for name in ordered
+        },
+        edges=lines,
     )
     return _compile(plan, limit, f"L1-{subsystem.id}", "L1")
+
+
+def _module_label(module_id: str, root_name: str) -> str:
+    """모듈의 라벨. 저장소 뿌리는 id가 `.`이라 그대로 쓰면 점 하나가 그려진다."""
+    return root_name or module_id if module_id in ("", ".") else module_id
 
 
 def _identity(declaration: Span | None, path: str | None, name: str) -> str:

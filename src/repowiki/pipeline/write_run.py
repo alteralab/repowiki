@@ -255,12 +255,11 @@ def submit(workspace: Workspace, page_path: Path, worker: str) -> list[PageViola
 
     store.journal(job.id, store.generation_of(job.id), worker, output.model_dump_json())
     store.finish(job.id)
+    # 작성자가 쓴 `page.json`은 건드리지 않는다. 그 파일에는 자리표시자가 그대로 있어야
+    # 사실 층이 바뀐 뒤에도 같은 글을 다시 낼 수 있다. 통과한 내용은 저널이 들고 있다.
     target = workspace.pages_dir / job.path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(output.body_markdown, encoding="utf-8")
-    (workspace.job_dir(job.id) / "page.json").write_text(
-        output.model_dump_json(indent=2), encoding="utf-8"
-    )
     return []
 
 
