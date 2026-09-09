@@ -234,6 +234,12 @@ def _split(members: list[TypeNode], graph: nx.Graph) -> list[list[TypeNode]]:
         return [members]
 
     communities = greedy_modularity_communities(subgraph.subgraph(connected), weight="weight")
+    # networkx는 커뮤니티를 크기로만 정렬하고 같은 크기의 순서는 안 정한다. 그 순서는 부분
+    # 그래프 뷰가 노드 집합을 훑는 순서라 `PYTHONHASHSEED`를 따른다. 실측(kafka, 2026-09-10):
+    # 시드 1과 2에서 묶음 449개의 구성은 같았지만 같은 크기의 이웃 커뮤니티 32자리가 서로
+    # 바뀌었고, 그것이 묶음 id와 그림 순서로 번져 facts.json 127,606바이트가 달랐다.
+    # 같은 크기면 가장 작은 키로 가른다 — 커뮤니티는 서로 겹치지 않으므로 그 키는 유일하다.
+    communities = sorted(communities, key=lambda community: (-len(community), min(community)))
     groups: list[list[TypeNode]] = []
     placed: set[str] = set()
     for community in communities:
