@@ -209,6 +209,8 @@ _EDGE_ARROW = {
 _MAX_HOPS = 12
 # 클래스 상자에 넣을 멤버 상한. 이보다 많으면 상자가 그림을 밀어낸다.
 _MAX_MEMBERS = 14
+# 1단 구성도의 한 상자에 넣을 대표 타입 수. 이보다 많으면 상자가 그림을 밀어낸다.
+_MAX_AREA_MEMBERS = 5
 
 
 def entity_diagram(entities: list[dict], relations: list[dict], limit: DiagramLimit) -> Diagram | None:
@@ -597,3 +599,97 @@ def _member_box(type_name: str, members: list[Symbol]) -> list[str]:
 def _safe_class(raw: str) -> str:
     """classDiagram의 클래스 이름. 이 문법은 따옴표 라벨을 클래스 본문과 함께 쓰지 못한다."""
     return _ID_SAFE.sub("_", raw) or "T"
+
+
+def area_diagram(
+    title: str,
+    children: list[tuple[str, list[str]]],
+    edges: list[CallEdge],
+    limit: DiagramLimit,
+) -> Diagram | None:
+    """1단 쪽의 구성도. 자식 묶음을 상자로 두고 그 사이의 호출을 잇는다.
+
+    자식마다 subgraph 를 만들고 그 안에 대표 타입을 둔다. 사람이 이 그림 하나로 "이 자리가
+    무엇으로 나뉘고 그 조각들이 서로 부르는가"를 읽는다.
+
+    자식이 하나뿐이거나 그 사이에 호출이 없으면 그리지 않는다. 상자만 늘어놓은 그림은
+    사이드바가 이미 하는 말이다.
+    """
+    if len(children) < 2:
+        return None
+    weight = _area_weights(children, edges)
+    if not weight:
+        return None
+
+    shown = [group for group, _ in children][: limit.max_nodes]
+    visible = set(shown)
+    # 자리 번호를 id 로 쓴다. 이름을 id 로 만들면 한 줄이 100자를 넘어 소스 상한을 그림이
+    # 아니라 식별자가 다 쓴다(kafka 실측: 상자만 2,888자로 상한 2,000자를 넘겼다).
+    short = {group: f"A{position}" for position, group in enumerate(shown)}
+    lines = [line for line in (_directive_for(limit), "flowchart LR") if line]
+    lines += _area_boxes(children, visible, short)
+    drawn = [
+        f"  {short[src]} -->|{count}| {short[dst]}"
+        for (src, dst), count in weight.most_common()
+        if src in visible and dst in visible
+    ]
+    if not drawn:
+        return None
+
+    def render(kept: list[str]) -> str:
+        return "\n".join([*lines, *kept])
+
+    reasons: list[str] = []
+    if len(children) > len(shown):
+        reasons.append(f"자식 {len(children)}개가 상한 {limit.max_nodes}개를 넘었다")
+    source, kept = _fit(render, drawn, limit, reasons)
+    if kept == 0:
+        return None
+    return Diagram(
+        id=f"AREA-{title}",
+        level="AREA",
+        source=source,
+        node_count=len(shown),
+        edge_count=kept,
+        degraded_reason="; ".join(dict.fromkeys(reasons)) or None,
+    )
+
+
+def _area_weights(
+    children: list[tuple[str, list[str]]], edges: list[CallEdge]
+) -> "Counter[tuple[str, str]]":
+    """자식 사이의 호출 수. 같은 자식 안의 호출은 이 그림이 말할 것이 아니다."""
+    owner: dict[str, str] = {}
+    for group, members in children:
+        for name in members:
+            owner.setdefault(name, group)
+    weight: Counter[tuple[str, str]] = Counter()
+    for edge in edges:
+        src, dst = owner.get(edge.src_type), owner.get(edge.dst_type)
+        if src is not None and dst is not None and src != dst:
+            weight[(src, dst)] += 1
+    return weight
+
+
+def _area_boxes(
+    children: list[tuple[str, list[str]]], visible: set[str], short: dict[str, str]
+) -> list[str]:
+    """자식마다 상자 하나. 안에 대표 타입을 몇 개 둔다."""
+    lines: list[str] = []
+    for group, members in children:
+        if group not in visible:
+            continue
+        lines.append(f'  subgraph {short[group]}["{_label(group)}"]')
+        lines += [
+            f'    {short[group]}_{position}["{_label(name)}"]'
+            for position, name in enumerate(members[:_MAX_AREA_MEMBERS])
+        ]
+        lines.append("  end")
+    return lines
+
+
+def _directive_for(limit: DiagramLimit) -> str:
+    """레이아웃 지시문. `dagre`는 Mermaid 내장이라 적지 않는다."""
+    if limit.layout == "dagre":
+        return ""
+    return f'%%{{init: {{"layout": "{limit.layout}"}}}}%%'

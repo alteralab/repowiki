@@ -105,6 +105,23 @@ def _brief(job: PageJob) -> str:
     sibling_lines = "\n".join(
         f"- {item.get('title', '')}: `{item.get('path', '')}`" for item in job.siblings
     )
+    children = job.facts.get("children") or []
+    child_block = ""
+    if children:
+        listed = "\n".join(
+            f"- [{item.get('title', '')}]({item.get('path', '')}): "
+            f"{', '.join(str(t) for t in (item.get('types') or [])[:4])}"
+            for item in children
+        )
+        # 1단 쪽은 아래로 내려가는 문이다. 자식마다 한 줄로 무엇을 다루는지 적어 두지 않으면
+        # 읽는 사람이 어느 쪽을 눌러야 할지 모른다.
+        child_block = (
+            "\n## 이 쪽이 여는 하위 쪽\n\n"
+            "본문에 이 목록을 자기 문장으로 다시 쓴다. 쪽마다 한 줄로 무엇을 다루는지 적고"
+            " 상대 링크를 건다.\n\n"
+            f"{listed}\n"
+        )
+
     slots = names(job.diagrams, job.tables)
     slot_lines = "\n".join(f"- `{slot}`" for slot in slots)
     diagram_note = (
@@ -142,6 +159,7 @@ def _brief(job: PageJob) -> str:
 ## 형제 페이지
 
 {sibling_lines or "형제 페이지가 없다."}
+{child_block}
 
 ## 근거
 

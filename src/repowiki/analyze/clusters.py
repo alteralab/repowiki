@@ -6,10 +6,16 @@
 왜 빌드 모듈이 아닌가. 모듈이 하나뿐인 저장소가 흔하고, 그런 저장소는 모듈을 페이지 단위로
 삼는 한 영원히 한 쪽이다. 사람이 읽고 싶은 단위는 빌드 산출물이 아니라 개념이다.
 
-묶는 순서는 둘이다. 먼저 디렉토리로 가른다 — 자바는 디렉토리가 곧 패키지이고, 파이썬과
-스칼라도 사람이 디렉토리로 나누어 둔다. 그다음 너무 큰 디렉토리만 관계 그래프의 커뮤니티로
-쪼갠다. 디렉토리를 먼저 보는 이유는 그것이 저자가 손으로 적어 둔 분류이기 때문이다.
-커뮤니티 검출은 저자가 나누지 않은 자리에만 쓴다.
+묶는 순서는 셋이다. 먼저 디렉토리로 가른다 — 자바는 디렉토리가 곧 패키지이고, 파이썬과
+스칼라도 사람이 디렉토리로 나누어 둔다. 그다음 너무 작은 묶음을 부모 디렉토리로 올려
+합친다. 마지막으로 너무 큰 묶음만 관계 그래프의 커뮤니티로 쪼갠다.
+
+디렉토리를 먼저 보는 이유는 그것이 저자가 손으로 적어 둔 분류이기 때문이다. 커뮤니티
+검출은 저자가 나누지 않은 자리에만 쓴다.
+
+**올려 합치는 단계가 없으면 큰 저장소가 무너진다.** 디렉토리마다 한 묶음이면 airflow 는
+묶음 831개가 나오고 그중 51퍼센트가 타입 두 개 이하다(2026-09-09 실측). 타입 두 개짜리
+쪽은 목록이지 글이 아니고, 831쪽짜리 위키는 훑을 수 없다.
 
 사각: 이름은 코드에서만 짓는다. "Type Handling System" 같은 개념 이름은 코드에 없으므로
 짓지 못하고, 그 자리에는 대표 타입의 이름이 들어간다. 개념 이름은 쓰는 층이 제목으로
@@ -45,6 +51,8 @@ _EDGE_WEIGHT = {
 }
 _CALL_WEIGHT_CAP = 3
 _MIN_TYPES = 2
+# 한 묶음이 쪽 하나가 되려면 이만큼은 담아야 한다. 이보다 작으면 부모 디렉토리로 올린다.
+_MIN_PAGE_TYPES = 6
 # 한 디렉토리를 쪼개는 문턱. 저자가 한 패키지에 모아 둔 것을 기계가 쪼개려면 그 패키지가
 # 한 쪽에 담기지 않을 만큼 커야 한다.
 _MAX_TYPES = 16
@@ -156,23 +164,48 @@ _MEANINGLESS_SEGMENTS = {"", ".", "src", "main", "java", "scala", "python", "tes
 def cluster(nodes: list[TypeNode], graph: nx.Graph) -> list[Cluster]:
     """타입을 개념 묶음으로 나눈다.
 
-    디렉토리 안에서 타입이 `_MAX_TYPES`를 넘으면 그 디렉토리의 부분 그래프에서 커뮤니티를
-    찾아 쪼갠다. 너무 작은 묶음은 쪼개지 않는다 — 한 쪽에 타입 하나만 있는 페이지는 목록과
-    다르지 않다.
+    디렉토리로 가르고, 작은 것을 부모로 올려 합치고, 큰 것만 커뮤니티로 쪼갠다.
     """
     by_directory: dict[str, list[TypeNode]] = defaultdict(list)
     for node in nodes:
         by_directory[node.directory].append(node)
 
+    merged = _lift_small(by_directory)
     found: list[Cluster] = []
-    for directory in sorted(by_directory):
-        members = by_directory[directory]
+    for directory in sorted(merged):
+        members = merged[directory]
         if len(members) <= _MAX_TYPES:
             found.append(_make(members, directory, "directory", len(found)))
             continue
         for group in _split(members, graph):
             found.append(_make(group, directory, "community", len(found)))
     return found
+
+
+def _lift_small(by_directory: dict[str, list[TypeNode]]) -> dict[str, list[TypeNode]]:
+    """작은 묶음을 부모 디렉토리로 올린다.
+
+    가장 깊은 디렉토리부터 본다. 그래야 올린 것이 부모에 합쳐진 뒤 그 부모도 여전히
+    작으면 다시 위로 올라간다. 더 올릴 부모가 없으면 그 자리에 남는다 — 저장소 뿌리의
+    작은 묶음은 그것이 전부이기 때문이다.
+    """
+    working = {directory: list(members) for directory, members in by_directory.items()}
+    while True:
+        # 매번 가장 깊은 것부터 다시 본다. 한 번만 훑으면 부모가 자식을 받은 뒤 여전히
+        # 작아도 그대로 남는다 — airflow 는 그래서 831개가 594개까지만 줄었다.
+        candidate = None
+        for directory in sorted(working, key=lambda name: (-len(name.split("/")), name)):
+            if len(working[directory]) >= _MIN_PAGE_TYPES:
+                continue
+            parent = str(PurePosixPath(directory).parent)
+            if parent != directory and parent not in ("", "."):
+                candidate = (directory, parent)
+                break
+        if candidate is None:
+            break
+        directory, parent = candidate
+        working.setdefault(parent, []).extend(working.pop(directory))
+    return {directory: members for directory, members in working.items() if members}
 
 
 def _make(members: list[TypeNode], directory: str, source: str, position: int) -> Cluster:
@@ -207,7 +240,10 @@ def _split(members: list[TypeNode], graph: nx.Graph) -> list[list[TypeNode]]:
         group = sorted(
             (by_key[key] for key in community), key=lambda node: (node.rank, node.name)
         )
-        if len(group) < _MIN_TYPES:
+        # 쪽이 될 만큼 크지 않은 조각은 만들지 않는다. 남은 것은 아래에서 한 묶음이 되거나
+        # 가장 큰 묶음에 붙는다 — 디렉토리 하나를 타입 두 개짜리 조각으로 흩으면 쪼개기가
+        # 문제를 푸는 것이 아니라 만든다.
+        if len(group) < _MIN_PAGE_TYPES:
             continue
         groups.append(group)
         placed.update(node.key for node in group)
@@ -216,11 +252,11 @@ def _split(members: list[TypeNode], graph: nx.Graph) -> list[list[TypeNode]]:
     )
     if not leftover:
         return groups or [members]
-    if len(leftover) >= _MIN_TYPES or not groups:
+    if len(leftover) >= _MIN_PAGE_TYPES or not groups:
         groups.append(leftover)
         return groups
-    # 남은 것이 한 개뿐이면 페이지를 따로 만들지 않고 가장 큰 묶음에 붙인다. 타입 하나짜리
-    # 페이지는 목록과 다르지 않다.
+    # 남은 것이 쪽이 될 만큼 크지 않으면 가장 큰 묶음에 붙인다. 작은 페이지는 목록과
+    # 다르지 않고, 그런 쪽이 수백 개면 위키를 훑을 수 없다.
     biggest = max(groups, key=len)
     biggest.extend(leftover)
     biggest.sort(key=lambda node: (node.rank, node.name))

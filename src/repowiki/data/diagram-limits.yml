@@ -39,6 +39,13 @@ levels:
     max_source_chars: 2000
     max_blocks_per_page: 50
     layout: dagre
+  AREA:
+    # 1단 구성도. 자식 상자 안에 대표 타입이 들어가 노드가 많아 보이지만, 사람이 보는 것은
+    # 상자 사이의 화살표다.
+    max_nodes: 12
+    max_source_chars: 2600
+    max_blocks_per_page: 50
+    layout: elk
   TYPE:
     # 한 타입의 상세. 상자 하나에 멤버가 들어가고 이웃이 둘러선다. classDiagram이라 dagre다.
     max_nodes: 25
@@ -64,6 +71,10 @@ pages:
   architecture-overview:
     max_diagrams: 8
     target_words: 900
+  area:
+    # 1단 쪽. 자식을 소개하고 그 아래가 어떻게 나뉘는지 한 장으로 보인다.
+    max_diagrams: 4
+    target_words: 700
   concept:
     max_diagrams: 5
     target_words: 800

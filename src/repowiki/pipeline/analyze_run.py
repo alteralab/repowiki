@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
+from types import SimpleNamespace
 
 import yaml
 
@@ -166,6 +167,32 @@ def _corpus_and_toolchain(
     if chain.truncated:
         notes.append(f"의존 {chain.truncated}건이 상한을 넘어 사실에 없다")
     return corpus_facts, chain, notes
+
+
+def _area_diagrams(groups, call_edges, limits):
+    """1단 쪽의 구성도. 차례의 상위 자리마다 하나씩.
+
+    차례를 여기서 다시 세우지 않고 묶음의 디렉토리로 같은 자리를 만든다. 계획 층이 세운
+    차례와 같은 자리여야 그림을 찾을 수 있다.
+    """
+    from repowiki.write import outline
+
+    by_id = {group.id: group for group in groups}
+    tree = outline.build(SimpleNamespace(clusters=groups))
+    found = []
+    for area in (node for node in tree.nodes if node.kind == "area"):
+        children = []
+        for child in tree.children_of(area.key):
+            group = by_id.get(child.clusters[0]) if child.clusters else None
+            if group is None:
+                continue
+            # 묶음의 구성원 열쇠는 `경로#이름`이다. 그림의 라벨은 이름 쪽이다.
+            names = [key.split("#", 1)[1] for key in group.members if "#" in key]
+            children.append((child.title, names))
+        diagram = diagrams.area_diagram(area.title, children, call_edges, limits["L1"])
+        if diagram is not None:
+            found.append(diagram)
+    return found
 
 
 def _cluster_leads(groups, nodes) -> list[str]:
@@ -381,6 +408,7 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     compiled += _member_diagrams(
         extraction.symbols, type_edges, call_edges, ranks, limits, leads, labels
     )
+    compiled += _area_diagrams(concepts, call_edges, limits)
 
     corpus_facts, toolchain_facts, corpus_notes = _corpus_and_toolchain(
         root, tracked, kept, roots, facts

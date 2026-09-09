@@ -257,6 +257,7 @@ class PageType(StrEnum):
     HISTORY = "history"
     STACK = "stack"
     CONCEPT = "concept"
+    AREA = "area"
     QUALITY = "quality"
     USAGE = "usage"
     DATA_MODEL = "data-model"

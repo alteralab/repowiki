@@ -36,6 +36,7 @@ from repowiki.models import (
     Span,
     SymbolKind,
 )
+from repowiki.write import outline
 from repowiki.write import tables as fact_tables
 
 _ROOT_SLUG = "root"
@@ -254,7 +255,7 @@ def _overview_job(facts: RepoFacts) -> PageJob:
         evidence,
         _overview_diagrams(facts),
         _keep([fact_tables.module_table(facts), fact_tables.language_table(facts)]),
-        "1",
+        "A",
     )
 
 
@@ -307,32 +308,109 @@ def _stack_job(facts: RepoFacts) -> PageJob | None:
         evidence,
         [],
         _keep([fact_tables.language_table(facts), fact_tables.dependency_table(facts)]),
-        "1",
+        "A1",
         parent="overview-architecture",
     )
 
 
 def _concept_jobs(facts: RepoFacts) -> list[PageJob]:
-    """개념 묶음마다 한 쪽. 이것이 이 위키의 본문이다.
+    """차례를 따라 쪽을 만든다. 1단은 자식을 소개하는 문이고 2단이 본문이다.
 
     묶음은 결정층이 정해 사실에 담아 둔 것을 그대로 쓴다. 여기서 다시 계산하면 그림을 만든
     묶음과 페이지가 된 묶음이 달라질 수 있다.
     """
-    groups = list(facts.clusters)[:_MAX_CONCEPT_PAGES]
-    if not groups:
+    tree = outline.build(facts)
+    if not tree.nodes:
         return []
+    by_id = {group.id: group for group in facts.clusters}
     labels = dict(facts.type_labels)
+    paths = {node.key: _outline_path(node) for node in tree.nodes}
 
-    # 경로는 제목이 아니라 묶음의 열쇠에서 만든다. 서로 다른 디렉토리의 묶음이 같은 제목을
-    # 가질 수 있고(`a/util`과 `b/util`), 그때 두 쪽이 같은 파일을 덮어쓴다.
-    names = concept_slugs(groups)
-    siblings = [
-        {"title": group.title, "path": f"concepts/{names[group.id]}.md"} for group in groups
+    jobs: list[PageJob] = []
+    for node in tree.nodes:
+        siblings = [
+            {"title": other.title, "path": paths[other.key]}
+            for other in tree.nodes
+            if other.parent == node.parent and other.key != node.key
+        ]
+        if node.kind == "area":
+            jobs.append(_area_job(facts, tree, node, by_id, labels, paths, siblings))
+            continue
+        group = by_id.get(node.clusters[0]) if node.clusters else None
+        if group is None:
+            continue
+        jobs.append(
+            _concept_job(facts, group, labels, siblings, node, paths[node.key])
+        )
+    return jobs
+
+
+def _outline_path(node) -> str:
+    """차례의 자리 하나가 쓸 파일. 번호가 앞에 붙어 사이드바 순서와 파일 순서가 같다."""
+    folder = "areas" if node.kind == "area" else "concepts"
+    return f"{folder}/{node.section.replace('.', '-')}-{slug(node.title)}.md"
+
+
+def _area_job(
+    facts: RepoFacts,
+    tree,
+    node,
+    by_id: dict,
+    labels: dict[str, str],
+    paths: dict[str, str],
+    siblings: list[dict],
+) -> PageJob:
+    """1단 쪽. 이 자리가 무엇으로 나뉘는지 소개하고 아래로 내려가는 문을 연다."""
+    children = tree.children_of(node.key)
+    groups = [by_id[key] for child in children for key in child.clusters if key in by_id]
+    keys = {key for group in groups for key in group.members}
+    names = {key.split("#", 1)[1] for key in keys if "#" in key}
+    types = [
+        symbol
+        for symbol in facts.symbols
+        if symbol.kind in _TYPE_LIKE
+        and not symbol.is_test
+        and f"{symbol.span.path}#{symbol.name}" in keys
     ]
-    return [
-        _concept_job(facts, group, labels, siblings, position, names[group.id])
-        for position, group in enumerate(groups, start=1)
+    payload = {
+        "area": {"title": node.title, "modules": node.modules},
+        "children": [
+            {
+                "title": child.title,
+                "path": paths[child.key],
+                "types": [
+                    labels.get(key, key.split("#")[-1])
+                    for key in (by_id[child.clusters[0]].members if child.clusters else [])
+                ][:8],
+            }
+            for child in children
+        ],
+        "calls_between": _call_summary(
+            [
+                edge
+                for edge in facts.call_edges
+                if edge.src_type in names and edge.dst_type in names
+            ]
+        ),
+    }
+    evidence = [
+        (symbol.name, symbol.span, f"{symbol.kind.value} {symbol.name}")
+        for symbol in _by_rank(facts, types, lambda s: s.span.path)[:_MAX_EVIDENCE]
     ]
+    job = _job(
+        f"area-{slug(node.title)}",
+        paths[node.key],
+        PageType.AREA,
+        node.title,
+        "이 자리가 무엇으로 나뉘는지 보이고 아래 쪽마다 무엇을 다루는지 한 줄로 소개한다",
+        payload,
+        evidence,
+        _diagram(facts, f"AREA-{node.title}"),
+        _keep([fact_tables.type_inventory(node.title, labels, types, _citer(facts))]),
+        node.section,
+    )
+    job.siblings = siblings
+    return job
 
 
 def concept_slugs(groups: list[Cluster]) -> dict[str, str]:
@@ -361,8 +439,8 @@ def _concept_job(
     group: Cluster,
     labels: dict[str, str],
     siblings: list[dict],
-    position: int,
-    name: str,
+    node,
+    path: str,
 ) -> PageJob:
     """묶음 한 쪽. 담은 타입과 그 멤버와 안팎의 호출이 이 쪽의 사실이다."""
     keys = set(group.members)
@@ -442,10 +520,10 @@ def _concept_job(
         diagrams += _diagrams_for(facts, f"SEQ-{symbol.name}.")
     diagrams = _unique(diagrams)
     job = _job(
-        f"concept-{name}",
-        f"concepts/{name}.md",
+        f"concept-{slug(node.title)}-{node.section.replace('.', '-')}",
+        path,
         PageType.CONCEPT,
-        group.title,
+        node.title,
         "이 묶음이 무엇을 맡고 그 안의 타입들이 서로 어떻게 일하는지 근거와 함께 보인다",
         payload,
         evidence,
@@ -457,8 +535,8 @@ def _concept_job(
                 fact_tables.callers_table(lead_name, facts),
             ]
         ),
-        f"2.{position}",
-        parent="overview-architecture",
+        node.section,
+        parent=f"area-{slug(node.title)}" if node.parent else "overview-architecture",
     )
     # 형제 쪽 목록을 함께 준다. 교차 링크가 있어야 위키가 목록이 아니라 그물이 된다.
     job.siblings = [item for item in siblings if item["path"] != job.path]
@@ -547,7 +625,7 @@ def _flow_job(facts: RepoFacts) -> PageJob | None:
         evidence,
         _diagrams_for(facts, "FLOW-"),
         [],
-        "1",
+        "A2",
         parent="overview-architecture",
     )
 
@@ -557,8 +635,11 @@ def _module_jobs(facts: RepoFacts) -> list[PageJob]:
 
     모듈이 하나면 그 쪽은 개요와 같은 말을 한다. 같은 말을 두 쪽에 쓰는 것은 위키를 늘리는
     것이 아니라 읽는 사람의 시간을 쓰는 것이다.
+
+    개념 나무가 섰으면 이 쪽을 만들지 않는다. 나무의 1단이 이미 같은 자리를 다루고, 둘을
+    함께 두면 사이드바에 같은 번호가 두 번 나온다.
     """
-    if len(facts.modules) < 2:
+    if len(facts.modules) < 2 or outline.build(facts).nodes:
         return []
     ranked = sorted(facts.modules, key=lambda m: -m.main_file_count)[:_MAX_MODULE_PAGES]
     jobs: list[PageJob] = []
@@ -614,8 +695,8 @@ def _module_jobs(facts: RepoFacts) -> list[PageJob]:
 
 
 def _subsystem_jobs(facts: RepoFacts) -> list[PageJob]:
-    """서브시스템 쪽. 모듈이 여럿일 때만 뜻이 있다."""
-    if len(facts.modules) < 2:
+    """서브시스템 쪽. 모듈이 여럿이고 개념 나무가 없을 때만 뜻이 있다."""
+    if len(facts.modules) < 2 or outline.build(facts).nodes:
         return []
     jobs: list[PageJob] = []
     for position, subsystem in enumerate(facts.subsystems, start=1):
@@ -699,7 +780,7 @@ def _history_job(facts: RepoFacts) -> PageJob | None:
         evidence,
         _diagrams_for(facts, "TIME-"),
         [],
-        "4",
+        "B1",
     )
 
 
@@ -733,7 +814,7 @@ def _quality_job(facts: RepoFacts) -> PageJob | None:
         evidence,
         [],
         _keep([fact_tables.language_table(facts), fact_tables.config_table(facts)]),
-        "5",
+        "B2",
     )
 
 
@@ -786,7 +867,7 @@ def _usage_job(facts: RepoFacts) -> PageJob | None:
         evidence,
         [],
         _keep([fact_tables.test_inventory(facts.symbols, _citer(facts))]),
-        "6",
+        "B3",
     )
 
 
@@ -815,7 +896,7 @@ def _data_job(facts: RepoFacts) -> PageJob | None:
         evidence,
         _diagrams_for(facts, "ER-"),
         [],
-        "7",
+        "B4",
     )
 
 
@@ -824,6 +905,8 @@ def build_jobs(facts: RepoFacts) -> list[PageJob]:
 
     순서가 곧 사이드바의 순서다. 개요가 먼저이고 개념이 본문이며 나머지가 뒤따른다.
     """
+    # 개요와 부록은 글자 번호를, 개념 나무는 숫자 번호를 쓴다. 한 벌을 나눠 쓰면 사이드바에
+    # 같은 번호가 두 번 나온다.
     jobs: list[PageJob] = [_overview_job(facts)]
     optional = [
         _stack_job(facts),
