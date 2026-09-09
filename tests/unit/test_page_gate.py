@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from repowiki.gate.page import check_page
+from repowiki.gate.page import _bullets_and_paragraphs, check_page
 from repowiki.bundle.tables import render
 from repowiki.models import (
     Diagram,
@@ -186,3 +186,25 @@ def test_a_missing_table_is_named_by_its_placeholder() -> None:
         PageOutput(job_id="j1", title="t", description="d", body_markdown=_passing_body()),
     )
     assert "{{table:t1}}" in violations[0].detail
+
+
+def test_a_wall_of_paragraphs_without_lists_is_rejected() -> None:
+    """이름이 붙은 것을 문단으로만 늘어놓은 쪽은 훑어 읽히지 않는다."""
+    walls = "\n\n".join(f"이 타입은 무엇을 맡는다[^E{i % 3 + 1}]." for i in range(8))
+    violations = check_page(_job(), _page(_long(walls)))
+    assert "prose-wall" in [v.rule for v in violations]
+
+
+def test_the_same_content_as_a_list_passes() -> None:
+    """같은 내용을 목록으로 내면 통과한다. 분량이 아니라 형태의 문제다."""
+    listed = "\n".join(f"- **`T{i}`**: 무엇을 맡는다[^E{i % 3 + 1}]" for i in range(8))
+    violations = check_page(_job(), _page(_long(listed)))
+    assert "prose-wall" not in [v.rule for v in violations]
+
+
+def test_a_fact_table_does_not_raise_the_list_requirement() -> None:
+    """표의 표제는 문단이 아니다. 표를 실을수록 목록을 더 요구하면 규칙이 자가당착이다."""
+    body = _passing_body(render(TABLE))
+    _, without = _bullets_and_paragraphs(_passing_body())
+    _, with_table = _bullets_and_paragraphs(body)
+    assert with_table == without

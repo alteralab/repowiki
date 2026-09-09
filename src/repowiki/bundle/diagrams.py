@@ -33,6 +33,13 @@ from repowiki.models import (
 # ast-grep-ignore: regex-on-structure — 어휘: Mermaid 식별자에 허용되는 문자집합 판정이다. 구조가 아니라 문자 하나씩의 치환이라 정규 언어다.
 _ID_SAFE = re.compile(r"[^A-Za-z0-9_]")
 
+# 노드에 붙일 수 있는 역할. 여기 없는 이름을 붙이면 사이트가 색을 모른다.
+# 색 자체는 이 층의 것이 아니다 — 소스에는 표식만 싣고, 색은 사이트가 테마에 맞춰
+# 렌더 시점에 `classDef`로 주입한다. 그래야 다크와 라이트가 둘 다 맞고, 이 표식이
+# 소스 문자 상한을 거의 먹지 않으며, classDef가 없는 GitHub에서도 그림이 깨지지 않는다
+# (2026-09-09 Chrome 실측: `:::표식`만 있고 classDef가 없어도 정상 렌더).
+_ROLES = frozenset({"rwFocus", "rwEntry", "rwTest"})
+
 
 class _Plan(BaseModel):
     """그릴 것의 계획. 노드는 우선순위 순서이고 엣지는 노드 이름을 가리킨다."""
@@ -42,6 +49,8 @@ class _Plan(BaseModel):
     nodes: list[str]
     node_lines: dict[str, str]
     edges: list[tuple[str, str, str]]
+    node_roles: dict[str, str] = {}
+    """노드 이름 -> 역할 표식. 색이 아니라 뜻이다(`_ROLES` 참조)."""
 
 
 def _node_id(prefix: str, raw: str) -> str:
@@ -59,7 +68,8 @@ def _render(plan: _Plan, shown: list[str]) -> tuple[str, int]:
     visible = set(shown)
     lines = [plan.header] if not plan.directive else [plan.directive, plan.header]
     for name in shown:
-        lines.append(plan.node_lines[name])
+        role = plan.node_roles.get(name)
+        lines.append(plan.node_lines[name] + (f":::{role}" if role else ""))
     kept = 0
     for src, dst, edge_line in plan.edges:
         if src in visible and dst in visible:
@@ -116,11 +126,16 @@ def _is_informative(nodes: list[str], edges: list) -> bool:
 
 
 def subsystem_diagram(
-    subsystems: list[Subsystem], edges: list[ModuleEdge], limit: DiagramLimit
+    subsystems: list[Subsystem],
+    edges: list[ModuleEdge],
+    limit: DiagramLimit,
+    entry_modules: frozenset[str] = frozenset(),
 ) -> Diagram | None:
     """L0. 서브시스템을 노드로, 서브시스템 사이 import 합계를 엣지로 그린다.
 
-    묶음이 하나뿐이고 그 사이 엣지가 없으면 그리지 않는다.
+    묶음이 하나뿐이고 그 사이 엣지가 없으면 그리지 않는다. `entry_modules`를 주면 그
+    모듈을 품은 묶음에 진입점 표식을 붙인다 — 처음 보는 사람이 어디서부터 읽어야 하는지가
+    그림에서 먼저 보여야 한다.
     """
     owner = {module: sub.id for sub in subsystems for module in sub.modules}
     weights: Counter[tuple[str, str]] = Counter()
@@ -140,11 +155,13 @@ def subsystem_diagram(
     ]
     if not _is_informative(ordered, lines):
         return None
+    entry_subsystems = {owner[m] for m in entry_modules if m in owner}
     plan = _Plan(
         header="flowchart LR",
         nodes=ordered,
         node_lines={name: f'  {_node_id("S", name)}["{_label(name)}"]' for name in ordered},
         edges=lines,
+        node_roles={name: "rwEntry" for name in ordered if name in entry_subsystems},
     )
     return _compile(plan, limit, "L0-subsystems", "L0")
 
@@ -155,6 +172,7 @@ def module_diagram(
     edges: list[ModuleEdge],
     limit: DiagramLimit,
     root_name: str = "",
+    entry_modules: frozenset[str] = frozenset(),
 ) -> Diagram | None:
     """L1. 한 서브시스템 안의 모듈과 그 사이 엣지를 그린다.
 
@@ -179,6 +197,7 @@ def module_diagram(
             for name in ordered
         },
         edges=lines,
+        node_roles={name: "rwEntry" for name in ordered if name in entry_modules},
     )
     return _compile(plan, limit, f"L1-{subsystem.id}", "L1")
 
@@ -477,7 +496,10 @@ def member_sequence(
 
 
 def collaboration_diagram(
-    type_name: str, call_edges: list[CallEdge], limit: DiagramLimit
+    type_name: str,
+    call_edges: list[CallEdge],
+    limit: DiagramLimit,
+    test_types: frozenset[str] = frozenset(),
 ) -> Diagram | None:
     """한 타입이 어느 타입에 얼마나 기대는지 flowchart로 그린다.
 
@@ -494,11 +516,14 @@ def collaboration_diagram(
         (type_name, name, f"  {short[type_name]} -->|{count}| {short[name]}")
         for name, count in weight.most_common()
     ]
+    roles = {type_name: "rwFocus"}
+    roles.update({name: "rwTest" for name in ordered[1:] if name in test_types})
     plan = _Plan(
         header="flowchart LR",
         nodes=ordered,
         node_lines=node_lines,
         edges=edges,
+        node_roles=roles,
     )
     return _compile(plan, limit, f"COLLAB-{type_name}", "COLLAB")
 

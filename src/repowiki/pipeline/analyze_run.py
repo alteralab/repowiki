@@ -265,29 +265,34 @@ def _module_of_path(resolver, roots: list[str], table=None, names_of=None):
     return resolve
 
 
-def _structure_diagrams(groups, modules, edges, limits, root_name):
+def _structure_diagrams(groups, modules, edges, limits, root_name, entry_modules):
     """묶음 그림과 모듈 그림. 그릴 값이 없는 것은 컴파일러가 `None`을 낸다.
 
     서브시스템마다 페이지가 하나씩 생긴다. L0의 노드 상한은 한 그림에 몇 개를 그리느냐이지
     페이지를 몇 개 만드느냐가 아니다.
     """
     found = []
-    overview = diagrams.subsystem_diagram(groups, edges, limits["L0"])
+    overview = diagrams.subsystem_diagram(groups, edges, limits["L0"], entry_modules)
     if overview is not None:
         found.append(overview)
     for group in groups:
-        diagram = diagrams.module_diagram(group, modules, edges, limits["L1"], root_name)
+        diagram = diagrams.module_diagram(
+            group, modules, edges, limits["L1"], root_name, entry_modules
+        )
         if diagram is not None:
             found.append(diagram)
     return found
 
 
 def _member_diagrams(symbols, type_edges, call_edges, ranks, limits, leads, labels):
+    # 테스트 타입은 그림에서 갈라 보여야 한다. 협력 그림에 테스트가 섞여 있는데 표시가
+    # 없으면 사람은 그것을 제품 코드의 이웃으로 읽는다.
     """타입 상세와 협력과 호출 순서 그림. 랭킹 상위 타입에만 만든다.
 
     모든 타입에 그림을 만들면 사실 파일이 그림으로 가득 찬다. 페이지가 실을 수 있는 것은
     한 쪽에 몇 개뿐이므로, 만드는 것도 그만큼이면 된다.
     """
+    test_types = frozenset(s.name for s in symbols if s.is_test and not s.parent)
     order = {rank.path: position for position, rank in enumerate(ranks)}
     ranked = sorted(
         (
@@ -315,7 +320,9 @@ def _member_diagrams(symbols, type_edges, call_edges, ranks, limits, leads, labe
         )
         if detail is not None:
             found.append(detail)
-        collaboration = diagrams.collaboration_diagram(symbol.name, call_edges, limits["L1"])
+        collaboration = diagrams.collaboration_diagram(
+            symbol.name, call_edges, limits["L1"], test_types
+        )
         if collaboration is not None:
             found.append(collaboration)
         busiest = _busiest_members(symbol.name, call_edges)
@@ -407,7 +414,11 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     groups = graph.subsystems(modules, edges)
     flows = graph.flows(extraction.entry_points, type_edges, types, _MAX_FLOWS)
 
-    compiled = _structure_diagrams(groups, modules, edges, limits, profile.root_name)
+    # 진입점을 품은 모듈. 처음 보는 사람이 어디서부터 읽어야 하는지를 그림이 먼저 말한다.
+    entry_modules = frozenset(point.module for point in extraction.entry_points)
+    compiled = _structure_diagrams(
+        groups, modules, edges, limits, profile.root_name, entry_modules
+    )
     for flow in flows:
         diagram = diagrams.flow_diagram(flow, limits["FLOW"])
         if diagram is not None:

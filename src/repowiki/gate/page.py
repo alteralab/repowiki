@@ -3,13 +3,15 @@
 경계 계약: 입력은 작업과 제출물이고 출력은 위반 목록이다. 고치지 않는다. 통과하지 못한
 페이지는 같은 작업을 사유와 함께 다시 내보내는 것이 조율 층의 일이다.
 
-보는 것 넷.
+보는 것 여섯.
 1. 인용이 작업이 준 근거 id 안에 있는가. 밖을 가리키면 그 페이지는 사실이 아닌 것을 쓴 것이다.
 2. 중요한 명제에 인용이 붙었는가(문단 수 대비 최소 인용 수).
 3. 산문 규범을 어겼는가(엠대시, 이모지, 이중 피동, 명사형 종결).
 4. 작업이 준 Mermaid 블록이 본문에 그대로 있는가. LLM은 그림을 새로 그리지도 빼지도 않는다.
 5. 작업이 준 사실 표가 본문에 그대로 있는가. 표의 값은 사람이 그대로 믿는 자리라 한 칸도
    바뀌면 안 되고, 작업이 주지 않은 표가 있으면 그 숫자의 출처가 없다.
+6. 문단에 견줘 목록이 얼마나 있는가. 처음 보는 코드베이스를 훑는 사람은 산문을 정독하지
+   않는다. 이름과 뜻이 짝지어진 것은 목록이라야 눈으로 집힌다.
 
 사각: 인용이 문장을 실제로 지지하는지는 보지 못한다. 그 판정은 사람과 판정자 선별의 몫이고
 이 게이트는 존재와 범위만 본다(C-GATE-2).
@@ -33,11 +35,27 @@ WORDS_PER_CITATION = 60
 # 분량 하한은 페이지 종류의 목표 분량에 비례한다. 목표는 `data/diagram-limits.yml`이
 # 소유한다 — 쪽마다 성격이 달라 한 숫자를 모두에게 물릴 수 없다.
 WORD_FLOOR_RATIO = 0.5
+# 문단 하나당 있어야 하는 목록 줄의 최소 수.
+# 2026-09-09에 두 코퍼스를 같은 자로 실측해 잡았다. DeepWiki apache/kafka 59쪽의
+# 불릿/문단 비는 중앙값 1.88이고 **최솟값이 0.55**다 — 59쪽 중 0.5 아래가 하나도 없다.
+# 같은 자로 잰 repowiki commons-cli 11쪽은 중앙값 0.33, 최소 0.05였다.
+# 그래서 0.5는 참조 코퍼스를 한 쪽도 떨구지 않으면서 이쪽의 결함만 잡는 자리다.
+# 오검출로 시작하는 게이트는 결국 떼어지므로 이 여백이 규칙의 조건이다(C-GATE-3).
+MIN_BULLET_RATIO = 0.5
+# 이 문단 수 아래에서는 묻지 않는다. 문단 셋짜리 쪽은 목록이 없어도 눈으로 집힌다.
+MIN_PARAGRAPHS_FOR_BULLETS = 4
 
 # ast-grep-ignore: regex-on-structure — 어휘: 인용 표기는 `E숫자` 고정 형식이다.
 _CITE = re.compile(r"\[\^(E\d+)\]")
 # ast-grep-ignore: regex-on-structure — 어휘: 코드 울타리는 줄머리 백틱 셋의 고정 형식이다.
 _FENCE = re.compile(r"^```", re.MULTILINE)
+# 목록 줄. 불릿과 번호 목록이다. 표는 세지 않는다 — 표는 사실 층이 준 것이라 그것으로
+# 이 문턱을 넘으면 쓰는 층이 아무것도 안 하고 통과한다.
+# ast-grep-ignore: regex-on-structure — 어휘: 줄머리 표식 판정이다.
+_BULLET = re.compile(r"^([-*+] |\d+\. )")
+# 줄 전체가 굵은 글씨인 줄. 사실 표가 앞에 다는 표제의 형태다.
+# ast-grep-ignore: regex-on-structure — 어휘: 줄 전체가 별 둘로 감싸였는지의 판정이다.
+_LABEL = re.compile(r"^\*\*[^*]+\*\*$")
 _FORBIDDEN = {
     # ast-grep-ignore: regex-on-structure — 어휘: 금지 기호 한 글자 판정이다.
     "em-dash": re.compile(r"—"),
@@ -74,6 +92,40 @@ def _prose_words(body: str) -> list[str]:
         if not line.strip().startswith(("|", ">", "[^"))
     ]
     return " ".join(lines).split()
+
+
+def _bullets_and_paragraphs(body: str) -> tuple[int, int]:
+    """목록 줄 수와 문단 수.
+
+    문단은 이어진 산문 줄의 덩어리 하나다. 제목과 빈 줄과 표와 인용 각주는 문단을 세지
+    않고 끊기만 한다.
+
+    줄 전체가 굵은 글씨인 줄은 문단이 아니라 표제다. 사실 표는 `**이름**` 한 줄과 빈 줄을
+    앞에 달고 온다. 그것을 문단으로 세면 표를 실을수록 목록을 더 요구하게 되어, 규칙이
+    자기가 권하는 것을 벌한다.
+
+    코드 울타리 안은 보지 않는다. 그 안의 줄은 쓰는 층이 쓴 글이 아니다.
+    """
+    bullets = paragraphs = 0
+    run = 0
+    for chunk in _FENCE.split(body)[0::2]:
+        lines = chunk.splitlines()
+        for position, line in enumerate(lines):
+            stripped = line.strip()
+            if _BULLET.match(stripped):
+                bullets += 1
+                paragraphs += run
+                run = 0
+            elif not stripped or stripped.startswith(("#", "|", ">", "[^")) or _LABEL.match(
+                stripped
+            ):
+                paragraphs += run
+                run = 0
+            elif position == 0 or not lines[position - 1].strip():
+                run += 1
+        paragraphs += run
+        run = 0
+    return bullets, paragraphs
 
 
 def _mermaid_blocks(body: str) -> list[str]:
@@ -170,6 +222,20 @@ def check_page(job: PageJob, output: PageOutput) -> list[PageViolation]:
                 job_id=job.id,
                 rule="too-short",
                 detail=f"본문 {words}단어가 {job.type.value} 페이지의 하한 {floor}단어에 못 미친다",
+            )
+        )
+
+    bullets, paragraphs = _bullets_and_paragraphs(body)
+    wanted = int(paragraphs * MIN_BULLET_RATIO)
+    if paragraphs >= MIN_PARAGRAPHS_FOR_BULLETS and bullets < wanted:
+        violations.append(
+            PageViolation(
+                job_id=job.id,
+                rule="prose-wall",
+                detail=(
+                    f"문단 {paragraphs}개에 목록 {bullets}줄이다. {wanted}줄 이상이어야 한다. "
+                    "이름과 뜻이 짝지어진 것은 `- **이름**: 뜻 [^E1]` 꼴의 목록으로 낸다"
+                ),
             )
         )
 
