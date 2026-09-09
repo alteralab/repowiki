@@ -123,3 +123,23 @@ def test_nothing_disappears_silently(terraform_facts):
     references = [e for e in terraform_facts.edges if e.kind != "source"]
     assert counted > 0, "픽스처는 세어야 할 것을 일부러 담고 있다"
     assert len(references) + counted == REFERENCES_IN_FIXTURE
+
+
+# 픽스처가 내야 하는 것의 전체 수. 사람이 산출을 열거해 확정했다(2026-09-10).
+# 이름을 대는 검사만 있으면 군더더기 블록과 엣지가 들어와도 통과한다. 실제로 그랬다 —
+# 이름 검사는 선언 7개와 엣지 6개를 보는데 픽스처는 블록 9개와 엣지 8개를 낸다.
+# 없는 것을 만들지 않는지는 수로만 잡힌다.
+TOTAL_BLOCKS = 9
+TOTAL_EDGES = 8
+
+
+def test_the_fixture_yields_exactly_this_many_facts(terraform_facts) -> None:
+    """수가 늘면 없는 선언이나 없는 결합이 생긴 것이고, 줄면 사라진 것이다."""
+    assert len(terraform_facts.blocks) == TOTAL_BLOCKS
+    assert len(terraform_facts.edges) == TOTAL_EDGES
+
+
+def test_no_two_blocks_share_an_address_in_one_module(terraform_facts) -> None:
+    """한 모듈 안에서 주소는 유일하다. 겹치면 엣지가 어느 선언을 가리키는지 정해지지 않는다."""
+    seen = [(block.module, block.address) for block in terraform_facts.blocks]
+    assert len(seen) == len(set(seen))

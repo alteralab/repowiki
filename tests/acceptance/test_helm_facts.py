@@ -118,3 +118,28 @@ def test_credential_like_values_are_not_in_the_output(helm_facts):
     assert key, "키 자체는 남아야 한다. 그 설정이 있다는 것이 사실이다"
     assert "s3cr3t-do-not-print" not in key[0].value
     assert key[0].value, "가렸다는 표시가 있어야 한다. 빈 값은 없었다는 뜻이 된다"
+
+
+# 픽스처가 내야 하는 것의 전체 수. 사람이 산출을 열거해 확정했다(2026-09-10).
+# 이름을 대는 검사만 있으면 군더더기가 들어와도 통과한다.
+# `image`와 `service`는 안이 채워진 매핑이라 그 자체도 키다. 템플릿이 둘 다 쓴다.
+TOTAL_CHARTS = 1
+TOTAL_DEPENDENCIES = 2
+TOTAL_VALUES = 6
+TOTAL_USES = 3
+TOTAL_IMAGES = 1
+
+
+def test_the_fixture_yields_exactly_this_many_facts(helm_facts) -> None:
+    """수가 늘면 없는 선언이나 없는 참조가 생긴 것이고, 줄면 사라진 것이다."""
+    assert len(helm_facts.charts) == TOTAL_CHARTS
+    assert len(helm_facts.dependencies) == TOTAL_DEPENDENCIES
+    assert len(helm_facts.values) == TOTAL_VALUES
+    assert len(helm_facts.uses) == TOTAL_USES
+    assert len(helm_facts.images) == TOTAL_IMAGES
+
+
+def test_no_two_values_share_a_key_in_one_chart(helm_facts) -> None:
+    """한 차트 안에서 values 열쇠는 유일하다. 겹치면 참조가 어느 선언을 가리키는지 모른다."""
+    seen = [(value.chart, value.key) for value in helm_facts.values]
+    assert len(seen) == len(set(seen))
