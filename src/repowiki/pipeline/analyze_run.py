@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import yaml
 
@@ -23,6 +23,7 @@ from repowiki.analyze import (
     structure,
     symbols,
     toolchain,
+    tsmodules,
 )
 from repowiki.analyze.domain import is_test
 from repowiki.bundle import diagrams
@@ -45,6 +46,7 @@ _HISTORY_MONTHS = 24
 _TOP_COUPLINGS = 30
 _MAX_CORPUS_FILES = 600
 _MAX_MANIFESTS = 300
+_MAX_TSCONFIGS = 200
 _MAX_TYPE_DIAGRAMS = 24
 _MAX_SEQUENCES_PER_TYPE = 2
 _DIAGRAM_TYPE_KINDS = {SymbolKind.CLASS, SymbolKind.INTERFACE, SymbolKind.ENUM, SymbolKind.RECORD}
@@ -177,6 +179,56 @@ def _cluster_leads(groups, nodes) -> list[str]:
     return found
 
 
+def _typescript_resolver(root: Path, tracked: list[str]):
+    """TypeScript 모듈 해석기. tsconfig 가 없으면 `None`이다.
+
+    tsconfig 를 읽어야 별칭이 풀린다. 실측(airflow, 2026-09-09): 저장소 안을 가리키는
+    임포트 3,313건 중 별칭이 2,186건이라, 이것 없이는 내부 임포트의 3분의 2를 잃는다.
+    """
+    names = [
+        path
+        for path in tracked
+        if PurePosixPath(path).name.startswith("tsconfig") and path.endswith(".json")
+    ]
+    if not names:
+        return None
+    sources: dict[str, str] = {}
+    for path in names[:_MAX_TSCONFIGS]:
+        try:
+            sources[path] = (root / path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+    return tsmodules.build(tsmodules.load_configs(sources), tracked)
+
+
+def _is_external_import(resolver):
+    """이 임포트가 저장소 밖을 가리키는가.
+
+    표준 라이브러리와 서드파티는 못 푼 것이 아니라 풀 것이 아니다. 한 칸에 세면 분석이
+    실패한 것처럼 보인다. TypeScript 는 해석기가 그 판정을 하고, 나머지 언어는 아직
+    가르지 못하므로 못 푼 것으로 남긴다.
+    """
+
+    def judge(record) -> bool:
+        if resolver is None or not record.specifier:
+            return False
+        return resolver.resolve(record.specifier, record.span.path).kind == "external"
+
+    return judge
+
+
+def _module_of_path(resolver, roots: list[str]):
+    """해석된 파일 경로를 모듈 id 로 바꾸는 함수. 해석기가 없으면 `None`이다."""
+    if resolver is None:
+        return None
+
+    def resolve(specifier: str, from_path: str) -> str:
+        found = resolver.resolve(specifier, from_path)
+        return structure.module_of(found.target, roots) if found.target else ""
+
+    return resolve
+
+
 def _structure_diagrams(groups, modules, edges, limits, root_name):
     """묶음 그림과 모듈 그림. 그릴 값이 없는 것은 컴파일러가 `None`을 낸다.
 
@@ -273,7 +325,14 @@ def analyze_repo(root: Path) -> AnalyzeResult:
     index.update(graph.python_index(kept, roots, structure.module_of))
     types = graph.type_index(extraction.symbols)
     scope = graph.build_scope(extraction)
-    edges, unresolved_imports = graph.module_edges(extraction.imports, index, scope=scope)
+    ts_resolver = _typescript_resolver(root, tracked)
+    edges, import_counts = graph.module_edges(
+        extraction.imports,
+        index,
+        scope=scope,
+        resolve_path=_module_of_path(ts_resolver, roots),
+        is_external=_is_external_import(ts_resolver),
+    )
 
     type_edges, resolution = graph.type_edges(extraction, types, scope)
     ranks = graph.file_ranks(type_edges, extraction.symbols)
@@ -347,7 +406,11 @@ def analyze_repo(root: Path) -> AnalyzeResult:
         flows=flows,
         diagrams=compiled,
         unresolved=[
-            f"해석되지 않은 임포트 {unresolved_imports}건",
+            f"임포트 {import_counts.total()}건 중 이은 것 {import_counts.linked}건,"
+            f" 같은 모듈 {import_counts.self_module}건,"
+            f" 저장소 밖 {import_counts.external}건,"
+            f" 못 푼 것 {import_counts.unresolved}건,"
+            f" 테스트 {import_counts.excluded_test}건",
             f"선언이 없는 타입 이름 {resolution.unknown_name}건",
             f"모호한 타입 이름 {resolution.ambiguous}건",
             f"소유 타입 밖의 참조 {resolution.no_owner}건",

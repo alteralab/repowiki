@@ -100,12 +100,37 @@ def resolve_dotted(target: str, index: dict[str, set[str]], home: str | None = N
     return None
 
 
+class ImportCounts(BaseModel):
+    """임포트 해석의 계수. 합이 입력과 같아야 한다(C-REPORT-2).
+
+    저장소 밖과 못 푼 것을 가른다. 둘을 한 칸에 세면 "해석되지 않은 임포트 15,855건"처럼
+    보이는데, 그 대부분은 표준 라이브러리와 서드파티라 풀 것이 아니라 풀 수 없는 것이다.
+    """
+
+    linked: int = 0
+    self_module: int = 0
+    external: int = 0
+    unresolved: int = 0
+    excluded_test: int = 0
+
+    def total(self) -> int:
+        return (
+            self.linked
+            + self.self_module
+            + self.external
+            + self.unresolved
+            + self.excluded_test
+        )
+
+
 def module_edges(
     imports: list[ImportRecord],
     index: dict[str, set[str]],
     include_test: bool = False,
     scope: "NameScope | None" = None,
-) -> tuple[list[ModuleEdge], int]:
+    resolve_path=None,
+    is_external=None,
+) -> tuple[list[ModuleEdge], ImportCounts]:
     """임포트를 모듈 엣지로 접는다. 해석되지 않은 임포트 수를 함께 낸다.
 
     해석은 정규화된 이름으로만 한다. `import a.b.C`는 패키지 `a.b`가 최상위로 선언한
@@ -115,22 +140,31 @@ def module_edges(
 
     와일드카드 임포트(`import a.b.*`)처럼 타입 이름이 없는 형태는 패키지 소유자로 찾고,
     소유자가 여럿이면 해석하지 않는다.
+
+    `resolve_path`를 주면 그것이 먼저다. TypeScript 처럼 임포트가 점 이름이 아니라 파일
+    경로인 언어를 위한 자리다 — `(문자열, 임포트한 파일) -> 대상 파일 경로 또는 빈 문자열`.
     """
     weights: Counter[tuple[str, str]] = Counter()
     evidence: dict[tuple[str, str], list] = defaultdict(list)
-    unresolved = 0
+    counts = ImportCounts()
     ordered = sorted(
         imports, key=lambda r: (r.module, r.target, r.span.path, r.span.start_line)
     )
     for record in ordered:
         if record.is_test and not include_test:
+            counts.excluded_test += 1
             continue
-        target_module = _import_target(record, index, scope)
+        target_module = _resolved_module(record, index, scope, resolve_path)
         if target_module is None:
-            unresolved += 1
+            if is_external is not None and is_external(record):
+                counts.external += 1
+            else:
+                counts.unresolved += 1
             continue
         if target_module == record.module:
+            counts.self_module += 1
             continue
+        counts.linked += 1
         key = (record.module, target_module)
         weights[key] += 1
         if len(evidence[key]) < 3:
@@ -139,7 +173,16 @@ def module_edges(
         ModuleEdge(src=src, dst=dst, weight=weight, evidence=evidence[(src, dst)])
         for (src, dst), weight in sorted(weights.items())
     ]
-    return edges, unresolved
+    return edges, counts
+
+
+def _resolved_module(
+    record: ImportRecord, index: dict[str, set[str]], scope: "NameScope | None", resolve_path
+) -> str | None:
+    """이 임포트가 가리키는 모듈. 경로 해석기가 있으면 그것으로 먼저 푼다."""
+    if resolve_path is not None and record.specifier:
+        return resolve_path(record.specifier, record.span.path) or None
+    return _import_target(record, index, scope)
 
 
 def _declared_prefix(target: str, scope: "NameScope") -> str | None:

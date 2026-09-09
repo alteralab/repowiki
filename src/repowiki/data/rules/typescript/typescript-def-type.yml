@@ -1,0 +1,4 @@
+id: typescript-def-type
+language: typescript
+message: def.type
+rule: {kind: type_alias_declaration, has: {field: name, pattern: $NAME}}

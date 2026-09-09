@@ -1,0 +1,4 @@
+id: typescript-def-function
+language: typescript
+message: def.function
+rule: {kind: function_declaration, has: {field: name, pattern: $NAME}}

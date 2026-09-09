@@ -1,0 +1,7 @@
+id: typescript-def-class
+language: typescript
+message: def.class
+rule:
+  any:
+    - {kind: class_declaration, has: {field: name, pattern: $NAME}}
+    - {kind: abstract_class_declaration, has: {field: name, pattern: $NAME}}

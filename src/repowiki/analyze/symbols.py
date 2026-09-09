@@ -27,8 +27,10 @@ _DEF_MESSAGES = {
     "def.constructor": SymbolKind.CONSTRUCTOR,
     "def.field": SymbolKind.FIELD,
     "def.function": SymbolKind.FUNCTION,
+    "def.type": SymbolKind.TYPE_ALIAS,
 }
 
+# 다른 선언을 감쌀 수 있는 종류. 타입 별칭은 멤버를 갖지 않으므로 여기 없다.
 _TYPE_KINDS = {SymbolKind.CLASS, SymbolKind.INTERFACE, SymbolKind.ENUM, SymbolKind.RECORD}
 
 _ENTRY_ANNOTATIONS = {
@@ -78,6 +80,9 @@ class ImportRecord(BaseModel):
     module: str
     is_test: bool
     names: list[str] = Field(default_factory=list)
+    # TypeScript 는 임포트 문자열이 파일 경로를 정한다. 점 이름 규칙으로 바꿔 담으면
+    # `./lib`과 `@app/core`가 뜻을 잃는다. 원문을 그대로 들고 간다.
+    specifier: str = ""
 
 
 class PackageRecord(BaseModel):
@@ -242,6 +247,26 @@ def _take_import(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
         )
 
 
+def _take_ts_import(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
+    """TypeScript 임포트. 문자열 원문을 그대로 담는다.
+
+    `target`에도 같은 값을 넣는 이유는 이 형태를 읽는 다른 자리(미해석 계수)가 `target`을
+    보기 때문이다. 해석은 `analyze/tsmodules.py`가 `specifier`로 한다.
+    """
+    raw = (match.captures.get("SOURCE") or "").strip().strip("\"'")
+    if not raw:
+        return
+    out.imports.append(
+        ImportRecord(
+            target=raw,
+            specifier=raw,
+            span=ctx.span,
+            module=ctx.module,
+            is_test=ctx.is_test,
+        )
+    )
+
+
 def _ignore(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
     """다른 분석기가 가져가는 매치. 이 층에서는 아무것도 하지 않는다."""
 
@@ -273,6 +298,7 @@ _EXACT_HANDLERS: dict[str, str] = {
     "package": "_take_package",
     "import": "_take_import",
     "import.from": "_take_import",
+    "import.ts": "_take_ts_import",
 }
 
 

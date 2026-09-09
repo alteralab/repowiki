@@ -1,0 +1,4 @@
+id: typescript-def-enum
+language: typescript
+message: def.enum
+rule: {kind: enum_declaration, has: {field: name, pattern: $NAME}}

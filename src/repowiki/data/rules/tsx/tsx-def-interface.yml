@@ -1,0 +1,4 @@
+id: tsx-def-interface
+language: tsx
+message: def.interface
+rule: {kind: interface_declaration, has: {field: name, pattern: $NAME}}

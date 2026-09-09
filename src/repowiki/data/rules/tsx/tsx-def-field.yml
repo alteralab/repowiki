@@ -1,0 +1,4 @@
+id: tsx-def-field
+language: tsx
+message: def.field
+rule: {kind: public_field_definition, has: {field: name, kind: property_identifier, pattern: $NAME}}

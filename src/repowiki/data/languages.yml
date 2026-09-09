@@ -12,4 +12,4 @@ extensions:
   ".go": go
 # ast-grep 룰이 실제로 있는 언어. 없는 언어는 심볼과 타입 사실을 내지 않고
 # 프로파일에만 남는다(C-REPORT-2: 조용히 다른 것으로 대체하지 않는다).
-analyzed: [java, python, scala]
+analyzed: [java, python, scala, typescript]

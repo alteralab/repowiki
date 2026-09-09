@@ -1,0 +1,4 @@
+id: tsx-def-type
+language: tsx
+message: def.type
+rule: {kind: type_alias_declaration, has: {field: name, pattern: $NAME}}

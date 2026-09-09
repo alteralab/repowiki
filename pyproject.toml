@@ -11,6 +11,11 @@ requires-python = ">=3.12"
 dependencies = [
     "ast-grep-cli==0.45.3",          # 심볼, import, 진입점, def/ref 태그, HCL 속성 스팬
     "networkx==3.6.1",                 # PageRank, HITS, SCC, Louvain
+    # networkx 3.x 의 `pagerank`는 numpy 배열과 scipy 희소 행렬로 계산한다. 순수 파이썬
+    # 구현은 없어졌다. 여태 `langchain-core`가 우연히 끌어와 동작하던 것이라, 그 의존을
+    # 빼자 랭킹이 깨졌다. 기능이 기대는 것은 명시로 둔다.
+    "numpy==2.5.3",
+    "scipy==1.16.3",
     "pydantic==2.13.5",                # 상태, 출력 스키마, frontmatter 정본
     "PyYAML==6.0.3",                 # compose_all 마크 기반 YAML 스팬
     "langgraph==1.2.11",                # 조율 그래프 (사용자 결정 2026-09-09)

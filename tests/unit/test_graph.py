@@ -92,9 +92,10 @@ def test_module_edges_skip_self_and_test() -> None:
         ImportRecord(target="org.core.D", span=_span(), module="core", is_test=False),
         ImportRecord(target="org.client.E", span=_span(), module="core", is_test=True),
     ]
-    edges, unresolved = module_edges(imports, index)
+    edges, counts = module_edges(imports, index)
     assert [(e.src, e.dst, e.weight) for e in edges] == [("core", "clients", 1)]
-    assert unresolved == 0
+    assert counts.unresolved == 0
+    assert counts.total() == len(imports)
 
 
 def test_python_index_keeps_every_owner() -> None:
@@ -314,9 +315,9 @@ def test_external_import_makes_no_module_edge() -> None:
             is_test=False,
         )
     ]
-    edges, unresolved = module_edges(imports, {"org.y": {"core"}}, scope=scope)
+    edges, counts = module_edges(imports, {"org.y": {"core"}}, scope=scope)
     assert edges == []
-    assert unresolved == 1
+    assert counts.unresolved == 1
 
 
 def test_nested_type_does_not_claim_a_package_name() -> None:
@@ -580,9 +581,9 @@ def test_nested_and_static_imports_resolve_to_the_declaring_module() -> None:
         ImportRecord(target="org.x.Const.LIMIT", span=here, module="core", is_test=False),
         ImportRecord(target="org.z.Absent.THING", span=here, module="core", is_test=False),
     ]
-    edges, unresolved = module_edges(imports, {"org.x": {"clients"}}, scope=scope)
+    edges, counts = module_edges(imports, {"org.x": {"clients"}}, scope=scope)
     assert [(e.src, e.dst, e.weight) for e in edges] == [("core", "clients", 2)]
-    assert unresolved == 1
+    assert counts.unresolved == 1
 
 
 def test_er_diagram_is_absent_without_entities() -> None:
@@ -626,3 +627,37 @@ def test_page_block_limit_uses_the_lowest_cap_of_the_levels_the_page_carries() -
 
 def test_a_page_without_diagrams_has_nothing_to_check() -> None:
     assert check_page_blocks("p", [], {}) == []
+
+
+def test_import_counts_add_up_to_the_input() -> None:
+    """계수의 합이 입력과 다르면 어딘가에서 조용히 사라진 것이다(C-REPORT-2)."""
+    imports = [
+        ImportRecord(target="org.x.A", span=_span("a/A.java"), module="a", is_test=False),
+        ImportRecord(target="java.util.List", span=_span("a/B.java"), module="a", is_test=False),
+        ImportRecord(target="org.x.A", span=_span("t/T.java"), module="a", is_test=True),
+    ]
+    scope = build_scope(
+        Extraction(
+            symbols=[],
+            references=[],
+            imports=imports,
+            packages=[
+                PackageRecord(name="org.x", path="x/A.java", module="x", is_test=False)
+            ],
+            entry_points=[],
+        )
+    )
+    _, counts = module_edges(imports, {"org.x": {"x"}}, scope=scope)
+    assert counts.total() == len(imports)
+    assert counts.excluded_test == 1
+
+
+def test_an_external_import_is_counted_apart_from_an_unresolved_one() -> None:
+    """저장소 밖은 못 푼 것이 아니다. 한 칸에 세면 분석이 실패한 것처럼 보인다."""
+    imports = [
+        ImportRecord(
+            target="react", specifier="react", span=_span("ui/a.ts"), module="ui", is_test=False
+        )
+    ]
+    _, counts = module_edges(imports, {}, is_external=lambda _record: True)
+    assert (counts.external, counts.unresolved) == (1, 0)

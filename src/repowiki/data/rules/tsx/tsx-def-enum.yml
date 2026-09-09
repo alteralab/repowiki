@@ -1,0 +1,4 @@
+id: tsx-def-enum
+language: tsx
+message: def.enum
+rule: {kind: enum_declaration, has: {field: name, pattern: $NAME}}

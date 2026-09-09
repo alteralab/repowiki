@@ -1,0 +1,7 @@
+id: typescript-def-method
+language: typescript
+message: def.method
+rule:
+  any:
+    - {kind: method_definition, has: {field: name, kind: property_identifier, pattern: $NAME}}
+    - {kind: abstract_method_signature, has: {field: name, kind: property_identifier, pattern: $NAME}}

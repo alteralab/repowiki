@@ -324,7 +324,7 @@ frontmatter 스키마의 정본은 `gate/frontmatter.py`의 pydantic 모델이�
 | Phase | 상태 | 무엇이 없는가 |
 |---|---|---|
 | 0 기반 | 대부분 섰다 | SC-0.4 토큰 보정표 미측정(API 엔드포인트 없이 막혔다) |
-| 1 결정층 | **java·python·scala만** | **TypeScript 없음.** SC-1.2 오라클 비교, SC-1.3 ARI, SC-1.4 랭킹 정밀도 미측정 |
+| 1 결정층 | java·python·scala·**typescript** | TS 는 선언과 모듈 엣지까지다(B1). 타입 관계와 호출 그래프 없음. SC-1.2 오라클 비교, SC-1.3 ARI, SC-1.4 랭킹 정밀도 미측정 |
 | 2 이력 | 섰다 | SC-2.1 code-maat 픽스처 대조 미실행 |
 | 2b 설정·인프라 | **없다** | Helm·Terraform·k8s 분석기와 페이지 종류가 전부 미구현. 설정은 `analyze/corpus.py`의 한 줄 `키: 값` 색인뿐이다 |
 | 3 LLM층·게이트 | 섰다 | SC-3.3 흐름 정밀도, SC-3.4 사람 표본 판정은 사람 몫이라 미실행 |
@@ -333,8 +333,13 @@ frontmatter 스키마의 정본은 `gate/frontmatter.py`의 pydantic 모델이�
 | 6 시스템 | 없다 | |
 | 깊이 단계 | 섰다 | `docs/plans/depth.md`. 호출 그래프, 개념 클러스터, 소스 근거 브리핑, 사실 표. 원래 Phase 번호 밖이다 |
 
-**언어 지원의 오늘.** `data/languages.yml`의 `analyzed`가 정본이고 `[java, python, scala]`다.
-`.ts`, `.tsx`, `.go`, `.kt`는 확장자 표에 있어 줄 수는 세지만 규칙이 없어 심볼을 내지 않는다.
+**언어 지원의 오늘.** `data/languages.yml`의 `analyzed`가 정본이고
+`[java, python, scala, typescript]`다. TypeScript 는 선언과 임포트까지 서고, 타입 관계와
+호출 그래프는 아직 없다. 임포트 해석은 자바의 패키지 모델이 아니라 `analyze/tsmodules.py`의
+경로 산술이다 — 상대 경로, tsconfig `paths` 별칭, `baseUrl`, 확장자와 `index` 후보 시험이
+전부다. 타입 추론은 하지 않는다.
+
+`.go`, `.kt`, `.js`는 확장자 표에 있어 줄 수는 세지만 규칙이 없어 심볼을 내지 않는다.
 `.tf`는 확장자 표에도 없어 `other`로 센다.
 
 **LSP와 Serena.** v1 밖이다(§11). 결정은 "쓰지 않는다"가 아니라 "기본 사실에 넣지 않는다"이다.

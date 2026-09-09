@@ -45,6 +45,9 @@ class SymbolKind(StrEnum):
     CONSTRUCTOR = "constructor"
     FIELD = "field"
     FUNCTION = "function"
+    # 타입 별칭. TypeScript 의 `type X = ...`이다. 자바의 클래스와 달리 멤버를 갖지 않지만
+    # 이름으로 참조되므로 타입 목록에는 들어간다.
+    TYPE_ALIAS = "type"
 
 
 class Symbol(BaseModel):

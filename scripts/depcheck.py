@@ -110,6 +110,13 @@ IMPORT_NAMES = {
 }
 # 파이썬으로 임포트하지 않고 명령으로 부르는 의존. 어댑터가 `subprocess`로 쓴다.
 CALLED_AS_COMMAND = {"ast-grep-cli"}
+# 우리가 임포트하지 않고 다른 라이브러리를 통해 기대는 의존. 왜 필요한지를 값에 적는다.
+# 여기 적는 것은 "그 라이브러리가 알아서 끌어오겠지"에 기대지 않겠다는 선언이다 — 실제로
+# `numpy`는 `langchain-core`가 우연히 끌어와 동작하다가 그 의존을 빼자 랭킹이 깨졌다.
+USED_THROUGH = {
+    "numpy": "networkx 3.x 의 pagerank 가 numpy 배열로 계산한다",
+    "scipy": "networkx 3.x 의 pagerank 가 scipy 희소 행렬로 계산한다",
+}
 
 
 def _requirement_name(spec: str) -> str:
@@ -133,7 +140,7 @@ def unused_direct(direct: list[str]) -> list[str]:
     found: list[str] = []
     for spec in direct:
         name = _requirement_name(spec)
-        if name in CALLED_AS_COMMAND:
+        if name in CALLED_AS_COMMAND or name in USED_THROUGH:
             continue
         module = IMPORT_NAMES.get(name, name.replace("-", "_"))
         root = module.split(".", 1)[0]
@@ -162,6 +169,9 @@ def main() -> int:
             failed = True
     if native:
         print(f"네이티브: {', '.join(native)}")
+    for name, reason in sorted(USED_THROUGH.items()):
+        if any(_requirement_name(spec) == name for spec in direct):
+            print(f"간접 사용: {name} — {reason}")
 
     unused = unused_direct(direct)
     if unused:

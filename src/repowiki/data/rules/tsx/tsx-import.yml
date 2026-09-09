@@ -1,0 +1,11 @@
+id: tsx-import
+language: tsx
+message: import.ts
+# 임포트 문자열 자체가 필요하다. TypeScript 는 그 문자열이 파일 경로를 정하므로,
+# 이름이 아니라 원문을 들고 가서 `analyze/tsmodules.py`가 푼다.
+rule:
+  any:
+    - kind: import_statement
+      has: {field: source, pattern: $SOURCE}
+    - kind: export_statement
+      has: {field: source, pattern: $SOURCE}

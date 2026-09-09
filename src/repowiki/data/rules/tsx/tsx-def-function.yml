@@ -1,0 +1,4 @@
+id: tsx-def-function
+language: tsx
+message: def.function
+rule: {kind: function_declaration, has: {field: name, pattern: $NAME}}
