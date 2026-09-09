@@ -155,7 +155,7 @@ def _mermaid_blocks(body: str) -> list[str]:
 
 def _check_blocks(
     job_id: str,
-    expected: dict[str, str],
+    expected: list[tuple[str, str]],
     present: list[str],
     rules: tuple[str, str],
     noun: str,
@@ -165,6 +165,13 @@ def _check_blocks(
     도식과 표는 같은 계약을 진다. 작업이 준 것은 그대로 있어야 하고, 작업이 주지 않은 것은
     있으면 안 된다. 판정이 같으니 자리도 하나여야 한다(C-DUP-2).
 
+    `expected`가 사전이 아니라 짝의 목록인 까닭이 있다. 사전으로 받으면 열쇠가 소스이므로
+    같은 소스를 가진 블록 여럿이 호출자에서 이미 하나로 접힌다. 그러면 아래의 다중집합
+    계산이 이미 접힌 것을 세게 되고, 작업이 준 것을 그대로 실은 페이지가 "주지 않은 것을
+    실었다"로 거부된다. kafka 의 흐름 쪽에서 실제로 그랬다 — 흐름 셋이 같은 모듈 사이의
+    같은 관계라 Mermaid 소스가 바이트로 같았고, 도식 여덟 개를 다 실었는데 둘이 군더더기로
+    잡혔다(2026-09-10).
+
     집합이 아니라 다중집합으로 센다. 같은 표를 두 번 실은 페이지는 한 번 실은 페이지와
     다른 글이고, 집합으로 비교하면 그 차이가 보이지 않는다.
 
@@ -172,15 +179,15 @@ def _check_blocks(
     지시문으로 시작하는 도식은 첫 줄이 전부 같아서, 무엇이 빠졌는지 말해 주지 못한다.
     """
     missing_rule, stray_rule = rules
-    # 사전을 그대로 세면 값을 개수로 읽는다. 열쇠만 센다.
-    wanted, got = Counter(expected.keys()), Counter(present)
+    wanted, got = Counter(block for block, _ in expected), Counter(present)
+    names = dict(expected)
     found: list[PageViolation] = []
     for block, count in sorted((wanted - got).items()):
         found.append(
             PageViolation(
                 job_id=job_id,
                 rule=missing_rule,
-                detail=f"작업이 준 {noun} {count}개가 본문에 없다: {expected[block]}",
+                detail=f"작업이 준 {noun} {count}개가 본문에 없다: {names[block]}",
             )
         )
     for block, count in sorted((got - wanted).items()):
@@ -269,14 +276,14 @@ def check_page(job: PageJob, output: PageOutput) -> list[PageViolation]:
 
     violations += _check_blocks(
         job.id,
-        {diagram.source.strip(): f"`{{{{diagram:{diagram.id}}}}}`" for diagram in job.diagrams},
+        [(d.source.strip(), f"`{{{{diagram:{d.id}}}}}`") for d in job.diagrams],
         _mermaid_blocks(body),
         ("diagram-missing", "diagram-not-from-facts"),
         "다이어그램",
     )
     violations += _check_blocks(
         job.id,
-        {body_of(table): f"`{{{{table:{table.id}}}}}`" for table in job.tables},
+        [(body_of(t), f"`{{{{table:{t.id}}}}}`") for t in job.tables],
         blocks_in(body),
         ("table-missing", "table-not-from-facts"),
         "표",

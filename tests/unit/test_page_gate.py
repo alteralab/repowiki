@@ -208,3 +208,31 @@ def test_a_fact_table_does_not_raise_the_list_requirement() -> None:
     _, without = _bullets_and_paragraphs(_passing_body())
     _, with_table = _bullets_and_paragraphs(body)
     assert with_table == without
+
+
+def test_two_diagrams_with_identical_source_are_both_expected() -> None:
+    """소스가 같은 도식 둘을 준 작업은 둘 다 실어야 통과한다.
+
+    기대치를 사전으로 만들면 열쇠가 소스라 그 둘이 하나로 접힌다. 그러면 준 것을 그대로
+    실은 페이지가 "주지 않은 것을 실었다"로 거부된다. kafka 의 흐름 쪽에서 실제로 났다 —
+    흐름 셋이 같은 모듈 사이의 같은 관계라 Mermaid 소스가 바이트로 같았다.
+    """
+    same = "sequenceDiagram\n  P0->>P1: x"
+    job = _job()
+    job = job.model_copy(
+        update={
+            "diagrams": [
+                Diagram(id="FLOW-a", level="FLOW", source=same, node_count=2, edge_count=1),
+                Diagram(id="FLOW-b", level="FLOW", source=same, node_count=2, edge_count=1),
+            ]
+        }
+    )
+    both = f"```mermaid\n{same}\n```\n\n```mermaid\n{same}\n```"
+    rules = [v.rule for v in check_page(job, _page(_passing_body(both)))]
+    assert "diagram-not-from-facts" not in rules
+    assert "diagram-missing" not in rules
+
+    only_one = f"```mermaid\n{same}\n```"
+    assert "diagram-missing" in [
+        v.rule for v in check_page(job, _page(_passing_body(only_one)))
+    ]

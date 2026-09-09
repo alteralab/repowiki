@@ -144,6 +144,36 @@ def _sources_to_component(body: str) -> str:
     return body[:start] + replaced + body[end + len(_SOURCES_CLOSE) :]
 
 
+# MDX 가 코드로 읽는 자리. 중괄호는 JSX 표현식이고, `<`로 시작하는 이름은 컴포넌트다.
+# 사실의 값에 그런 글자가 들어 있을 수 있다 — kafka 의 `api-checker`가 의존 판을
+# `${apiCheckerVersions.junit}` 같은 Gradle 변수로 적어 두었고, 그것이 표에 실려
+# 사이트 빌드를 깨뜨렸다(2026-09-10). 위키 원문은 Markdown 이라 그대로 두어야 하고,
+# 막는 자리는 MDX 로 옮기는 여기다.
+# ast-grep-ignore: regex-on-structure — 어휘: 중괄호 한 글자 판정이다.
+_BRACE = re.compile(r"[{}]")
+
+
+def _mdx_safe(body: str) -> str:
+    """MDX 가 코드로 읽을 글자를 막는다. 코드 울타리 안과 컴포넌트 호출은 건드리지 않는다.
+
+    울타리 안은 MDX 도 코드로 읽지 않으므로 그대로 둔다. 울타리 밖에서도 이 도구가 직접
+    넣은 컴포넌트 줄(`<Mermaid`, `<Files`, `<Accordion`, `<File`, `<Folder`, `<a`, `</`)은
+    JSX 로 읽혀야 하므로 건드리지 않는다.
+    """
+    out: list[str] = []
+    inside = False
+    for line in body.splitlines():
+        if line.strip().startswith(_FENCE):
+            inside = not inside
+            out.append(line)
+            continue
+        if inside or line.lstrip().startswith(("<", "{")):
+            out.append(line)
+            continue
+        out.append(_BRACE.sub(lambda m: "\\" + m.group(0), line))
+    return "\n".join(out)
+
+
 def _escape(value: str) -> str:
     return value.replace('"', "'")
 
@@ -165,7 +195,7 @@ def to_site_page(wiki_path: str, raw: str) -> SitePage:
         f'description: "{_escape(description)}"\n'
         "---\n"
         f"{banner}\n"
-        f"{_sources_to_component(_mermaid_to_component(body)).strip()}\n"
+        f"{_mdx_safe(_sources_to_component(_mermaid_to_component(body))).strip()}\n"
     )
     return SitePage(path=wiki_path.removesuffix(".md") + ".mdx", content=content)
 
