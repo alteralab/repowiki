@@ -19,6 +19,18 @@ from pydantic import BaseModel, Field
 
 RULES_CONFIG = Path(__file__).resolve().parent.parent / "data" / "sgconfig.yml"
 
+# 숨은 디렉토리를 훑게 한다. ast-grep 은 이름이 점으로 시작하는 디렉토리를 기본으로
+# 건너뛴다. 그러면 `.github/scripts/*.py` 같은 파일이 사실에 아예 안 들어온다
+# (kafka 실측 2026-09-10: 그 아래 매치 2333건이 통째로 빠졌다). CI 스크립트는 저장소가
+# 자기를 어떻게 빌드하고 검사하는지의 기록이라 위키가 봐야 하는 자리다.
+#
+# `hidden` 하나로는 부족해서 둘을 함께 준다. 실측에서 `hidden` 단독은 0건이었고
+# `hidden`에 나머지 중 아무거나 하나를 더하면 2333건이 나왔다.
+# `.gitignore`(`dot`)는 계속 존중한다 — 저장소가 무시하라고 적어 둔 것을 위키가 읽으면
+# 빌드 산출물이 사실이 된다. `exclude`는 `.git/info/exclude`이고 그것은 이 기계의
+# 지역 설정이라 저장소의 사실이 아니다.
+_NO_IGNORE = ("--no-ignore", "hidden", "--no-ignore", "exclude")
+
 
 class AstGrepError(RuntimeError):
     """ast-grep 실행 실패. 원문 stderr를 담는다."""
@@ -77,6 +89,7 @@ def scan(root: Path, targets: list[str] | None = None) -> Iterator[AstMatch]:
         "--config",
         str(RULES_CONFIG),
         "--json=stream",
+        *_NO_IGNORE,
         *(targets or ["."]),
     ]
     proc = subprocess.Popen(  # noqa: S603
