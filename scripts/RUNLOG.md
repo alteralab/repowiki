@@ -930,3 +930,23 @@ frontmatter가 없었다. `name`과 `description`이 없으면 Claude가 이 스
 
 감사 재실행: 오류 0, 경고 0, 103줄, 스크립트 1, 보조 파일 2, 깨진 참조 0.
 테스트 143건 통과.
+
+## 2026-09-09 0단계: 상태 정합과 죽은 의존
+
+TS와 인프라 지원을 묻는 질문에 탐침으로 답하다가, 문서와 구현의 상태가 어긋나 있음을
+확인했다. SPEC의 SC-1.2는 TypeScript 오라클을, SC-2b는 Helm·Terraform 성공 기준을
+이미 v1로 두고 있고 PLAN §5의 Phase 1·2b가 그것을 담고 있는데, 구현에는 없다.
+README만 사실을 말하고 있었다.
+
+- PLAN에 `§5.1 구현 상태`를 더했다. 위 표는 목표이고 아래 표가 오늘이다
+- README의 언어 지원 표를 대상별로 다시 썼다. TS·Go·Kotlin·JS·Terraform·Helm·Ansible이
+  무엇을 못 하는지 칸으로 보인다
+- `scripts/depcheck.py`가 **쓰이지 않는 직접 의존**을 잡게 했다. 개수만 세면 상한 안이라는
+  이유로 죽은 의존이 남고, 없는 기능을 있는 것처럼 보이게 한다
+
+그 게이트가 셋을 잡았다. `python-hcl2`와 `dockerfile-parse`는 예상했고 `langchain-core`는
+아니었다 — `langgraph`가 이미 `langchain-core<2,>=1.4.7`로 끌어온다. 셋 다 뺐다.
+
+직접 의존 9 → 6, 해석 패키지 94 → 90, 네이티브 휠 12 → 11.
+
+`python-hcl2`는 Terraform 슬라이스가 들어오는 커밋에서 다시 더한다.

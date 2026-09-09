@@ -316,6 +316,34 @@ frontmatter 스키마의 정본은 `gate/frontmatter.py`의 pydantic 모델이�
 | **5 패키징** | OCI(UBI9 타깃 포함), tarball, 자산 manifest | **P-A** 설치 무인터넷(`podman load`, `install.sh`, `--network none`); **P-B** 컨테이너는 사내 GitLab만 허용(LLM egress 0), 운영자 머신의 Claude Code 세션이 claude.ai에 도달: 20개 프로젝트 20/20 end-to-end 생성, 실패 레포 0, REST 페이지네이션으로 센 프로젝트 수가 GitLab 그룹 화면의 수와 같음, 근사 게이트의 job당 크기 분포 기록; `[api]` 배치가 있으면 엔드포인트 기능(count_tokens, Batches) 지원 여부 추가 기록; **P-C** 완전 차단: `podman run --network=none -v ./fixtures:/data repowiki analyze /data/kafka --offline`, `repowiki write --driver replay --responses /data/llm/kafka.jsonl`, `repowiki bundle`, `repowiki site` 순으로 실행. 환경 변수는 `REPOWIKI_TOKEN_GATE=local`과 `LANGSMITH_TRACING=false`, 종료 0과 `.report.json`의 `network_calls: 0` 확인(자기 보고이므로 `--network=none` 컨테이너 종료 0이 1차 증거). 산출물 프로필 둘(§8): `repowiki-oci.tar`(multi-arch, linux/amd64와 linux/arm64, UBI9 변형 태그)와 `repowiki-offline-<platform>.tar.zst`(파일 목록 + SHA256), 프로필마다 별도 smoke test; 플랫폼별 자산 manifest(§8) + import와 실행 smoke test; syft CycloneDX SBOM; 런타임 SBOM GPL 0건, LGPL 표시; `scripts/depcheck.py` 상한 통과; linux x86_64와 aarch64, UBI9(glibc 2.34)에서 같은 절차 |
 | **6 시스템** | `system/` | SkyWalking 13 레포에서 class ≤4 `scope=main` 엣지 ≥30(리서치 12 실측 30 재현); 스팟체크 = class별 층화 무작위 10개(seed 고정)를 검토자 2인이 인용 span을 열어 확인, 정확 ≥9/10; `SystemFlow` 대표 흐름 3개(agent→Kafka→OAP, cli→GraphQL→OAP, helm→image→repo) 홉별 span을 검토자 2인이 확인해 정확 100%(불일치는 제3자); 사내 20개는 class ≤3 엣지 **전수** 검토로 거짓 엣지 0; 링크백 = `SystemGraph`의 resolved 엣지 양 끝점과 resolved 홉 양 끝점 전부에 대해 레포 위키 머리의 upstream/downstream 링크와 시스템 페이지의 모듈 딥링크가 존재하는 비율 100% |
 
+### 5.1 구현 상태 (2026-09-09)
+
+위 표는 **목표**다. 아래는 **오늘 실제로 서 있는 것**이다. 둘을 한 표에 섞으면 계획이
+구현으로 읽히고, 수용 테스트가 설계 결정을 선점한다.
+
+| Phase | 상태 | 무엇이 없는가 |
+|---|---|---|
+| 0 기반 | 대부분 섰다 | SC-0.4 토큰 보정표 미측정(API 엔드포인트 없이 막혔다) |
+| 1 결정층 | **java·python·scala만** | **TypeScript 없음.** SC-1.2 오라클 비교, SC-1.3 ARI, SC-1.4 랭킹 정밀도 미측정 |
+| 2 이력 | 섰다 | SC-2.1 code-maat 픽스처 대조 미실행 |
+| 2b 설정·인프라 | **없다** | Helm·Terraform·k8s 분석기와 페이지 종류가 전부 미구현. 설정은 `analyze/corpus.py`의 한 줄 `키: 값` 색인뿐이다 |
+| 3 LLM층·게이트 | 섰다 | SC-3.3 흐름 정밀도, SC-3.4 사람 표본 판정은 사람 몫이라 미실행 |
+| 4 사이트·증분 | 사이트만 섰다 | 증분(`--update`), 변이 오라클 24케이스, `changes/` 없음 |
+| 5 패키징 | 없다 | |
+| 6 시스템 | 없다 | |
+| 깊이 단계 | 섰다 | `docs/plans/depth.md`. 호출 그래프, 개념 클러스터, 소스 근거 브리핑, 사실 표. 원래 Phase 번호 밖이다 |
+
+**언어 지원의 오늘.** `data/languages.yml`의 `analyzed`가 정본이고 `[java, python, scala]`다.
+`.ts`, `.tsx`, `.go`, `.kt`는 확장자 표에 있어 줄 수는 세지만 규칙이 없어 심볼을 내지 않는다.
+`.tf`는 확장자 표에도 없어 `other`로 센다.
+
+**LSP와 Serena.** v1 밖이다(§11). 결정은 "쓰지 않는다"가 아니라 "기본 사실에 넣지 않는다"이다.
+LSP가 푸는 자리는 실재한다 — kafka에서 테스트와 저장소 밖 호출을 뺀 120,891건 중 체인 수신자
+26%와 못 푼 수신자 25%가 타입 추론 없이는 안 풀린다(2026-09-09 실측). 그러나 그 결과를
+`facts.json`에 섞으면 클러스터·랭킹·흐름·페이지 계획·증분 해시·골든 테스트가 함께 갈라지고,
+같은 커밋이라도 기계마다 설치된 의존이 달라 바이트 동일 계약이 깨진다. 하게 된다면 별도
+산출물과 별도 페이지 종류로, 기본 `facts.json`은 불변으로 둔다.
+
 Phase 0의 셸 절차는 `docs/bootstrap.md`가 소유한다.
 
 ## 6. 게이트와 평가

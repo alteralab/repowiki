@@ -4,6 +4,9 @@
 세는 것: 런타임 직접 의존(pyproject의 `[project].dependencies`), 락이 해석한 패키지 수,
 설치된 네이티브 휠 수(순수 파이썬이 아닌 것), Node 직접 의존 수.
 
+**쓰이지 않는 직접 의존도 잡는다.** 개수만 세면 상한 안이라는 이유로 죽은 의존이 남고,
+그것이 없는 기능을 있는 것처럼 보이게 한다. 공급망 검토 표면도 함께 늘어난다.
+
 상한을 넘으면 종료 상태 1이다(C-REPORT-5). 상한의 정본은 PLAN §8이고 이 스크립트는
 그 값을 여기 적어 둔다 — 상한이 바뀌면 PLAN과 같은 커밋에서 고친다(C-COMMENT-1).
 
@@ -95,6 +98,50 @@ def native_wheels(closure: set[str]) -> list[str]:
     return sorted(set(found))
 
 
+# 임포트 이름이 배포 이름과 다른 것들. 자동으로 알 길이 없어 여기 적는다.
+# 새 의존을 더할 때 이름이 다르면 여기도 함께 고친다(C-COMMENT-1).
+IMPORT_NAMES = {
+    "ast-grep-cli": "ast_grep_cli",
+    "python-hcl2": "hcl2",
+    "dockerfile-parse": "dockerfile_parse",
+    "langgraph-checkpoint-sqlite": "langgraph.checkpoint.sqlite",
+    "langchain-core": "langchain_core",
+    "PyYAML": "yaml",
+}
+# 파이썬으로 임포트하지 않고 명령으로 부르는 의존. 어댑터가 `subprocess`로 쓴다.
+CALLED_AS_COMMAND = {"ast-grep-cli"}
+
+
+def _requirement_name(spec: str) -> str:
+    """`pkg==1.2.3 ; marker`에서 배포 이름만."""
+    head = spec.split(";", 1)[0]
+    for separator in ("==", ">=", "<=", "~=", "!=", ">", "<", "["):
+        head = head.split(separator, 1)[0]
+    return head.strip()
+
+
+def unused_direct(direct: list[str]) -> list[str]:
+    """제품 코드가 임포트하지 않는 직접 의존.
+
+    `src/` 전체를 문자열로 훑는다. 임포트 형태가 여럿이라 AST로 세는 것보다 정확도가
+    높지는 않지만, "어디에도 이름이 안 나온다"는 판정에는 충분하고 오탐이 없는 쪽이다.
+    """
+    sources = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in sorted((ROOT / "src").rglob("*.py"))
+    )
+    found: list[str] = []
+    for spec in direct:
+        name = _requirement_name(spec)
+        if name in CALLED_AS_COMMAND:
+            continue
+        module = IMPORT_NAMES.get(name, name.replace("-", "_"))
+        root = module.split(".", 1)[0]
+        if root not in sources:
+            found.append(name)
+    return found
+
+
 def main() -> int:
     direct = python_direct()
     node = node_direct()
@@ -115,6 +162,16 @@ def main() -> int:
             failed = True
     if native:
         print(f"네이티브: {', '.join(native)}")
+
+    unused = unused_direct(direct)
+    if unused:
+        print(f"쓰이지 않는 직접 의존 {len(unused)}개: {', '.join(unused)}", file=sys.stderr)
+        print(
+            "제품 코드가 임포트하지 않는다. 그 기능이 들어오는 커밋에서 함께 더한다.",
+            file=sys.stderr,
+        )
+        failed = True
+
     if failed:
         print("상한을 넘었다. PLAN §8의 추가 검사 목록을 통과했는지 확인하라.", file=sys.stderr)
         return 1
