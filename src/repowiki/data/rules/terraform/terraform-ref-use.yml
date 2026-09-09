@@ -5,17 +5,24 @@ message: ref.use
 # `aws_instance.web.id`가 모두 이 형태다. 머리가 `variable_expr`이고 그 뒤에 `get_attr`이
 # 붙는다(2026-09-09 AST 실측).
 #
+# `expression`이 아니라 그 참조를 직접 감싸는 자리를 본다. 연산이 끼면 참조가
+# `binary_operation` 밑으로 내려가고, 그러면 `expression`의 자식 번호로는 못 찾는다.
+# `check "x" { assert { condition = var.x != "" } }`가 그래서 통째로 빠졌다 — 엣지도
+# 계수도 없이 사라졌다(2026-09-10 적대적 리뷰).
+#
 # 머리와 첫 속성 둘을 함께 잡는다. 머리만으로는 `module`이라는 낱말일 뿐이고, 무엇에
-# 기대는지는 그다음 이름이 말한다.
+# 기대는지는 그다음 이름이 말한다. `data`만 이름이 두 단계라 셋째 조각도 본다.
 rule:
-  kind: expression
+  any:
+    - kind: expression
+    - kind: binary_operation
+    - kind: unary_operation
   has:
     kind: variable_expr
+    nthChild: 1
     has: {kind: identifier, pattern: $HEAD}
   all:
     - has: {kind: get_attr, nthChild: 2, has: {kind: identifier, pattern: $NAME}}
-    # `data.aws_ami.ubuntu`는 이름이 두 단계다. 셋째 조각이 없으면 선언에 못 닿는다.
-    # 다른 머리에서는 이 자리가 속성 이름이라 쓰지 않는다.
     - any:
         - has: {kind: get_attr, nthChild: 3, has: {kind: identifier, pattern: $SECOND}}
         - not: {has: {kind: get_attr, nthChild: 3}}
