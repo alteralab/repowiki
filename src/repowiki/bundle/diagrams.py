@@ -16,6 +16,7 @@ from collections import Counter
 from pydantic import BaseModel
 
 from repowiki.models import (
+    CallEdge,
     CrossModuleFlow,
     Diagram,
     DiagramLimit,
@@ -23,6 +24,8 @@ from repowiki.models import (
     ModuleEdge,
     Span,
     Subsystem,
+    Symbol,
+    SymbolKind,
     TypeEdge,
     TypeEdgeKind,
 )
@@ -170,6 +173,8 @@ _EDGE_ARROW = {
 
 
 _MAX_HOPS = 12
+# 클래스 상자에 넣을 멤버 상한. 이보다 많으면 상자가 그림을 밀어낸다.
+_MAX_MEMBERS = 14
 
 
 def entity_diagram(entities: list[dict], relations: list[dict], limit: DiagramLimit) -> Diagram | None:
@@ -348,3 +353,213 @@ def type_diagram(
     )
     label = module_id if module_id not in ("", ".") else "root"
     return _compile(plan, limit, f"L2-{label}", "L2")
+
+
+def _participants(type_name: str, edges: list[CallEdge]) -> list[str]:
+    """시퀀스의 참가자. 처음 나오는 순서를 지킨다 — 그것이 소스의 순서다."""
+    found = [type_name]
+    for edge in edges:
+        if edge.dst_type not in found:
+            found.append(edge.dst_type)
+    return found
+
+
+def _fit(
+    render, units: list, limit: DiagramLimit, reasons: list[str]
+) -> tuple[str, int]:
+    """단위를 줄여 가며 소스 상한에 맞춘다. 항상 완결된 소스를 낸다.
+
+    줄 단위로 꼬리를 자르면 안 된다. 클래스 상자의 닫는 괄호가 잘려 문법이 깨지거나,
+    메시지가 하나도 없는 시퀀스가 "엣지 1개"라고 주장하게 된다. 자르는 단위는 그림의
+    의미 단위이고, 자른 뒤에는 다시 렌더한다.
+    """
+    kept = list(units)
+    source = render(kept)
+    while len(source) > limit.max_source_chars and kept:
+        kept.pop()
+        source = render(kept)
+        reasons.append("소스 상한을 맞추려고 줄였다")
+    return source, len(kept)
+
+
+def member_sequence(
+    type_name: str,
+    member_name: str,
+    call_edges: list[CallEdge],
+    limit: DiagramLimit,
+) -> Diagram | None:
+    """멤버 하나가 부르는 것을 소스 순서대로 sequenceDiagram으로 그린다.
+
+    사람이 "이 메서드가 무슨 일을 하는가"를 읽을 때 먼저 보는 것이 호출 순서다. 참가자는
+    타입이고 메시지는 부르는 멤버 이름이며, 순서는 소스의 줄 순서다 — 실행 순서가 아니라
+    적힌 순서라는 점이 이 그림의 한계이자 정확한 주장이다.
+
+    부르는 것이 없거나 자기 자신만 부르면 그리지 않는다. 그림이 사실을 늘리지 않는다.
+    """
+    mine = sorted(
+        (e for e in call_edges if e.src_type == type_name and e.src_member == member_name),
+        key=lambda e: (e.span.start_line, e.dst_type, e.dst_member),
+    )
+    if not mine:
+        return None
+    participants = _participants(type_name, mine)
+    if len(participants) < 2:
+        return None
+    participants = participants[: limit.max_nodes]
+    visible = set(participants)
+    short = {name: f"P{position}" for position, name in enumerate(participants)}
+
+    messages = [edge for edge in mine[:_MAX_HOPS] if edge.dst_type in visible]
+    if not messages:
+        return None
+
+    def render(kept: list[CallEdge]) -> str:
+        lines = ["sequenceDiagram"]
+        lines += [f"  participant {short[name]} as {_label(name)}" for name in participants]
+        lines.append(f"  Note over {short[type_name]}: {_label(member_name)}")
+        for edge in kept:
+            arrow = "->>" if edge.dst_type != type_name else "-->>"
+            lines.append(
+                f"  {short[type_name]}{arrow}{short[edge.dst_type]}: {_label(edge.dst_member)}"
+            )
+        return "\n".join(lines)
+
+    reasons: list[str] = []
+    if len(mine) > _MAX_HOPS:
+        reasons.append(f"호출 {len(mine)}건이 상한 {_MAX_HOPS}건을 넘어 앞쪽만 그렸다")
+    source, kept = _fit(render, messages, limit, reasons)
+    if kept == 0:
+        return None
+    return Diagram(
+        id=f"SEQ-{type_name}.{member_name}",
+        level="SEQ",
+        source=source,
+        node_count=len(participants),
+        edge_count=kept,
+        degraded_reason="; ".join(dict.fromkeys(reasons)) or None,
+    )
+
+
+def collaboration_diagram(
+    type_name: str, call_edges: list[CallEdge], limit: DiagramLimit
+) -> Diagram | None:
+    """한 타입이 어느 타입에 얼마나 기대는지 flowchart로 그린다.
+
+    엣지의 굵기 대신 라벨에 호출 수를 적는다. Mermaid는 굵기를 소스로 정하지 못한다.
+    """
+    outgoing = [e for e in call_edges if e.src_type == type_name and e.dst_type != type_name]
+    if not outgoing:
+        return None
+    weight: Counter[str] = Counter(e.dst_type for e in outgoing)
+    ordered = [type_name] + [name for name, _ in weight.most_common()]
+    short = {name: _node_id("C", name) for name in ordered}
+    node_lines = {name: f'  {short[name]}["{_label(name)}"]' for name in ordered}
+    edges = [
+        (type_name, name, f"  {short[type_name]} -->|{count}| {short[name]}")
+        for name, count in weight.most_common()
+    ]
+    plan = _Plan(
+        header="flowchart LR",
+        nodes=ordered,
+        node_lines=node_lines,
+        edges=edges,
+    )
+    return _compile(plan, limit, f"COLLAB-{type_name}", "COLLAB")
+
+
+def _detail_edges(
+    type_name: str,
+    related: list[TypeEdge],
+    limited: dict[str, str],
+    short: dict[str, str],
+) -> list[str]:
+    """상세 그림의 관계 줄. 같은 줄은 한 번만 그린다.
+
+    관계 종류가 달라도 화살표가 같으면 줄이 같아진다. 같은 줄을 두 번 그리면 사람은 관계가
+    둘이라고 읽는다.
+    """
+    drawn: list[str] = []
+    for edge in related:
+        src_key = _identity(None, edge.src_path, edge.src)
+        dst_key = _identity(None, edge.dst_path, edge.dst)
+        other = dst_key if edge.src == type_name else src_key
+        if other not in limited:
+            continue
+        arrow = _EDGE_ARROW.get(edge.kind, "..>")
+        head = _safe_class(type_name) if edge.dst == type_name else short[dst_key]
+        tail = _safe_class(type_name) if edge.src == type_name else short[src_key]
+        line = f"  {head} {arrow} {tail}"
+        if line not in drawn:
+            drawn.append(line)
+    return drawn
+
+
+def type_detail_diagram(
+    type_name: str,
+    members: list[Symbol],
+    edges: list[TypeEdge],
+    limit: DiagramLimit,
+    labels: dict[str, str] | None = None,
+) -> Diagram | None:
+    """한 타입의 멤버와 이웃을 classDiagram으로 그린다.
+
+    빈 상자만 있는 클래스 다이어그램은 이름 목록과 다르지 않다. 멤버를 넣어야 사람이
+    "이 타입이 무엇을 할 수 있는가"를 그림에서 읽는다.
+
+    이웃의 정체는 선언 파일이다. 이름만으로 묶으면 `Option.Builder`와 `TextStyle.Builder`가
+    한 상자가 되고, 서로 다른 두 관계가 같은 화살표로 겹쳐 그려진다.
+    """
+    mine = [s for s in members if s.parent == type_name]
+    related = [e for e in edges if e.src == type_name or e.dst == type_name]
+    if not mine and not related:
+        return None
+
+    label_of = labels or {}
+    neighbours: dict[str, str] = {}
+    for edge in related:
+        for name, path in ((edge.src, edge.src_path), (edge.dst, edge.dst_path)):
+            if name == type_name:
+                continue
+            key = _identity(None, path, name)
+            neighbours.setdefault(key, label_of.get(f"{path}#{name}", name))
+    limited = dict(list(neighbours.items())[: max(0, limit.max_nodes - 1)])
+    short = {key: f"N{position}" for position, key in enumerate(limited)}
+    shown_members = sorted(mine, key=lambda s: (s.kind.value, s.name))[:_MAX_MEMBERS]
+    drawn = _detail_edges(type_name, related, limited, short)
+
+    def render(kept: list[str]) -> str:
+        lines = ["classDiagram", *_member_box(type_name, shown_members)]
+        lines += [f'  class {short[key]}["{_label(label)}"]' for key, label in limited.items()]
+        lines += kept
+        return "\n".join(lines)
+
+    reasons: list[str] = []
+    if len(mine) > _MAX_MEMBERS:
+        reasons.append(f"멤버 {len(mine)}개가 상한 {_MAX_MEMBERS}개를 넘어 앞쪽만 그렸다")
+    if len(neighbours) > len(limited):
+        reasons.append(f"이웃 {len(neighbours)}개가 상한 {limit.max_nodes - 1}개를 넘었다")
+    source, kept = _fit(render, drawn, limit, reasons)
+    return Diagram(
+        id=f"TYPE-{type_name}",
+        level="TYPE",
+        source=source,
+        node_count=1 + len(limited),
+        edge_count=kept,
+        degraded_reason="; ".join(dict.fromkeys(reasons)) or None,
+    )
+
+
+def _member_box(type_name: str, members: list[Symbol]) -> list[str]:
+    """클래스 상자 하나. 필드는 `-`, 호출 가능한 것은 `+`로 적는다."""
+    lines = [f"  class {_safe_class(type_name)} {{"]
+    for symbol in sorted(members, key=lambda s: (s.kind.value, s.name))[:_MAX_MEMBERS]:
+        marker = "-" if symbol.kind == SymbolKind.FIELD else "+"
+        suffix = "" if symbol.kind == SymbolKind.FIELD else "()"
+        lines.append(f"    {marker}{_label(symbol.name)}{suffix}")
+    lines.append("  }")
+    return lines
+
+
+def _safe_class(raw: str) -> str:
+    """classDiagram의 클래스 이름. 이 문법은 따옴표 라벨을 클래스 본문과 함께 쓰지 못한다."""
+    return _ID_SAFE.sub("_", raw) or "T"

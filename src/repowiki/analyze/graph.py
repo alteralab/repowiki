@@ -371,9 +371,9 @@ def type_edges(
 ) -> tuple[list[TypeEdge], ResolutionCounts]:
     """참조를 타입 엣지로 바꾼다.
 
-    호출 엣지(`ref.call`)와 지역 변수 타입(`ref.local_type`)은 만들지 않고 따로 센다.
-    호출은 해석기 채택 전까지 제공하지 않는다는 판정이고(PLAN §2.3), 지역 변수 타입은
-    `TypeGraph`의 엣지 종류에 없다. 조용히 버리지 않는다(C-REPORT-2).
+    호출 엣지(`ref.call`)와 지역 변수 타입(`ref.local_type`)은 여기서 만들지 않고 따로 센다.
+    호출은 타입 관계가 아니라 멤버 관계라 `analyze/calls.py`가 수신자를 풀어 따로 낸다.
+    지역 변수 타입은 `TypeGraph`의 엣지 종류에 없다. 둘 다 조용히 버리지 않는다(C-REPORT-2).
     """
     edges: list[TypeEdge] = []
     counts = ResolutionCounts()

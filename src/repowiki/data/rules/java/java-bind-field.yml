@@ -1,0 +1,13 @@
+id: java-bind-field
+language: java
+message: bind.field
+# 필드의 이름과 선언 타입을 한 매치에서 묶는다. 둘이 갈라져 나오면 어느 이름이 어느
+# 타입인지 다시 맞춰야 하고, 같은 줄에 필드가 여럿이면 그 짝짓기가 틀린다.
+rule:
+  kind: field_declaration
+  all:
+    - has: {field: type, pattern: $TYPE}
+    - has:
+        field: declarator
+        kind: variable_declarator
+        has: {field: name, kind: identifier, pattern: $NAME}

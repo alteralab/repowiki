@@ -1,0 +1,8 @@
+id: scala-bind-function
+language: scala
+message: bind.method
+rule:
+  kind: function_definition
+  all:
+    - has: {field: name, pattern: $NAME}
+    - has: {field: return_type, pattern: $TYPE}

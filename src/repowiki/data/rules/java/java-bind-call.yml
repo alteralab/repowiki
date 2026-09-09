@@ -1,0 +1,9 @@
+id: java-bind-call
+language: java
+message: bind.call
+# 수신자가 있는 호출. 수신자 이름을 스코프에서 풀어야 대상 타입이 정해진다.
+rule:
+  kind: method_invocation
+  all:
+    - has: {field: object, pattern: $RECV}
+    - has: {field: name, pattern: $NAME}

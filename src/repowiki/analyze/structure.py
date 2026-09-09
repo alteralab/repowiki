@@ -51,6 +51,7 @@ def build_profile(
     paths: list[str],
     line_counts: dict[str, int],
     facts: DomainFacts,
+    remote_url: str = "",
 ) -> RepoProfile:
     """언어별 파일과 줄 수를 센다. `line_counts`는 호출자가 읽어 넘긴다."""
     kept, excluded = source_paths(paths, facts)
@@ -68,6 +69,7 @@ def build_profile(
         root_name=root_name,
         kind=detect_kind(paths, facts),
         head_sha=head_sha,
+        remote_url=remote_url,
         file_count=len(kept),
         languages=stats,
         excluded=excluded,

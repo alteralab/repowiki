@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from repowiki.adapters.astgrep import AstMatch
 from repowiki.analyze.domain import DomainFacts, is_test, language_of
@@ -66,12 +66,18 @@ class Reference(BaseModel):
 
 
 class ImportRecord(BaseModel):
-    """임포트 하나. `target`은 점으로 이은 이름이고 파일 경로가 아니다."""
+    """임포트 하나. `target`은 점으로 이은 이름이고 파일 경로가 아니다.
+
+    `names`는 `from a.b import c, d`가 이 파일에 들여온 이름이다. 이것이 없으면 파이썬의
+    수신자 없는 호출을 임포트로 증명할 수 없고, 증명 없이 이으면 성립하지 않는 호출을
+    사실로 만든다.
+    """
 
     target: str
     span: Span
     module: str
     is_test: bool
+    names: list[str] = Field(default_factory=list)
 
 
 class PackageRecord(BaseModel):
@@ -127,7 +133,7 @@ def _scala_import_targets(text: str) -> list[str]:
 
 
 def _python_import_targets(match: AstMatch) -> list[str]:
-    """`import a.b` 와 `from a.b import c` 에서 대상 이름을 낸다."""
+    """`import a.b` 와 `from a.b import c` 에서 대상 모듈 이름을 낸다."""
     text = match.text.strip()
     if text.startswith("from "):
         head = text[len("from ") :].split(" import ")[0].strip()
@@ -141,14 +147,33 @@ def _python_import_targets(match: AstMatch) -> list[str]:
     return targets
 
 
+def python_imported_names(text: str) -> list[str]:
+    """`from a.b import c, d as e`가 들여온 이름. 별칭이 있으면 별칭이 그 파일의 이름이다."""
+    stripped = text.strip()
+    if not stripped.startswith("from ") or " import " not in stripped:
+        return []
+    body = stripped.split(" import ", 1)[1]
+    body = body.strip().lstrip("(").rstrip(")").strip()
+    found: list[str] = []
+    for piece in body.split(","):
+        name = piece.strip()
+        if not name or name == "*":
+            continue
+        if " as " in name:
+            name = name.split(" as ", 1)[1].strip()
+        if name.isidentifier():
+            found.append(name)
+    return found
+
+
 class _Buckets(BaseModel):
     """분류 결과를 담는 상자. 핸들러는 여기에만 쓴다."""
 
-    symbols: list[Symbol] = []
-    references: list[Reference] = []
-    imports: list[ImportRecord] = []
-    packages: list[PackageRecord] = []
-    entry_points: list[EntryPoint] = []
+    symbols: list[Symbol] = Field(default_factory=list)
+    references: list[Reference] = Field(default_factory=list)
+    imports: list[ImportRecord] = Field(default_factory=list)
+    packages: list[PackageRecord] = Field(default_factory=list)
+    entry_points: list[EntryPoint] = Field(default_factory=list)
 
 
 class _Context(BaseModel):
@@ -204,9 +229,16 @@ def _take_import(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
         targets = _scala_import_targets(match.text)
     else:
         targets = [_dotted(match.text, "import")]
+    names = python_imported_names(match.text) if match.message == "import.from" else []
     for target in targets:
         out.imports.append(
-            ImportRecord(target=target, span=ctx.span, module=ctx.module, is_test=ctx.is_test)
+            ImportRecord(
+                target=target,
+                span=ctx.span,
+                module=ctx.module,
+                is_test=ctx.is_test,
+                names=names,
+            )
         )
 
 
@@ -233,6 +265,8 @@ _PREFIX_HANDLERS: tuple[tuple[str, object], ...] = (
     ("ref.", "_take_ref"),
     ("entry.", "_take_entry"),
     ("entity.", "_ignore"),
+    # `bind.*`는 이름과 타입을 묶은 매치다. 호출 해석기(analyze/calls.py)가 소비한다.
+    ("bind.", "_ignore"),
 )
 
 _EXACT_HANDLERS: dict[str, str] = {
@@ -315,12 +349,17 @@ def _assign_owners(
         path: [s for s in items if s.kind in _TYPE_KINDS] for path, items in defs_by_file.items()
     }
     for symbol in symbols:
-        if symbol.kind in _TYPE_KINDS:
-            continue
-        parent = _innermost_symbol(types_by_file.get(symbol.span.path, []), symbol.span)
+        # 중첩 타입도 부모를 가진다. `Option.Builder`와 `TextStyle.Builder`는 이름이 같고
+        # 부모가 다르다. 부모를 안 붙이면 위키의 라벨이 둘을 구분하지 못한다.
+        candidates = [
+            other
+            for other in types_by_file.get(symbol.span.path, [])
+            if other.span != symbol.span or other.name != symbol.name
+        ]
+        parent = innermost(candidates, symbol.span)
         symbol.parent = parent.name if parent is not None else None
     for reference in references:
-        owner = _innermost_symbol(types_by_file.get(reference.span.path, []), reference.span)
+        owner = innermost(types_by_file.get(reference.span.path, []), reference.span)
         reference.owner = owner.name if owner is not None else None
         reference.owner_path = owner.span.path if owner is not None else None
         # 소유 선언의 위치를 그대로 들고 간다. 나중에 (경로, 이름)으로 다시 찾으면
@@ -328,7 +367,7 @@ def _assign_owners(
         reference.owner_span = owner.span if owner is not None else None
 
 
-def _innermost_symbol(candidates: list[Symbol], span: Span) -> Symbol | None:
+def innermost(candidates: list[Symbol], span: Span) -> Symbol | None:
     """`span`을 담는 가장 작은 타입.
 
     같은 크기의 후보가 둘 이상이면 소유자를 정하지 않는다. 사전순으로 하나를 고르면

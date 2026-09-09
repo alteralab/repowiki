@@ -1,0 +1,9 @@
+id: java-bind-method
+language: java
+message: bind.method
+# 메서드의 이름과 반환 타입. API 표의 재료다.
+rule:
+  kind: method_declaration
+  all:
+    - has: {field: type, pattern: $TYPE}
+    - has: {field: name, pattern: $NAME}

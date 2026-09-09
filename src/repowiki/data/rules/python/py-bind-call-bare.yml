@@ -1,0 +1,6 @@
+id: py-bind-call-bare
+language: python
+message: bind.call_bare
+rule:
+  kind: call
+  has: {field: function, kind: identifier, pattern: $NAME}

@@ -1,0 +1,14 @@
+id: py-bind-param
+language: python
+message: bind.param
+# 주석 달린 파라미터. 주석이 없는 파라미터는 타입을 모르므로 잡지 않는다.
+rule:
+  any:
+    - kind: typed_parameter
+      all:
+        - has: {kind: identifier, pattern: $NAME}
+        - has: {field: type, pattern: $TYPE}
+    - kind: typed_default_parameter
+      all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: type, pattern: $TYPE}

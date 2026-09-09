@@ -1,0 +1,8 @@
+id: java-bind-param
+language: java
+message: bind.param
+rule:
+  kind: formal_parameter
+  all:
+    - has: {field: type, pattern: $TYPE}
+    - has: {field: name, pattern: $NAME}

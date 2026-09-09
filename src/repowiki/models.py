@@ -182,9 +182,29 @@ class RepoProfile(BaseModel):
     root_name: str
     kind: RepoKind
     head_sha: str
+    remote_url: str = ""
     file_count: int
     languages: dict[str, LanguageStat]
     excluded: dict[str, int] = Field(default_factory=dict)
+
+
+class CallEdge(BaseModel):
+    """멤버 사이의 호출 하나.
+
+    `receiver_kind`는 수신자를 어떤 스코프에서 풀었는지다. 이 값이 있어야 나중에 "필드로
+    들고 있는 협력자"와 "인자로 받은 협력자"를 갈라 볼 수 있다.
+    """
+
+    src_type: str
+    src_member: str
+    dst_type: str
+    dst_member: str
+    span: Span
+    src_module: str
+    dst_module: str
+    src_path: str
+    dst_path: str
+    receiver_kind: str
 
 
 class DiagramLimit(BaseModel):
@@ -232,14 +252,68 @@ class PageType(StrEnum):
     MODULE = "module"
     FLOWS = "flows"
     HISTORY = "history"
+    STACK = "stack"
+    CONCEPT = "concept"
+    QUALITY = "quality"
+    USAGE = "usage"
+    DATA_MODEL = "data-model"
+
+
+class FactTable(BaseModel):
+    """페이지에 실릴 표 하나. 값은 전부 사실에서 왔고 LLM은 이 표를 고치지 않는다.
+
+    다이어그램과 같은 규칙이다. 표에 든 숫자와 버전은 사람이 그대로 믿을 자리라, 쓰는 층이
+    한 칸이라도 바꾸면 그 페이지는 근거 없는 값을 실은 것이 된다.
+    """
+
+    id: str
+    title: str
+    columns: list[str]
+    rows: list[list[str]]
+    note: str = ""
+
+
+class ToolVersion(BaseModel):
+    """언어나 런타임의 버전 선언 하나. `source`는 그 값을 적은 자리의 이름이다."""
+
+    language: str
+    version: str
+    source: str
+    module: str
+    span: Span
+
+
+class Dependency(BaseModel):
+    """라이브러리 하나. `version`이 비면 저장소가 버전을 적지 않은 것이다."""
+
+    name: str
+    version: str
+    scope: str
+    ecosystem: str
+    module: str
+    span: Span
+
+
+class ToolchainFacts(BaseModel):
+    """도구 사슬 사실. 계산은 `analyze/toolchain.py`가 한다."""
+
+    languages: list[ToolVersion] = Field(default_factory=list)
+    dependencies: list[Dependency] = Field(default_factory=list)
+    truncated: int = 0
 
 
 class Evidence(BaseModel):
-    """페이지가 인용할 수 있는 근거 하나. `id`로 가리키고 `span`이 자리다."""
+    """페이지가 인용할 수 있는 근거 하나. `id`로 가리키고 `span`이 자리다.
+
+    `text`는 그 자리의 원문이다. 이것이 없으면 쓰는 층은 구조만 보고 쓰게 되고, 구조에서
+    나올 수 있는 문장은 "A가 B에 기댄다" 부류로 닫힌다. 무엇을 볼지는 결정층이 정하고,
+    본 것만 말하며 본 자리를 가리키는 것이 근거 계약이다(docs/plans/depth.md).
+    """
 
     id: str
     span: Span
     note: str
+    text: str = ""
 
 
 class PageJob(BaseModel):
@@ -251,8 +325,12 @@ class PageJob(BaseModel):
     title: str
     purpose: str
     facts: dict
+    section: str = ""
+    parent: str | None = None
+    siblings: list[dict] = Field(default_factory=list)
     evidence: list[Evidence]
     diagrams: list[Diagram] = Field(default_factory=list)
+    tables: list[FactTable] = Field(default_factory=list)
     input_hash: str
 
 
@@ -274,6 +352,51 @@ class EntityFacts(BaseModel):
     relations: list[dict] = Field(default_factory=list)
 
 
+class FileRole(BaseModel):
+    """파일 하나의 역할. 이 값이 페이지가 무엇을 인용해도 되는지를 가른다."""
+
+    path: str
+    role: str
+    module: str
+
+
+class Heading(BaseModel):
+    """문서의 제목 하나. `level`은 1부터다."""
+
+    path: str
+    level: int
+    title: str
+    span: Span
+
+
+class ConfigKey(BaseModel):
+    """설정 키 하나. `value`는 적힌 그대로이고 해석하지 않는다."""
+
+    path: str
+    key: str
+    value: str
+    span: Span
+
+
+class Cluster(BaseModel):
+    """개념 묶음 하나. `source`는 무엇이 이 묶음을 정했는지다."""
+
+    id: str
+    title: str
+    directory: str
+    module: str
+    members: list[str] = Field(default_factory=list)
+    source: str
+
+
+class CorpusFacts(BaseModel):
+    """비코드 사실. 계산은 `analyze/corpus.py`가 한다."""
+
+    roles: list[FileRole] = Field(default_factory=list)
+    headings: list[Heading] = Field(default_factory=list)
+    config_keys: list[ConfigKey] = Field(default_factory=list)
+
+
 class RepoFacts(BaseModel):
     """결정층의 산출 전부. LLM 층은 이 자료만 읽는다(PLAN §2.1)."""
 
@@ -289,4 +412,9 @@ class RepoFacts(BaseModel):
     diagrams: list[Diagram]
     history: HistoryFacts | None = None
     entities: EntityFacts | None = None
+    call_edges: list[CallEdge] = Field(default_factory=list)
+    clusters: list[Cluster] = Field(default_factory=list)
+    type_labels: dict[str, str] = Field(default_factory=dict)
+    corpus: CorpusFacts | None = None
+    toolchain: ToolchainFacts | None = None
     unresolved: list[str] = Field(default_factory=list)

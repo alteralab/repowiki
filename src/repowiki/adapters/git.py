@@ -20,11 +20,16 @@ class GitError(RuntimeError):
 
 
 class RepoHead(BaseModel):
-    """작업본의 현재 위치. `is_git`이 거짓이면 나머지 필드는 비어 있다."""
+    """작업본의 현재 위치. `is_git`이 거짓이면 나머지 필드는 비어 있다.
+
+    `remote_url`은 인용을 소스 링크로 만들 때 쓴다. 원격이 없으면 빈 문자열이고, 그때
+    인용은 링크 없이 경로 문자열로만 남는다 — 반입 환경에서는 그것이 정상이다.
+    """
 
     is_git: bool
     head_sha: str = ""
     branch: str = ""
+    remote_url: str = ""
 
 
 def _run(root: Path, args: list[str]) -> str:
@@ -42,7 +47,15 @@ def head(root: Path) -> RepoHead:
         return RepoHead(is_git=False)
     sha = _run(root, ["rev-parse", "HEAD"]).strip()
     branch = _run(root, ["rev-parse", "--abbrev-ref", "HEAD"]).strip()
-    return RepoHead(is_git=True, head_sha=sha, branch=branch)
+    return RepoHead(is_git=True, head_sha=sha, branch=branch, remote_url=_remote(root))
+
+
+def _remote(root: Path) -> str:
+    """`origin`의 URL. 없으면 빈 문자열이다 — 원격이 없는 것은 실패가 아니다."""
+    try:
+        return _run(root, ["config", "--get", "remote.origin.url"]).strip()
+    except GitError:
+        return ""
 
 
 def tracked_files(root: Path) -> list[str]:

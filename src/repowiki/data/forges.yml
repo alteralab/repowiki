@@ -1,0 +1,20 @@
+# 호스팅별 소스 링크 규칙(PLAN §2.4). 표에 없는 호스트는 링크를 만들지 않는다.
+# `match`는 호스트 이름에 들어 있으면 그 종류로 보는 조각이다. 사내 GitLab이
+# `gitlab.<회사>.com`이나 `code.<회사>.com`처럼 이름이 다르면 여기에 더한다.
+forges:
+  github:
+    match: [github.com, github.]
+    blob: "/blob/{commit}"
+    line: "#L{start}-L{end}"
+  gitlab:
+    match: [gitlab.com, gitlab.]
+    blob: "/-/blob/{commit}"
+    line: "#L{start}-{end}"
+  gitea:
+    match: [gitea., codeberg.org]
+    blob: "/src/commit/{commit}"
+    line: "#L{start}-L{end}"
+  bitbucket:
+    match: [bitbucket.org, bitbucket.]
+    blob: "/src/{commit}"
+    line: "#lines-{start}:{end}"

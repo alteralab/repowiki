@@ -14,8 +14,10 @@ from repowiki.adapters.node import DiagramSource, parse_diagrams
 from repowiki.gate.evidence import check_evidence
 from repowiki.gate.mermaid import check_limits
 from repowiki.pipeline.analyze_run import analyze_repo, load_limits, write_facts
+from repowiki.adapters.site import serve
 from repowiki.pipeline.write_run import (
     Workspace,
+    build_site,
     bundle,
     load_facts,
     next_job,
@@ -66,6 +68,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
             f" 핫스팟 {len(facts.history.hotspots)}개, 결합 {len(facts.history.couplings)}쌍"
             + (f", 최다 수정 {top['path']} {top['revisions']}회" if top else "")
         )
+    (out / "source-root.txt").write_text(str(root), encoding="utf-8")
     print(f"  사실 파일 {target}")
     print(f"  근거 위반 {len(evidence_violations)}건")
     passed = len(facts.diagrams) - len({f.id for f in parse_failures})
@@ -75,12 +78,32 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     return 1 if violations or parse_failures or evidence_violations else 0
 
 
+def _source_root(out: Path, given: str | None) -> Path | None:
+    """근거 원문을 읽을 작업본. 인자가 없으면 분석이 적어 둔 자리를 쓴다.
+
+    없으면 `None`이고, 그때 브리핑에는 원문 없이 자리만 실린다. 작업본이 사라진 뒤에도
+    사실 파일만으로 위키를 다시 쓸 수 있어야 하므로 이것은 실패가 아니다.
+    """
+    if given:
+        return Path(given).resolve()
+    marker = out / "source-root.txt"
+    if not marker.exists():
+        return None
+    candidate = Path(marker.read_text(encoding="utf-8").strip())
+    return candidate if candidate.is_dir() else None
+
+
 def _cmd_write(args: argparse.Namespace) -> int:
     out = Path(args.out).resolve()
     facts = load_facts(out)
-    workspace, count = prepare(out, facts)
+    repo = _source_root(out, getattr(args, "repo", None))
+    workspace, count = prepare(out, facts, repo)
     write_manifest(workspace, facts)
     print(f"작업 {count}개를 만들었다: {workspace.base}")
+    if repo is None:
+        print("  작업본이 없어 근거 원문 없이 브리핑을 만들었다. `--repo`로 지정할 수 있다")
+    else:
+        print(f"  근거 원문을 {repo}에서 읽었다")
     print("세션 드라이버로 쓰려면 `repowiki job next --out <이 디렉토리>`부터 시작한다")
     return 0
 
@@ -129,6 +152,27 @@ def _cmd_bundle(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_site(args: argparse.Namespace) -> int:
+    out = Path(args.out).resolve()
+    facts = load_facts(out)
+    site_out, pages, seconds = build_site(out, facts.profile.root_name, args.offline)
+    print(f"정적 사이트 {pages}쪽을 {seconds}초에 만들었다: {site_out}")
+    if not args.open:
+        print(f"열려면 `repowiki site --out {args.out} --open`")
+        return 0
+    server, url = serve(site_out, args.port)
+    print(f"{url} 에서 연다. 멈추려면 Ctrl+C")
+    if args.browser:
+        import webbrowser
+
+        webbrowser.open(url)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        server.shutdown()
+    return 0
+
+
 def _cmd_status(args: argparse.Namespace) -> int:
     workspace = Workspace(root=str(Path(args.out).resolve()))
     counts = status(workspace)
@@ -149,6 +193,9 @@ def main(argv: list[str] | None = None) -> int:
     analyze.set_defaults(handler=_cmd_analyze)
 
     write = sub.add_parser("write", help="사실에서 페이지 작업을 만든다")
+    write.add_argument(
+        "--repo", default=None, help="근거 원문을 읽을 작업본 경로(없으면 분석이 적어 둔 자리)"
+    )
     write.add_argument("--out", default="out", help="사실 파일이 있는 디렉토리")
     write.set_defaults(handler=_cmd_write)
 
@@ -173,6 +220,14 @@ def main(argv: list[str] | None = None) -> int:
     bundle_cmd = sub.add_parser("bundle", help="제출된 페이지를 위키로 낸다")
     bundle_cmd.add_argument("--out", default="out")
     bundle_cmd.set_defaults(handler=_cmd_bundle)
+
+    site = sub.add_parser("site", help="위키를 정적 사이트로 만들고 루프백에서 연다")
+    site.add_argument("--out", default="out")
+    site.add_argument("--open", action="store_true", help="빌드 뒤 127.0.0.1에서 연다")
+    site.add_argument("--browser", action="store_true", help="브라우저를 함께 띄운다")
+    site.add_argument("--port", type=int, default=8765)
+    site.add_argument("--offline", action="store_true", help="npm ci를 오프라인으로 돌린다")
+    site.set_defaults(handler=_cmd_site)
 
     args = parser.parse_args(argv)
     return args.handler(args)

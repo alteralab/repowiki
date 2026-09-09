@@ -1,0 +1,9 @@
+id: java-bind-call-bare
+language: java
+message: bind.call_bare
+# 수신자가 없는 호출. 대상은 감싸는 타입 자신이거나 그 상위 타입이다.
+rule:
+  kind: method_invocation
+  all:
+    - has: {field: name, pattern: $NAME}
+    - not: {has: {field: object, pattern: $OBJ}}

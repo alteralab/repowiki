@@ -1,0 +1,11 @@
+id: py-bind-call
+language: python
+message: bind.call
+rule:
+  kind: call
+  has:
+    field: function
+    kind: attribute
+    all:
+      - has: {field: object, pattern: $RECV}
+      - has: {field: attribute, kind: identifier, pattern: $NAME}

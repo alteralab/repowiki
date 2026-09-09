@@ -1,0 +1,13 @@
+id: scala-bind-val
+language: scala
+message: bind.field
+rule:
+  any:
+    - kind: val_definition
+      all:
+        - has: {field: pattern, pattern: $NAME}
+        - has: {field: type, pattern: $TYPE}
+    - kind: var_definition
+      all:
+        - has: {field: pattern, pattern: $NAME}
+        - has: {field: type, pattern: $TYPE}

@@ -1,0 +1,9 @@
+id: py-bind-attr
+language: python
+message: bind.field
+# 주석 달린 대입. `self.parser: Parser = ...`와 클래스 본문의 `x: T`를 함께 잡는다.
+rule:
+  kind: assignment
+  all:
+    - has: {field: left, pattern: $NAME}
+    - has: {field: type, pattern: $TYPE}

@@ -1,0 +1,8 @@
+id: scala-bind-param
+language: scala
+message: bind.param
+rule:
+  kind: parameter
+  all:
+    - has: {field: name, pattern: $NAME}
+    - has: {field: type, pattern: $TYPE}

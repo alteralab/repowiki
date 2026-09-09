@@ -14,7 +14,8 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
-from repowiki.models import PageJob, PageOutput, RepoFacts
+from repowiki.bundle.links import Forge, load_forges, source_url
+from repowiki.models import PageJob, PageOutput, RepoFacts, Span
 
 WIKI_VERSION = "repowiki/0.1.0"
 
@@ -83,7 +84,13 @@ def frontmatter_of(job: PageJob, output: PageOutput, facts: RepoFacts, now: str)
     )
 
 
-def render_page(job: PageJob, output: PageOutput, facts: RepoFacts, now: str | None = None) -> str:
+def render_page(
+    job: PageJob,
+    output: PageOutput,
+    facts: RepoFacts,
+    now: str | None = None,
+    forges: list[Forge] | None = None,
+) -> str:
     """머리말과 본문을 합쳐 최종 Markdown을 만든다."""
     stamp = now or datetime.now(UTC).isoformat(timespec="seconds")
     head = frontmatter_of(job, output, facts, stamp)
@@ -106,15 +113,75 @@ def render_page(job: PageJob, output: PageOutput, facts: RepoFacts, now: str | N
         lines[-1] = "sources: []"
     lines += [f"status: {head.status}", "verified: []", "---", ""]
     body = output.body_markdown.rstrip()
-    # 각주는 본문의 인용과 같은 형식(`path:Lx-Ly`)으로 적는다. 두 형식이 다르면
-    # 읽는 사람이 같은 자리를 가리키는 줄 모른다.
-    footnotes = [
-        f"[^{source.id}]: `{source.resource.removeprefix('repo://').replace('#L', ':L')}`"
-        for source in head.sources
-    ]
+    spans = {item.id: item.span for item in job.evidence}
+    forges = forges if forges is not None else load_forges()
+    remote, commit = facts.profile.remote_url, facts.profile.head_sha
+    header = _source_header(head.sources, spans, remote, commit, forges)
+    footnotes = _footnotes(head.sources, spans, remote, commit, forges)
+    if header:
+        body = f"{header}\n\n{body}"
     if footnotes:
         body = f"{body}\n\n{chr(10).join(footnotes)}"
     return "\n".join(lines) + body + "\n"
+
+
+def _cite_text(span: Span) -> str:
+    """인용 표기. 본문의 각주와 머리의 목록이 같은 형식을 쓴다."""
+    return f"{span.path}:L{span.start_line}-L{span.end_line}"
+
+
+def _linked(span: Span, remote: str, commit: str, forges: list[Forge]) -> str:
+    """자리 하나의 표기. 링크를 만들 수 있으면 링크로, 아니면 코드 표기로 낸다.
+
+    원격이 없는 작업본(반입 환경)에서는 링크가 없는 것이 정상이고, 그때도 경로와 줄은
+    그대로 남아 사람이 손으로 찾아갈 수 있다.
+    """
+    url = source_url(remote, commit, span, forges)
+    label = _cite_text(span)
+    return f"[`{label}`]({url})" if url else f"`{label}`"
+
+
+def _footnotes(
+    sources: list[SourceRef],
+    spans: dict[str, Span],
+    remote: str,
+    commit: str,
+    forges: list[Forge],
+) -> list[str]:
+    """각주 정의. 인용 하나가 소스 한 자리로 이어진다."""
+    found: list[str] = []
+    for source in sources:
+        span = spans.get(source.id)
+        if span is None:
+            continue
+        found.append(f"[^{source.id}]: {_linked(span, remote, commit, forges)}")
+    return found
+
+
+def _source_header(
+    sources: list[SourceRef],
+    spans: dict[str, Span],
+    remote: str,
+    commit: str,
+    forges: list[Forge],
+) -> str:
+    """페이지가 근거로 삼은 파일 목록. 읽는 사람이 무엇을 읽고 쓴 글인지 먼저 본다.
+
+    파일 단위로 접는다. 같은 파일의 여러 자리를 낱낱이 세면 목록이 본문보다 길어진다.
+    """
+    paths: list[str] = []
+    for source in sources:
+        span = spans.get(source.id)
+        if span is not None and span.path not in paths:
+            paths.append(span.path)
+    if not paths:
+        return ""
+    items = []
+    for path in paths:
+        span = next(s for s in spans.values() if s.path == path)
+        url = source_url(remote, commit, Span(path=path, start_line=1, end_line=1), forges)
+        items.append(f"- [`{path}`]({url})" if url else f"- `{path}`")
+    return "\n".join(["> **근거 소스**", ">", *[f"> {line}" for line in items]])
 
 
 def render_index(pages: list[tuple[str, Frontmatter]], repo_name: str) -> str:

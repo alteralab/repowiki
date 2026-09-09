@@ -8,6 +8,8 @@
 2. 중요한 명제에 인용이 붙었는가(문단 수 대비 최소 인용 수).
 3. 산문 규범을 어겼는가(엠대시, 이모지, 이중 피동, 명사형 종결).
 4. 작업이 준 Mermaid 블록이 본문에 그대로 있는가. LLM은 그림을 새로 그리지도 빼지도 않는다.
+5. 작업이 준 사실 표가 본문에 그대로 있는가. 표의 값은 사람이 그대로 믿는 자리라 한 칸도
+   바뀌면 안 되고, 작업이 주지 않은 표가 있으면 그 숫자의 출처가 없다.
 
 사각: 인용이 문장을 실제로 지지하는지는 보지 못한다. 그 판정은 사람과 판정자 선별의 몫이고
 이 게이트는 존재와 범위만 본다(C-GATE-2).
@@ -19,9 +21,18 @@ import re
 
 from pydantic import BaseModel
 
+from collections import Counter
+
+from repowiki.bundle.tables import blocks_in, body_of, html_tables_in
+from repowiki.write.plan import target_words
 from repowiki.models import PageJob, PageOutput
 
 MIN_CITATIONS = 3
+# 인용 하나가 받치는 최대 단어 수. 이보다 성기면 근거 없는 문장이 사이에 끼어 있다는 뜻이다.
+WORDS_PER_CITATION = 60
+# 분량 하한은 페이지 종류의 목표 분량에 비례한다. 목표는 `data/diagram-limits.yml`이
+# 소유한다 — 쪽마다 성격이 달라 한 숫자를 모두에게 물릴 수 없다.
+WORD_FLOOR_RATIO = 0.5
 
 # ast-grep-ignore: regex-on-structure — 어휘: 인용 표기는 `E숫자` 고정 형식이다.
 _CITE = re.compile(r"\[\^(E\d+)\]")
@@ -49,6 +60,22 @@ class PageViolation(BaseModel):
     detail: str
 
 
+def _prose_words(body: str) -> list[str]:
+    """본문의 산문 단어. 코드 울타리와 표는 세지 않는다.
+
+    표와 도식은 사실에서 그대로 온 것이라 쓰는 층이 쓴 글이 아니다. 그것을 분량에 세면
+    표만 큰 페이지가 밀도 요구를 통과한다.
+    """
+    outside = _FENCE.split(body)[0::2]
+    lines = [
+        line
+        for chunk in outside
+        for line in chunk.splitlines()
+        if not line.strip().startswith(("|", ">", "[^"))
+    ]
+    return " ".join(lines).split()
+
+
 def _mermaid_blocks(body: str) -> list[str]:
     """본문의 Mermaid 블록 소스. 울타리 안쪽만 꺼낸다."""
     blocks: list[str] = []
@@ -67,6 +94,45 @@ def _mermaid_blocks(body: str) -> list[str]:
     return blocks
 
 
+def _check_blocks(
+    job_id: str,
+    expected: list[str],
+    present: list[str],
+    rules: tuple[str, str],
+    noun: str,
+) -> list[PageViolation]:
+    """작업이 준 블록과 본문의 블록을 맞춘다.
+
+    도식과 표는 같은 계약을 진다. 작업이 준 것은 그대로 있어야 하고, 작업이 주지 않은 것은
+    있으면 안 된다. 판정이 같으니 자리도 하나여야 한다(C-DUP-2).
+
+    집합이 아니라 다중집합으로 센다. 같은 표를 두 번 실은 페이지는 한 번 실은 페이지와
+    다른 글이고, 집합으로 비교하면 그 차이가 보이지 않는다.
+    """
+    missing_rule, stray_rule = rules
+    wanted, got = Counter(expected), Counter(present)
+    found: list[PageViolation] = []
+    for block, count in sorted((wanted - got).items()):
+        found.append(
+            PageViolation(
+                job_id=job_id,
+                rule=missing_rule,
+                detail=f"작업이 준 {noun} {count}개가 본문에 없다:"
+                f" {block.splitlines()[0][:60]}",
+            )
+        )
+    for block, count in sorted((got - wanted).items()):
+        found.append(
+            PageViolation(
+                job_id=job_id,
+                rule=stray_rule,
+                detail=f"작업이 주지 않은 {noun} {count}개가 있다:"
+                f" {block.splitlines()[0][:60]}",
+            )
+        )
+    return found
+
+
 def check_page(job: PageJob, output: PageOutput) -> list[PageViolation]:
     """페이지 하나를 판정한다. 통과면 빈 목록이다."""
     violations: list[PageViolation] = []
@@ -82,14 +148,25 @@ def check_page(job: PageJob, output: PageOutput) -> list[PageViolation]:
                 detail=f"{unknown}은 이 작업이 준 근거가 아니다",
             )
         )
-    # 근거가 셋보다 적은 페이지에 셋을 요구하면 통과할 수 없는 요구가 된다.
-    required = min(MIN_CITATIONS, len(job.evidence))
+    # 밀도는 분량에 비례한다. 긴 글에 인용 셋이면 나머지 문장은 근거가 없다.
+    # 근거가 적은 페이지에 많은 인용을 요구하면 통과할 수 없는 요구가 되므로 준 만큼만 센다.
+    words = len(_prose_words(body))
+    required = min(max(MIN_CITATIONS, words // WORDS_PER_CITATION), len(job.evidence))
     if required and len(used) < required:
         violations.append(
             PageViolation(
                 job_id=job.id,
                 rule="too-few-citations",
-                detail=f"인용 {len(used)}건이 최소 {required}건에 못 미친다",
+                detail=f"본문 {words}단어에 인용 {len(used)}건이다. {required}건 이상이어야 한다",
+            )
+        )
+    floor = int(target_words(job.type) * WORD_FLOOR_RATIO)
+    if floor and words < floor:
+        violations.append(
+            PageViolation(
+                job_id=job.id,
+                rule="too-short",
+                detail=f"본문 {words}단어가 {job.type.value} 페이지의 하한 {floor}단어에 못 미친다",
             )
         )
 
@@ -102,26 +179,30 @@ def check_page(job: PageJob, output: PageOutput) -> list[PageViolation]:
                 PageViolation(job_id=job.id, rule=rule, detail=f"금지 표기 {found.group(0)!r}")
             )
 
-    expected = {diagram.source.strip() for diagram in job.diagrams}
-    present = {block for block in _mermaid_blocks(body)}
-    for missing in sorted(expected - present):
+    violations += _check_blocks(
+        job.id,
+        [diagram.source.strip() for diagram in job.diagrams],
+        _mermaid_blocks(body),
+        ("diagram-missing", "diagram-not-from-facts"),
+        "다이어그램",
+    )
+    violations += _check_blocks(
+        job.id,
+        [body_of(table) for table in job.tables],
+        blocks_in(body),
+        ("table-missing", "table-not-from-facts"),
+        "표",
+    )
+    html_tables = html_tables_in(body)
+    if html_tables:
         violations.append(
             PageViolation(
                 job_id=job.id,
-                rule="diagram-missing",
-                detail=f"작업이 준 다이어그램이 본문에 없다: {missing.splitlines()[0][:40]}",
+                rule="html-table",
+                detail=f"HTML 표 {html_tables}개가 있다. 표는 사실에서 온 Markdown 표여야 한다",
             )
         )
-    for block in _mermaid_blocks(body):
-        if block not in expected:
-            violations.append(
-                PageViolation(
-                    job_id=job.id,
-                    rule="diagram-not-from-facts",
-                    detail="작업이 준 다이어그램과 다른 Mermaid 블록이 있다",
-                )
-            )
-            break
+
     if not output.description.strip():
         violations.append(
             PageViolation(job_id=job.id, rule="empty-description", detail="설명이 비었다")

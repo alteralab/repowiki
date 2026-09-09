@@ -1,0 +1,11 @@
+id: java-bind-local
+language: java
+message: bind.local
+rule:
+  kind: local_variable_declaration
+  all:
+    - has: {field: type, pattern: $TYPE}
+    - has:
+        field: declarator
+        kind: variable_declarator
+        has: {field: name, kind: identifier, pattern: $NAME}

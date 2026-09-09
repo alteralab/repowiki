@@ -17,9 +17,12 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from repowiki.adapters.jobs import Job, JobError, JobStore
+from repowiki.adapters.site import build, install, scaffold
 from repowiki.bundle.emit import Frontmatter, frontmatter_of, render_index, render_llms_full, render_llms_txt, render_page
+from repowiki.bundle.site_emit import meta_files, to_site_page
 from repowiki.gate.page import PageViolation, check_page
 from repowiki.models import PageJob, PageOutput, RepoFacts
+from repowiki.write import source
 from repowiki.write.plan import build_jobs
 
 JOBS_DIRNAME = ".repowiki"
@@ -46,8 +49,12 @@ class Workspace(BaseModel):
         return self.base / "pages"
 
 
-def prepare(out: Path, facts: RepoFacts) -> tuple[Workspace, int]:
-    """사실에서 작업을 만들어 작업장에 둔다. 이미 있는 작업장은 지우고 다시 만든다."""
+def prepare(out: Path, facts: RepoFacts, repo: Path | None = None) -> tuple[Workspace, int]:
+    """사실에서 작업을 만들어 작업장에 둔다. 이미 있는 작업장은 지우고 다시 만든다.
+
+    `repo`를 주면 근거 자리의 원문을 함께 싣는다. 원문이 없으면 쓰는 층은 구조만 보고
+    쓰게 되고, 구조에서 나올 수 있는 문장은 몇 가지로 닫힌다.
+    """
     workspace = Workspace(root=str(out))
     if workspace.base.exists():
         for path in sorted(workspace.base.rglob("*"), reverse=True):
@@ -57,6 +64,9 @@ def prepare(out: Path, facts: RepoFacts) -> tuple[Workspace, int]:
 
     store = JobStore(workspace.store_path)
     jobs = build_jobs(facts)
+    if repo is not None:
+        for job in jobs:
+            source.fill(job.evidence, _evidence_texts(repo, job))
     for job in jobs:
         directory = workspace.job_dir(job.id)
         directory.mkdir(parents=True, exist_ok=True)
@@ -66,14 +76,46 @@ def prepare(out: Path, facts: RepoFacts) -> tuple[Workspace, int]:
     return workspace, len(jobs)
 
 
+def _evidence_block(item) -> str:
+    """근거 하나의 브리핑 조각. 자리와 설명과 원문을 한 덩어리로 둔다."""
+    head = f"### `{item.id}` {item.note}\n\n`{item.span.cite()}`"
+    if not item.text:
+        return f"{head}\n\n(원문을 싣지 못했다. 이 자리를 근거로 쓰려면 자리만 인용한다.)"
+    return f"{head}\n\n```\n{item.text}\n```"
+
+
+def _evidence_texts(repo: Path, job: PageJob) -> dict[str, str]:
+    """이 작업의 근거가 가리키는 파일만 읽는다. 읽지 못한 파일은 원문 없이 남는다."""
+    texts: dict[str, str] = {}
+    for item in job.evidence:
+        path = item.span.path
+        if path in texts:
+            continue
+        try:
+            texts[path] = (repo / path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+    return texts
+
+
 def _brief(job: PageJob) -> str:
     """세션이 읽을 지시문. 사실은 `job.json`에 있고 여기에는 규약만 둔다."""
-    evidence_lines = "\n".join(f"- `{item.id}` {item.note}: `{item.span.cite()}`" for item in job.evidence)
+    evidence_lines = "\n\n".join(_evidence_block(item) for item in job.evidence)
+    sibling_lines = "\n".join(
+        f"- {item.get('title', '')}: `{item.get('path', '')}`" for item in job.siblings
+    )
     diagram_note = (
         "이 작업의 `job.json`에 있는 `diagrams[].source`를 그대로 ```mermaid 블록에 넣어라."
         " 새로 그리거나 고치지 마라."
         if job.diagrams
         else "이 페이지에는 다이어그램이 없다."
+    )
+    table_note = (
+        "이 작업의 `job.json`에 있는 `tables`를 아래 형식 그대로 본문에 넣어라."
+        " 값을 한 칸도 바꾸지 마라. 형식은 `**제목**` 다음 빈 줄, 그다음 파이프 표이고,"
+        " 각주가 있으면 표 뒤에 빈 줄과 함께 둔다."
+        if job.tables
+        else "이 페이지에는 표가 없다. 표를 새로 만들지 마라."
     )
     return f"""# 작업 {job.id}
 
@@ -84,14 +126,24 @@ def _brief(job: PageJob) -> str:
 
 ## 규칙
 
-1. `job.json`의 `facts` 안에 있는 것만 쓴다. 저장소를 열어 보지 않는다.
-2. 중요한 명제에는 근거를 각주로 단다. 형식은 `[^E3]`이고 아래 목록 밖의 id는 게이트가 거부한다.
-3. 인용은 최소 세 건이다.
+1. `job.json`의 `facts`와 아래 근거의 원문에서 읽은 것만 쓴다. 저장소를 따로 열지 않는다.
+2. 명제마다 근거를 각주로 단다. 형식은 `[^E3]`이고 아래 목록 밖의 id는 게이트가 거부한다.
+3. 인용 밀도는 60단어에 한 건 이상이다. 분량은 700단어 이상을 목표로 한다.
 4. {diagram_note}
-5. 문장은 서술어와 종결어미로 끝낸다. 엠대시와 가운뎃점과 이모지를 쓰지 않는다. 이중 피동을 쓰지 않는다.
-6. 소스 트리를 나열하거나 메서드 목록을 반복하지 않는다. 책임, 경계면 계약, 핵심 흐름, 실패 모드를 쓴다.
+5. {table_note}
+6. 문장은 서술어와 종결어미로 끝낸다. 엠대시와 가운뎃점과 이모지를 쓰지 않는다. 이중 피동을 쓰지 않는다.
+7. 소스 트리를 나열하지 않는다. 이 묶음이 무엇을 맡는지, 타입들이 서로 어떻게 일하는지,
+   경계면 계약이 무엇인지, 무엇이 실패할 수 있는지를 쓴다. 원문에서 읽은 동작을 쓰되
+   읽지 않은 것은 쓰지 않는다.
+8. 형제 페이지를 가리킬 일이 있으면 상대 링크로 건다.
 
-## 근거 목록
+## 형제 페이지
+
+{sibling_lines or "형제 페이지가 없다."}
+
+## 근거
+
+각 근거는 자리와 원문을 함께 준다. 원문에 없는 동작을 그 근거로 주장하지 않는다.
 
 {evidence_lines or "이 페이지에는 인용할 근거가 없다. 사실 요약만 쓴다."}
 
@@ -174,6 +226,25 @@ def bundle(workspace: Workspace, out: Path, facts: RepoFacts) -> tuple[Path, int
         json.dumps(Frontmatter.model_json_schema(), indent=2, ensure_ascii=False), encoding="utf-8"
     )
     return wiki, len(entries)
+
+
+def build_site(out: Path, repo_name: str, offline: bool) -> tuple[Path, int, float]:
+    """위키를 Fumadocs 사이트로 만든다. 콘텐츠 변환은 순수 함수가 하고 여기서는 파일만 다룬다."""
+    wiki = out / "wiki"
+    if not wiki.exists():
+        raise FileNotFoundError(f"위키가 없다: {wiki}. `repowiki bundle`을 먼저 돌린다")
+    pages: dict[str, str] = {}
+    for markdown in sorted(wiki.rglob("*.md")):
+        relative = markdown.relative_to(wiki).as_posix()
+        page = to_site_page(relative, markdown.read_text(encoding="utf-8"))
+        pages[page.path] = page.content
+    pages.update(meta_files(sorted(pages), repo_name))
+
+    target = out / "site"
+    scaffold(target, pages, app_name=f"{repo_name} 위키")
+    install(target, offline)
+    result = build(target)
+    return Path(result.out), result.pages, result.seconds
 
 
 def status(workspace: Workspace) -> dict[str, int]:

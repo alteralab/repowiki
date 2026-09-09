@@ -15,7 +15,7 @@ import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 RULES_CONFIG = Path(__file__).resolve().parent.parent / "data" / "sgconfig.yml"
 
@@ -25,7 +25,12 @@ class AstGrepError(RuntimeError):
 
 
 class AstMatch(BaseModel):
-    """룰 매치 하나. 줄 번호는 1부터 세고 양 끝을 포함한다(ast-grep은 0부터 센다)."""
+    """룰 매치 하나. 줄 번호는 1부터 세고 양 끝을 포함한다(ast-grep은 0부터 센다).
+
+    `captures`는 룰이 잡은 메타변수 전부다. 이름 하나만 읽으면 이름과 타입을 한 매치에서
+    묶을 수 없고, 묶지 못하면 변수의 타입을 모르므로 호출을 해석할 수 없다. `name`은
+    `captures["NAME"]`의 별칭으로 남긴다 — 이미 이 필드를 읽는 자리가 여럿이다.
+    """
 
     rule_id: str
     message: str
@@ -34,12 +39,18 @@ class AstMatch(BaseModel):
     end_line: int
     text: str
     name: str | None = None
+    captures: dict[str, str] = Field(default_factory=dict)
 
 
 def _to_match(payload: dict, root: Path) -> AstMatch:
     rng = payload["range"]
     meta = payload.get("metaVariables", {}).get("single", {})
-    name = meta.get("NAME", {}).get("text") if isinstance(meta, dict) else None
+    captures = (
+        {key: value.get("text", "") for key, value in meta.items() if isinstance(value, dict)}
+        if isinstance(meta, dict)
+        else {}
+    )
+    name = captures.get("NAME")
     path = Path(payload["file"])
     rel = path.relative_to(root) if path.is_absolute() else path
     return AstMatch(
@@ -50,6 +61,7 @@ def _to_match(payload: dict, root: Path) -> AstMatch:
         end_line=rng["end"]["line"] + 1,
         text=payload.get("text", ""),
         name=name,
+        captures=captures,
     )
 
 

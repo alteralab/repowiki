@@ -1,0 +1,11 @@
+id: scala-bind-call
+language: scala
+message: bind.call
+rule:
+  kind: call_expression
+  has:
+    field: function
+    kind: field_expression
+    all:
+      - has: {field: value, pattern: $RECV}
+      - has: {field: field, pattern: $NAME}

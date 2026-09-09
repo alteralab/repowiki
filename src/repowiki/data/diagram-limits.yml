@@ -39,3 +39,37 @@ levels:
     max_source_chars: 2000
     max_blocks_per_page: 50
     layout: dagre
+# 페이지 종류마다 실을 도식과 표의 예산. 한 상한을 모든 쪽에 물리면 안 된다 — 쪽마다
+# 성격이 다르다. 구조 개요는 저장소 전체를 여러 각도에서 보여야 하고, 버전 표만 있는
+# 쪽에는 그릴 것이 없다.
+pages:
+  architecture-overview:
+    max_diagrams: 8
+    target_words: 900
+  concept:
+    max_diagrams: 5
+    target_words: 800
+  subsystem:
+    max_diagrams: 6
+    target_words: 700
+  module:
+    max_diagrams: 4
+    target_words: 700
+  flows:
+    max_diagrams: 8
+    target_words: 600
+  history:
+    max_diagrams: 3
+    target_words: 500
+  data-model:
+    max_diagrams: 3
+    target_words: 500
+  quality:
+    max_diagrams: 2
+    target_words: 500
+  usage:
+    max_diagrams: 2
+    target_words: 500
+  stack:
+    max_diagrams: 0
+    target_words: 400

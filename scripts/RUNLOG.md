@@ -790,3 +790,55 @@ airflow의 엔티티 63개와 관계 26개는 SQLAlchemy 모델에서 나왔다.
 
 `pyproject.toml`의 하한(`>=`)을 정확 버전(`==`)으로 바꿨다. 락 없이 설치하는 경로에서도
 같은 판이 들어오게 하려는 것이다. 두 자리가 어긋나면 `uv lock --check`가 실패시킨다.
+
+## 2026-09-09 깊이 단계 (docs/plans/depth.md)
+
+DeepWiki를 web-drive로 직접 열어 재고, 그 격차를 메우는 층을 세웠다. 실측값은
+`~/.claude/projects/-Users-angyojun-workspace-repowiki/memory/deepwiki-measurements.md`.
+
+### 세운 것
+
+- `adapters/astgrep.py`: `AstMatch.captures`로 메타변수 전부를 싣는다. 이름과 타입을 한
+  매치에서 묶을 수 있게 되었다.
+- `data/rules/*/`*bind*.yml`: 필드·파라미터·지역변수의 (이름, 타입), 메서드 시그니처,
+  수신자 있는 호출과 없는 호출. 자바·파이썬·스칼라.
+- `analyze/calls.py`: 스코프 기반 호출 해석기. 가림 순서는 지역(선언 뒤에서만) → 파라미터 →
+  필드이고, 열쇠는 (소유 타입, 소유 멤버, 이름)이다. 파이썬의 수신자 없는 호출은 같은 파일의
+  모듈 함수이거나 임포트로 증명된 이름일 때만 잇는다.
+- `analyze/corpus.py`: 파일 역할, Markdown 제목 색인(절 범위 포함), 설정 키 색인.
+  자격 증명 키는 `data/secrets.yml` 규칙으로 값을 가린다.
+- `analyze/toolchain.py`: pom/gradle/카탈로그/pyproject/package.json/go.mod/Cargo/고정 파일에서
+  언어와 라이브러리 버전을 자리와 함께. Maven 속성은 실제 부모 사슬로만 물려받는다.
+- `analyze/clusters.py`: 디렉토리 먼저, 큰 디렉토리만 커뮤니티 검출로 쪼갠다.
+- `bundle/links.py` + `data/forges.yml`: 분석 커밋에 고정된 소스 링크. 호스트는 점 경계로
+  맞추고 질의·조각·자격 증명을 버린다.
+- `bundle/tables.py`, `write/tables.py`: 사실 표와 그 렌더. 게이트가 문자 단위로 대조한다.
+- `bundle/diagrams.py`: `member_sequence`, `collaboration_diagram`, `type_detail_diagram`.
+  상한 맞추기는 줄이 아니라 의미 단위로 줄인 뒤 다시 렌더한다.
+- `write/plan.py`: 10종 페이지, 3단 계층, 형제 링크, 페이지 종류별 도식·분량 예산
+  (`data/diagram-limits.yml`의 `pages:`).
+- `write/source.py`: 근거 자리의 원문을 브리핑에 싣는다(자리당 60줄, 쪽당 1200줄).
+- `gate/page.py`: 인용 밀도(60단어당 1건), 분량 하한(목표의 절반), 표 대조, HTML 표 거부.
+
+### 실측
+
+| 저장소 | 호출 자리 | 호출 엣지 | 도식 | 페이지 |
+|---|---|---|---|---|
+| commons-cli | 8,901 | 579 | 69 | 10 |
+| dubbo | 133,733 | 21,977 | 32 | - |
+| airflow | 351,703 | 19,618 | 39 | - |
+| kafka | 767,590 | 51,546 | 40 | - |
+
+계수의 합은 네 저장소 모두 입력과 정확히 같다. kafka는 101초 · 최대 메모리 7.7GB.
+`PYTHONHASHSEED`를 0/1/12345로 바꿔도 `facts.json`이 바이트 단위로 같다.
+
+### 코덱스 검증 2회
+
+1차에서 21건, 2차에서 새로 14건을 냈다. 치명은 전부 고쳤다. 대표적으로:
+스코프가 메서드 이름만으로 합쳐지던 것, 지역 변수가 선언 앞의 호출을 소급해 가리던 것,
+파이썬의 수신자 없는 호출을 감싸는 클래스의 메서드로 오인하던 것, 임포트 증명 없이 자유 함수를
+잇던 것, Maven 속성이 무관한 형제 POM 사이로 새던 것, 설정의 비밀값이 그대로 실리던 것,
+소스 상한을 맞추려고 줄을 잘라 Mermaid 문법이 깨지던 것, 페이지 해시가 도식과 표를 빠뜨리던 것.
+
+남긴 사각: 한 메서드 안의 형제 블록은 여전히 스코프를 공유한다. 블록 범위를 사실로 들고
+있어야 고칠 수 있다.
