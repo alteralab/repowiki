@@ -210,8 +210,35 @@ class JobStore:
             )
             return generation
 
+    def reopen(self, job_id: str) -> int:
+        """끝난 작업을 다시 쓰게 되돌린다. 계획이 바뀐 자리에만 쓴다.
+
+        `reject`와 다르다. 그쪽은 게이트가 거부한 작업의 재시도이고 끝난 작업을 막는다.
+        이쪽은 사실 층이 바뀌어 같은 작업을 더 나은 입력으로 다시 써야 할 때다.
+
+        세대를 올리는 것이 핵심이다. 상태만 되돌리면 저널에 그 세대의 응답이 남아 있어
+        `recover`가 곧바로 다시 끝냄으로 되돌린다. 실제로 그렇게 막혔다 — 근거 예산을
+        고치고 열 쪽을 다시 쓰려 했더니 `빌릴 수 없다: 상태가 done`이 났다(2026-09-10).
+        세대를 올리면 옛 응답이 가려지고 새 응답이 그 자리를 받는다.
+        """
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+            if row is None:
+                raise JobError(f"없는 작업이다: {job_id}")
+            generation = row["generation"] + 1
+            conn.execute(
+                "UPDATE jobs SET state = ?, generation = ?, leased_by = NULL,"
+                " leased_at = NULL WHERE id = ?",
+                (STATE_PENDING, generation, job_id),
+            )
+            return generation
+
     def recover(self) -> list[str]:
-        """저널에 응답이 있는데 끝나지 않은 작업을 마친다. 재개의 첫 동작이다."""
+        """저널에 응답이 있는데 끝나지 않은 작업을 마친다. 재개의 첫 동작이다.
+
+        세대가 같은 응답만 본다. 다시 쓰려고 세대를 올린 작업은 그 세대의 응답이 아직
+        없으므로 여기서 되살아나지 않는다(`reopen`).
+        """
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT j.id FROM jobs j JOIN journal r ON r.job_id = j.id"
