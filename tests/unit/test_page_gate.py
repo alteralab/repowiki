@@ -163,3 +163,26 @@ def test_an_html_table_is_rejected() -> None:
     violations = check_page(_job(), PageOutput(job_id="j1", title="t", description="d",
                                                body_markdown=body))
     assert [v.rule for v in violations] == ["html-table"]
+
+
+def test_a_missing_diagram_is_named_by_its_placeholder() -> None:
+    """무엇이 빠졌는지 이름으로 말한다.
+
+    소스의 첫 줄을 사유에 적으면 안 된다. 레이아웃 지시문으로 시작하는 도식은 첫 줄이 전부
+    같아서, 여덟 개가 빠져도 같은 문장이 여덟 번 나온다.
+    """
+    given = '%%{init: {"layout": "elk"}}%%\nflowchart LR\n  A --> B'
+    violations = check_page(
+        _job(diagram=given),
+        PageOutput(job_id="j1", title="t", description="d", body_markdown=_passing_body()),
+    )
+    assert [v.rule for v in violations] == ["diagram-missing"]
+    assert "{{diagram:L2-a}}" in violations[0].detail
+
+
+def test_a_missing_table_is_named_by_its_placeholder() -> None:
+    violations = check_page(
+        _job(tables=[TABLE]),
+        PageOutput(job_id="j1", title="t", description="d", body_markdown=_passing_body()),
+    )
+    assert "{{table:t1}}" in violations[0].detail

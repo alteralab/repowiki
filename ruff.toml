@@ -10,3 +10,5 @@ extend-exclude = ["docs/reports/research", "docs/plan-history", ".venv", "site"]
 "src/repowiki/cli.py" = ["T201", "T203"]
 "scripts/**" = ["T201", "T203"]
 "evals/**" = ["T201", "T203"]
+# 스킬이 싣고 도는 스크립트도 명령행 출력 층이다. 산출물이 표준 출력이다.
+".claude/skills/**/scripts/**" = ["T201", "T203"]

@@ -96,7 +96,7 @@ def _mermaid_blocks(body: str) -> list[str]:
 
 def _check_blocks(
     job_id: str,
-    expected: list[str],
+    expected: dict[str, str],
     present: list[str],
     rules: tuple[str, str],
     noun: str,
@@ -108,17 +108,20 @@ def _check_blocks(
 
     집합이 아니라 다중집합으로 센다. 같은 표를 두 번 실은 페이지는 한 번 실은 페이지와
     다른 글이고, 집합으로 비교하면 그 차이가 보이지 않는다.
+
+    `expected`의 값은 사람이 읽을 이름이다. 소스의 첫 줄을 사유에 적으면 안 된다 — 레이아웃
+    지시문으로 시작하는 도식은 첫 줄이 전부 같아서, 무엇이 빠졌는지 말해 주지 못한다.
     """
     missing_rule, stray_rule = rules
-    wanted, got = Counter(expected), Counter(present)
+    # 사전을 그대로 세면 값을 개수로 읽는다. 열쇠만 센다.
+    wanted, got = Counter(expected.keys()), Counter(present)
     found: list[PageViolation] = []
     for block, count in sorted((wanted - got).items()):
         found.append(
             PageViolation(
                 job_id=job_id,
                 rule=missing_rule,
-                detail=f"작업이 준 {noun} {count}개가 본문에 없다:"
-                f" {block.splitlines()[0][:60]}",
+                detail=f"작업이 준 {noun} {count}개가 본문에 없다: {expected[block]}",
             )
         )
     for block, count in sorted((got - wanted).items()):
@@ -181,14 +184,14 @@ def check_page(job: PageJob, output: PageOutput) -> list[PageViolation]:
 
     violations += _check_blocks(
         job.id,
-        [diagram.source.strip() for diagram in job.diagrams],
+        {diagram.source.strip(): f"`{{{{diagram:{diagram.id}}}}}`" for diagram in job.diagrams},
         _mermaid_blocks(body),
         ("diagram-missing", "diagram-not-from-facts"),
         "다이어그램",
     )
     violations += _check_blocks(
         job.id,
-        [body_of(table) for table in job.tables],
+        {body_of(table): f"`{{{{table:{table.id}}}}}`" for table in job.tables},
         blocks_in(body),
         ("table-missing", "table-not-from-facts"),
         "표",
