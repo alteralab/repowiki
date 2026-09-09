@@ -13,11 +13,19 @@
 from __future__ import annotations
 
 import json
+import re
 
 from pydantic import BaseModel
 
 _FENCE = "```"
 _MERMAID_FENCE = "```mermaid"
+
+# 근거 목록의 머리. `bundle/emit.py`가 내는 형태다.
+_SOURCES_OPEN = "<details>\n<summary>근거 소스 "
+_SOURCES_CLOSE = "</details>"
+# 목록 한 줄. `- [`경로`](주소)` 이거나 주소 없는 `- `경로``이다.
+# ast-grep-ignore: regex-on-structure — 어휘: 생성한 목록 줄의 고정 형식 판정이다.
+_SOURCE_ITEM = re.compile(r"^- \[`([^`]+)`\]\(([^)]*)\)|^- `([^`]+)`", re.MULTILINE)
 
 
 class SitePage(BaseModel):
@@ -69,6 +77,73 @@ def _mermaid_to_component(body: str) -> str:
     return "\n".join(out)
 
 
+def _files_tree(paths: list[tuple[str, str]]) -> str:
+    """근거 파일 목록을 디렉토리 트리로. 사이트는 이 컴포넌트를 렌더한다.
+
+    평평한 목록은 같은 접두어를 파일 수만큼 되풀이한다. commons-cli 의 한 쪽은 여덟 줄이
+    34글자 접두어를 여덟 번 반복했다. 디렉토리로 묶으면 그것이 한 번이 되고, 저장소의
+    모양이 같은 눈길에 들어온다.
+
+    링크는 버리지 않는다. `File`이 주소를 받지 못하므로(`name: string`, `icon?: ReactNode`)
+    바깥을 `<a>`로 감싼다. 트리 아래에 링크 목록을 따로 두면 같은 접두어를 두 번 반복하게
+    되고, 그것이 이 변환이 없애려던 바로 그 반복이다.
+    """
+    grouped: dict[str, list[tuple[str, str]]] = {}
+    for path, url in paths:
+        directory, _, name = path.rpartition("/")
+        grouped.setdefault(directory, []).append((name or path, url))
+
+    def item(name: str, url: str, indent: str) -> str:
+        node = f'<File name="{_escape(name)}" />'
+        return f'{indent}<a href="{_escape(url)}">{node}</a>' if url else f"{indent}{node}"
+
+    lines = ["<Files>"]
+    for directory in sorted(grouped):
+        if directory:
+            lines.append(f'  <Folder name="{_escape(directory)}" defaultOpen>')
+            lines += [item(name, url, "    ") for name, url in grouped[directory]]
+            lines.append("  </Folder>")
+        else:
+            lines += [item(name, url, "  ") for name, url in grouped[directory]]
+    lines.append("</Files>")
+    return "\n".join(lines)
+
+
+def _sources_to_component(body: str) -> str:
+    """근거 목록의 `<details>`를 사이트 컴포넌트로 바꾼다.
+
+    위키 원문은 건드리지 않는다. `<details>`는 GitHub 에서 그대로 접히는 표준 형태이고,
+    이 변환은 사이트 쪽에서만 뜻이 있다(사이트에서는 아무 꾸밈 없는 맨 위젯으로 나온다).
+    """
+    start = body.find(_SOURCES_OPEN)
+    if start == -1:
+        return body
+    end = body.find(_SOURCES_CLOSE, start)
+    if end == -1:
+        return body
+    block = body[start:end]
+    paths = [
+        (linked or plain, url)
+        for linked, url, plain in _SOURCE_ITEM.findall(block)
+        if linked or plain
+    ]
+    if not paths:
+        return body
+    summary = block[len(_SOURCES_OPEN) :].split("</summary>", 1)[0].strip()
+    replaced = "\n".join(
+        [
+            "<Accordions>",
+            f'<Accordion title="근거 소스 {_escape(summary)}">',
+            "",
+            _files_tree(paths),
+            "",
+            "</Accordion>",
+            "</Accordions>",
+        ]
+    )
+    return body[:start] + replaced + body[end + len(_SOURCES_CLOSE) :]
+
+
 def _escape(value: str) -> str:
     return value.replace('"', "'")
 
@@ -90,7 +165,7 @@ def to_site_page(wiki_path: str, raw: str) -> SitePage:
         f'description: "{_escape(description)}"\n'
         "---\n"
         f"{banner}\n"
-        f"{_mermaid_to_component(body).strip()}\n"
+        f"{_sources_to_component(_mermaid_to_component(body)).strip()}\n"
     )
     return SitePage(path=wiki_path.removesuffix(".md") + ".mdx", content=content)
 
