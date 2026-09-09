@@ -1,0 +1,12 @@
+id: typescript-import-name
+language: typescript
+message: import.name
+# `import { A } from "./x"`의 `A`. barrel 을 지나 실제 선언 파일로 가려면 어떤 이름을
+# 들여오는지 알아야 한다. 어느 파일에서 오는지는 같은 자리의 `import.ts`가 말한다.
+rule:
+  kind: import_specifier
+  inside:
+    kind: import_statement
+    stopBy: end
+    has: {field: source, pattern: $SRC}
+  has: {field: name, pattern: $NAME}

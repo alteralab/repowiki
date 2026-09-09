@@ -1,0 +1,12 @@
+id: tsx-reexport-alias
+language: tsx
+message: reexport.alias
+# `export { A as B } from "./x"`의 `B`. 이 파일이 밖에 내보이는 이름이 이것이다.
+# 같은 자리의 `reexport.name`이 원래 이름을 낸다.
+rule:
+  kind: export_specifier
+  inside:
+    kind: export_statement
+    stopBy: end
+    has: {field: source, pattern: $SRC}
+  has: {field: alias, pattern: $ALIAS}

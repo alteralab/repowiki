@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from pathlib import PurePosixPath
 
 from pydantic import BaseModel, Field
@@ -313,3 +314,151 @@ def _with_inherited(
             "paths": {**inherited.paths, **rule.paths},
         }
     )
+
+
+class ReExport(BaseModel):
+    """재수출 하나. `name`이 비면 별표 재수출이다.
+
+    `exported`는 이 파일이 밖에 내보이는 이름이고 `name`은 원래 파일에서의 이름이다.
+    `export { A as B }`에서 앞이 `A`이고 뒤가 `B`다.
+    """
+
+    from_path: str
+    specifier: str
+    name: str = ""
+    exported: str = ""
+    span_line: int = 0
+
+
+class ExportTable(BaseModel):
+    """파일마다 무엇을 내보내는가. barrel 을 따라 원 선언까지 가는 표다.
+
+    왜 필요한가. 실측(airflow, 2026-09-09): 해석된 임포트 3,310건 중 817건(25%)이
+    `index.ts`를 가리킨다. barrel 을 따라가지 않으면 그 넷 중 하나가 선언이 없는 파일을
+    가리키고, 그 자리에서 만든 엣지는 실제 관계가 아니다.
+    """
+
+    # 파일이 자기 안에서 선언해 내보내는 이름.
+    own: dict[str, set[str]] = Field(default_factory=dict)
+    # 파일이 다른 파일에서 받아 다시 내보내는 것.
+    reexports: dict[str, list[ReExport]] = Field(default_factory=dict)
+
+
+# 재수출을 따라갈 최대 깊이. barrel 이 barrel 을 가리키는 사슬이 이보다 길면 그 저장소의
+# 구조가 문제이고, 무한히 따라가면 고리에서 멈추지 못한다.
+MAX_REEXPORT_DEPTH = 8
+
+
+def resolve_export(
+    table: ExportTable, resolver: Resolver, path: str, name: str, depth: int = 0
+) -> str:
+    """`path`가 내보내는 `name`이 실제로 선언된 파일. 못 찾으면 빈 문자열이다.
+
+    자기가 선언했으면 자기다. 아니면 재수출을 따라간다. 이름 있는 재수출은 그 이름만
+    따라가고, 별표 재수출은 모든 대상을 차례로 본다.
+    """
+    if depth >= MAX_REEXPORT_DEPTH:
+        return ""
+    if name in table.own.get(path, set()):
+        return path
+    for item in table.reexports.get(path, []):
+        target = resolver.resolve(item.specifier, path).target
+        if not target or target == path:
+            continue
+        # 이름 있는 재수출은 내보내는 이름이 맞을 때만 따라간다.
+        if item.exported and item.exported != name:
+            continue
+        wanted = item.name if item.exported else name
+        found = resolve_export(table, resolver, target, wanted, depth + 1)
+        if found:
+            return found
+    return ""
+
+
+def build_export_table(symbols, records) -> ExportTable:
+    """선언과 재수출 매치에서 수출 표를 만든다.
+
+    `named`와 `alias`는 같은 자리에서 따로 나온다. 줄 번호로 짝을 맞춰 별칭이 있으면
+    내보내는 이름을 별칭으로 둔다.
+    """
+    own: dict[str, set[str]] = defaultdict(set)
+    for symbol in symbols:
+        if symbol.language in ("typescript", "tsx") and not symbol.parent:
+            own[symbol.span.path].add(symbol.name)
+
+    # 별칭은 이름과 같은 줄에 있지만 어느 이름의 별칭인지는 매치가 말하지 않는다.
+    # 한 줄에 이름이 여럿이면(`export { A as B, C } from`) 순서로 짝을 맞춘다 —
+    # ast-grep 은 매치를 소스 순서로 내므로 n번째 별칭이 n번째 별칭 있는 이름에 붙는다.
+    alias_queue: dict[tuple[str, int, str], list[str]] = defaultdict(list)
+    for record in sorted(records, key=lambda r: (r.path, r.line, r.kind)):
+        if record.kind == "alias":
+            alias_queue[(record.path, record.line, record.specifier)].append(record.name)
+
+    reexports: dict[str, list[ReExport]] = defaultdict(list)
+    for record in sorted(records, key=lambda r: (r.path, r.line, r.kind, r.name)):
+        if record.kind == "alias":
+            continue
+        if record.kind == "namespace":
+            # `export * as ns from`은 이름 하나로 묶여 나간다. 개별 이름을 따라가지 않고
+            # 이 파일이 `ns`를 스스로 내보내는 것으로 본다.
+            own[record.path].add(record.name)
+            continue
+        exported = ""
+        if record.kind == "name":
+            exported = record.name
+        reexports[record.path].append(
+            ReExport(
+                from_path=record.path,
+                specifier=record.specifier,
+                name=record.name,
+                exported=exported,
+                span_line=record.line,
+            )
+        )
+    _apply_aliases(reexports, alias_queue)
+    return ExportTable(own=dict(own), reexports=dict(reexports))
+
+
+def _apply_aliases(
+    reexports: dict[str, list[ReExport]], alias_queue: dict[tuple[str, int, str], list[str]]
+) -> None:
+    """별칭을 이름에 붙인다. 한 줄에서 소스 순서로 짝을 맞춘다.
+
+    `export { A as B, C } from "./x"`는 별칭이 하나이고 이름이 둘이다. 그 별칭은 첫
+    이름에 붙어야 하고, 둘째 이름은 그대로 나간다. 별칭 수만큼만 앞에서부터 붙인다.
+    """
+    for items in reexports.values():
+        for key, names in alias_queue.items():
+            path, line, specifier = key
+            row = [
+                item
+                for item in items
+                if item.from_path == path
+                and item.span_line == line
+                and item.specifier == specifier
+                and item.name
+            ]
+            for item, alias in zip(row, names, strict=False):
+                item.exported = alias
+
+
+def declaring_path(
+    table: ExportTable, resolver: Resolver, specifier: str, from_path: str, names: list[str]
+) -> str:
+    """임포트 하나가 실제로 닿는 선언 파일.
+
+    먼저 경로로 푼다. 그 파일이 barrel 이면 들여오는 이름을 따라 원 선언까지 간다. 이름이
+    여럿이면 첫 이름이 닿는 자리를 쓴다 — 모듈 엣지는 파일 대 파일이라 이름마다 다른 자리로
+    갈라 놓을 수 없다.
+
+    이름이 없거나(기본 임포트, 부수 효과 임포트) 따라가서 못 찾으면 경로가 푼 자리를 그대로
+    쓴다. barrel 자신도 그 저장소의 파일이고, 그 자리를 버리면 있던 엣지가 사라진다.
+    """
+    target = resolver.resolve(specifier, from_path).target
+    if not target or not names:
+        return target
+    for name in names:
+        found = resolve_export(table, resolver, target, name)
+        if found:
+            return found
+    return target

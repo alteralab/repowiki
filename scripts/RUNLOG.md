@@ -1061,3 +1061,74 @@ airflow 에서 묶음 831개가 나오고 그중 51퍼센트가 타입 두 개 �
 
 kafka 도식 1,322개가 두 Mermaid 파서를 통과한다. `PYTHONHASHSEED` 0/999 에서 바이트 동일.
 DeepWiki 의 kafka 59쪽과 같은 규모다.
+
+## 2026-09-09 DeepWiki 다섯 저장소 실측 — 공통 뼈대
+
+kafka 하나만 보고 일반화한 것이 사용자 지적이었다. 다섯을 더 받아 대조했다.
+RSC 플라이트 페이로드에 전체 위키가 들어 있어 `curl` 한 번이면 된다.
+
+| 저장소 | 쪽 | 1단 | 2단 | 3단 |
+|---|---|---|---|---|
+| django/django | 43 | 16 | 27 | 0 |
+| vercel/next.js | 48 | 11 | 37 | 0 |
+| fastapi/fastapi | 46 | 10 | 36 | 0 |
+| facebook/react | 35 | 8 | 27 | 0 |
+| hashicorp/terraform | 21 | 6 | 11 | 4 |
+| apache/kafka | 59 | 9 | 43 | 7 |
+
+**쪽수는 21~59, 1단은 6~16이다.** 저장소 크기와 쪽수의 상관이 약하다 — terraform 이
+next.js 보다 크지만 쪽은 절반이다. 쪽수를 저장소 크기의 함수로 두면 안 된다는 뜻이다.
+
+**깊이는 2단이 기본이고 3단은 예외다.** 여섯 중 넷이 2단에서 끝난다.
+
+### 1단의 공통 뼈대
+
+여섯 저장소 전부 같은 모양이다.
+
+| 자리 | 무엇 | 빈도 |
+|---|---|---|
+| 1번 | `<저장소> overview` | 6/6 |
+| 2번부터 | 기능 영역 (25개) | 전부 |
+| 뒤쪽 | 빌드·도구·검사·배포 (13개) | 6/6 |
+| 뒤쪽 | 문서·생태계 (3개) | 3/6 |
+| 마지막 | `glossary` | 5/6 |
+
+기능 영역의 이름이 django 는 `core django orm`, `admin interface`, `template system`이고
+next.js 는 `build system`, `server runtime`, `caching architecture`다. **빌드 모듈 이름이
+아니라 그 저장소가 하는 일의 이름이다.**
+
+### 이 실측이 바꾸는 것
+
+- 쪽수 상한 80은 실측(21~59)보다 크다. 40 안팎이 맞다
+- 1단 6~16이 실측 범위다. 지금 상한 12 는 안에 있다
+- **`glossary` 쪽이 없다.** 여섯 중 다섯이 가진 자리인데 repowiki 에는 없다
+- 3단은 예외다. 지금 2단까지만 세우는 것은 실측과 맞다
+- 기능 영역의 이름은 코드에서만 지을 수 없다. 디렉토리 이름(`providers`, `clients`)이
+  그나마 가까운 근사이고, 개념 이름은 쓰는 층이 제안할 자리다
+
+## 2026-09-09 B2: TypeScript 수출 표
+
+barrel 을 따라 원 선언까지 간다. 실측(airflow UI): 해석된 임포트의 25퍼센트가 `index.ts`를
+가리킨다.
+
+- `data/rules/{typescript,tsx}/`: `reexport.{star,from,name,alias,namespace}`와 `import.name`.
+  `export_specifier`의 부모는 `export_clause`이고 `export_statement`는 그 위라
+  `stopBy: end`가 필요하다
+- `tsmodules.ExportTable`과 `resolve_export`: 자기 선언이면 자기, 아니면 재수출을 따라간다.
+  고리는 깊이 8에서 멈춘다
+- `tsmodules.declaring_path`: 임포트 하나가 실제로 닿는 선언 파일
+
+### 그 과정에서 찾은 결함
+
+**임포트 이름을 매치 순서에 기대어 붙이고 있었다.** ast-grep 은 임포트 문장과 그 안의
+이름을 어느 순서로 낼지 보장하지 않는다. barrel 을 가리키는 765건 중 이름이 붙은 것이
+49건뿐이었다. 이름을 따로 모아 추출이 끝난 뒤 붙이니 741건이 되었다.
+
+**별칭 짝짓기가 틀렸다.** `export { A as B, C } from`에서 별칭 `B`가 `C`에도 붙었다.
+한 줄 안에서 소스 순서로 짝을 맞춘다.
+
+### 실측
+
+airflow 전체에서 모듈 엣지 517건이 그대로다. barrel 과 그 대상이 대개 같은 빌드 모듈
+안이라, 파일이 바뀌어도 모듈은 안 바뀐다. **B2 의 값어치는 파일 단위 정체가 필요한
+B3(타입·호출 엣지)에서 나온다.** 지금 단계에서 모듈 엣지가 안 바뀌는 것은 정상이다.

@@ -67,6 +67,21 @@ class Reference(BaseModel):
     is_test: bool
 
 
+class ReExportRecord(BaseModel):
+    """재수출 매치 하나. 표를 만들 재료다.
+
+    `kind`는 `star`, `named`, `alias`, `namespace` 중 하나다. `named`와 `alias`는 같은
+    자리에서 따로 나오므로 줄 번호로 짝을 맞춘다 — ast-grep 이 안쪽 필드와 바깥 필드를
+    한 매치에서 함께 잡지 못한다.
+    """
+
+    kind: str
+    specifier: str
+    name: str = ""
+    path: str
+    line: int
+
+
 class ImportRecord(BaseModel):
     """임포트 하나. `target`은 점으로 이은 이름이고 파일 경로가 아니다.
 
@@ -102,6 +117,7 @@ class Extraction(BaseModel):
     imports: list[ImportRecord]
     packages: list[PackageRecord]
     entry_points: list[EntryPoint]
+    reexports: list[ReExportRecord] = Field(default_factory=list)
 
 
 def _dotted(text: str, keyword: str) -> str:
@@ -179,6 +195,10 @@ class _Buckets(BaseModel):
     imports: list[ImportRecord] = Field(default_factory=list)
     packages: list[PackageRecord] = Field(default_factory=list)
     entry_points: list[EntryPoint] = Field(default_factory=list)
+    reexports: list[ReExportRecord] = Field(default_factory=list)
+    # `(파일, 임포트 문자열, 이름)`. 추출이 끝난 뒤 임포트 기록에 붙인다 — 매치 순서가
+    # 정해져 있지 않아 그 자리에서 붙이면 어떤 파일은 이름이 통째로 빠진다.
+    import_names: list[tuple[str, str, str]] = Field(default_factory=list)
 
 
 class _Context(BaseModel):
@@ -267,6 +287,36 @@ def _take_ts_import(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
     )
 
 
+def _take_ts_import_name(match: AstMatch, _ctx: _Context, out: _Buckets) -> None:
+    """`import { A } from "./x"`의 이름 하나.
+
+    임포트 문장과 이름은 매치 순서가 정해져 있지 않다. 이름을 따로 모아 두고 추출이 끝난 뒤
+    문장에 붙인다 — 순서에 기대면 어떤 파일에서는 이름이 통째로 빠진다(airflow 실측:
+    barrel 을 가리키는 765건 중 이름이 붙은 것이 49건뿐이었다).
+    """
+    raw = (match.captures.get("SRC") or "").strip().strip("\"'")
+    name = (match.captures.get("NAME") or "").strip()
+    if raw and name:
+        out.import_names.append((match.path, raw, name))
+
+
+def _take_reexport(match: AstMatch, _ctx: _Context, out: _Buckets) -> None:
+    """재수출 매치. 종류마다 담는 값이 다르다."""
+    kind = match.message.removeprefix("reexport.")
+    raw = (match.captures.get("SOURCE") or match.captures.get("SRC") or "").strip().strip("\"'")
+    if not raw:
+        return
+    out.reexports.append(
+        ReExportRecord(
+            kind=kind,
+            specifier=raw,
+            name=(match.captures.get("NAME") or match.captures.get("ALIAS") or "").strip(),
+            path=match.path,
+            line=match.start_line,
+        )
+    )
+
+
 def _ignore(match: AstMatch, ctx: _Context, out: _Buckets) -> None:
     """다른 분석기가 가져가는 매치. 이 층에서는 아무것도 하지 않는다."""
 
@@ -292,6 +342,7 @@ _PREFIX_HANDLERS: tuple[tuple[str, object], ...] = (
     ("entity.", "_ignore"),
     # `bind.*`는 이름과 타입을 묶은 매치다. 호출 해석기(analyze/calls.py)가 소비한다.
     ("bind.", "_ignore"),
+    ("reexport.", "_take_reexport"),
 )
 
 _EXACT_HANDLERS: dict[str, str] = {
@@ -299,6 +350,7 @@ _EXACT_HANDLERS: dict[str, str] = {
     "import": "_take_import",
     "import.from": "_take_import",
     "import.ts": "_take_ts_import",
+    "import.name": "_take_ts_import_name",
 }
 
 
@@ -339,13 +391,27 @@ def extract(matches: list[AstMatch], roots: list[str], facts: DomainFacts) -> Ex
         raise ValueError(f"알 수 없는 룰 message: {sorted(unknown)}")
 
     _assign_owners(out.symbols, out.references, defs_by_file)
+    _attach_import_names(out)
     return Extraction(
         symbols=out.symbols,
         references=out.references,
         imports=out.imports,
         packages=out.packages,
         entry_points=out.entry_points,
+        reexports=out.reexports,
     )
+
+
+def _attach_import_names(out: _Buckets) -> None:
+    """모아 둔 이름을 임포트 기록에 붙인다. 매치 순서에 기대지 않는다."""
+    by_place: dict[tuple[str, str], ImportRecord] = {}
+    for record in out.imports:
+        if record.specifier:
+            by_place.setdefault((record.span.path, record.specifier), record)
+    for path, specifier, name in out.import_names:
+        record = by_place.get((path, specifier))
+        if record is not None and name not in record.names:
+            record.names.append(name)
 
 
 def _entry_point(match: AstMatch, span: Span, module: str) -> EntryPoint | None:

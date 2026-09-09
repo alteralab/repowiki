@@ -1,0 +1,10 @@
+id: typescript-reexport-named
+language: typescript
+message: reexport.from
+# 이름을 붙여 다시 내보내는 문장. 어떤 이름인지는 `reexport.name`이 따로 낸다 —
+# ast-grep 은 `inside` 안쪽의 필드와 바깥 필드를 한 매치에서 함께 잡지 못한다.
+rule:
+  kind: export_statement
+  all:
+    - has: {field: source, pattern: $SOURCE}
+    - has: {kind: export_clause}

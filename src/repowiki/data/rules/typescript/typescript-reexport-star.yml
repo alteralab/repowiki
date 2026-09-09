@@ -1,0 +1,10 @@
+id: typescript-reexport-star
+language: typescript
+message: reexport.star
+# `export * from "./x"`. 이 파일이 x 의 수출을 그대로 다시 내보낸다.
+rule:
+  kind: export_statement
+  all:
+    - has: {field: source, pattern: $SOURCE}
+    - not: {has: {kind: export_clause}}
+    - not: {has: {kind: namespace_export}}

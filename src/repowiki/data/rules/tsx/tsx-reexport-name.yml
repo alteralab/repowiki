@@ -1,0 +1,14 @@
+id: tsx-reexport-name
+language: tsx
+message: reexport.name
+# 재수출 문장 안의 이름 하나. 별칭이 있으면 이 파일이 내보내는 이름은 별칭 쪽이다.
+#
+# `stopBy: end`가 필요하다. `export_specifier`의 부모는 `export_clause`이고
+# `export_statement`는 그 위라, 한 단만 보면 걸리지 않는다.
+rule:
+  kind: export_specifier
+  inside:
+    kind: export_statement
+    stopBy: end
+    has: {field: source, pattern: $SRC}
+  has: {field: name, pattern: $NAME}
