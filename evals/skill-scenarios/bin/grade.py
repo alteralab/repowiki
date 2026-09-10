@@ -9,6 +9,7 @@
 
 잴 수 있는 기준(id 는 scenario.md 체크리스트와 같다). 도구 이벤트는 Read 와 Bash 를 한 시간열로 본다.
   skill_triggered / skill_not_triggered  Skill 도구 호출이나 SKILL.md 읽기
+  system_first       system/llms.txt 나 system/index.md 읽기가 어느 위키 파일(인덱스든 쪽이든)보다 앞선다
   index_first        llms.txt 읽기가 쪽 원문 읽기(Read 든 cat 류든)보다 앞선다
   right_page         기대 쪽을 읽었거나(Read, cat 류) search-wiki 출력이 그 쪽을 냈다
   used_search_script search-wiki.sh 를 Bash 로 돌렸다
@@ -19,6 +20,7 @@
   says_absent        답에 "위키에 없다"류 문장이 있다
   no_unsourced_numbers  답에 초·ms·분 단위 수치가 없다
   answered           답이 비어 있지 않고 대상 파일을 읽었다
+판정으로 남기는 것: no_fabrication, asks_which(되물음은 문장의 뜻이라 낱말 검사로 못 잰다)
 판정으로 남기는 것: no_fabrication
 """
 
@@ -74,7 +76,7 @@ def _opened(calls: list[dict]) -> list[str]:
             opened += [m.group(2) for m in _PAGE_IN_COMMAND.finditer(command)]
             # ast-grep-ignore: regex-on-structure — 어휘: 명령 한 줄 안의 읽기 명령 낱말 존재 검사
             if "llms.txt" in command and re.search(r"\b(cat|sed|head|tail|less|more)\b", command):
-                opened.append("llms.txt")
+                opened.append("system/llms.txt" if "system/llms.txt" in command else "llms.txt")
     return opened
 
 
@@ -84,12 +86,17 @@ def measure(calls: list[dict], results: list[str], answer: str, page: str | None
     skill_used = any(
         c["tool"] == "Skill" and "repowiki" in json.dumps(c["input"]) for c in calls
     ) or any(path.endswith("repowiki/SKILL.md") for path in opened)
-    index_at = [i for i, p in enumerate(opened) if p.endswith("llms.txt")]
-    page_at = [i for i, p in enumerate(opened) if p.endswith(".md") and not p.endswith("SKILL.md")]
+    system_at = [i for i, p in enumerate(opened) if p.endswith(("system/llms.txt", "system/index.md"))]
+    index_at = [i for i, p in enumerate(opened) if p.endswith("llms.txt") and not p.endswith("system/llms.txt")]
+    page_at = [
+        i for i, p in enumerate(opened)
+        if p.endswith(".md") and not p.endswith("SKILL.md") and "/system/" not in p and "/skills/" not in p
+    ]
     search_ran = any("search-wiki.sh" in c for c in commands)
     got = {
         "skill_triggered": skill_used,
         "skill_not_triggered": not skill_used,
+        "system_first": bool(system_at) and all(system_at[0] < i for i in index_at + page_at),
         "index_first": bool(index_at) and (not page_at or index_at[0] < page_at[0]),
         "used_search_script": search_ran,
         "searched": bool(index_at) or search_ran,

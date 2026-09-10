@@ -1,0 +1,9 @@
+# apache
+<!-- repowiki system index -->
+
+> apache 아래 저장소 위키들의 인덱스다. 저장소를 고르고 그 줄의 `llms.txt` 부터 읽는다.
+
+## 위키
+
+- [commons-cli](../commons-cli/wiki/llms.txt): 명령행 인터페이스를 정의하고 파싱하고 보여 주는 세 갈래로 나뉜 단일 모듈 라이브러리다.
+- [kafka](../kafka/wiki/llms.txt): Apache Kafka 저장소가 무엇으로 나뉘고 무엇이 무엇에 기대는지, 처음 보는 사람이 어디서 들어가면 되는지를 한 쪽에 모았다.

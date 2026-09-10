@@ -1,0 +1,8 @@
+{
+ "name": "commons-cli",
+ "description": "명령행 인터페이스를 정의하고 파싱하고 보여 주는 세 갈래로 나뉜 단일 모듈 라이브러리다.",
+ "analyzed_commit": "e17111798da51037659b3594d9c0b3b525040081",
+ "remote_url": "https://github.com/apache/commons-cli",
+ "pages": 2,
+ "generated_at": "2026-09-10T04:54:12+00:00"
+}

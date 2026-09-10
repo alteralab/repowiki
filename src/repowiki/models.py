@@ -264,6 +264,22 @@ class PageType(StrEnum):
     GLOSSARY = "glossary"
 
 
+class SystemMember(BaseModel):
+    """시스템 인덱스의 한 줄. 위키 하나가 어디 있고 무엇인지다.
+
+    `path` 는 시스템 뿌리에서 그 위키 디렉터리까지의 상대 경로(posix)다. 사람과 에이전트가
+    인덱스에서 그 위키의 `llms.txt` 로 바로 가는 데 쓴다.
+    """
+
+    name: str
+    path: str
+    description: str
+    analyzed_commit: str
+    remote_url: str = ""
+    pages: int = 0
+    generated_at: str = ""
+
+
 class FactTable(BaseModel):
     """페이지에 실릴 표 하나. 값은 전부 사실에서 왔고 LLM은 이 표를 고치지 않는다.
 

@@ -24,7 +24,8 @@ from repowiki.bundle.links import normalize
 from repowiki.bundle.placeholders import expand, names
 from repowiki.bundle.site_emit import meta_files, to_site_page
 from repowiki.gate.page import PageViolation, check_page
-from repowiki.models import PageJob, PageOutput, RepoFacts
+from repowiki.models import PageJob, PageOutput, RepoFacts, SystemMember
+from repowiki.pipeline.system_run import MANIFEST, write_system
 from repowiki.write import source
 from repowiki.write.plan import build_jobs
 
@@ -313,13 +314,38 @@ def bundle(workspace: Workspace, out: Path, facts: RepoFacts) -> tuple[Path, int
     (wiki / "index.md").write_text(render_index(entries, name), encoding="utf-8")
     (wiki / "llms.txt").write_text(render_llms_txt(entries, name), encoding="utf-8")
     (wiki / "llms-full.txt").write_text(render_llms_full(bodies), encoding="utf-8")
+    (wiki / MANIFEST).write_text(
+        _manifest(entries, facts, stamp).model_dump_json(exclude={"path"}, indent=1), encoding="utf-8"
+    )
     schema = wiki / ".schema"
     schema.mkdir(exist_ok=True)
     (schema / "frontmatter.json").write_text(
         json.dumps(Frontmatter.model_json_schema(), indent=2, ensure_ascii=False), encoding="utf-8"
     )
     emit_query_skill(out)
+    # 시스템 인덱스는 위키 하나일 때도 있다. 이 산출 디렉터리가 곧 뿌리다.
+    write_system(out)
     return wiki, len(entries)
+
+
+def _manifest(entries: list[tuple[str, Frontmatter]], facts: RepoFacts, stamp: str) -> SystemMember:
+    """위키 하나의 정체. 시스템 인덱스가 읽는 유일한 자리다.
+
+    설명은 구조 개요 쪽의 한 문장이다. 그 쪽이 없으면 첫 쪽의 것이다. 원격 주소는 인용 고리와
+    같은 정규화를 거친다 — 그대로 적으면 `https://user:token@host/...` 의 토큰이 산출물에 남는다.
+    """
+    heads = dict(entries)
+    overview = next((h for p, h in entries if p.startswith("overview/")), None)
+    description = (overview or next(iter(heads.values()))).description if entries else ""
+    return SystemMember(
+        name=facts.profile.root_name,
+        path="wiki",
+        description=description,
+        analyzed_commit=facts.profile.head_sha,
+        remote_url=normalize(facts.profile.remote_url),
+        pages=len(entries),
+        generated_at=stamp,
+    )
 
 
 # 조회 스킬의 정본. 위키를 읽는 사람의 세션이 쓰는 절차라 위키와 함께 나간다.

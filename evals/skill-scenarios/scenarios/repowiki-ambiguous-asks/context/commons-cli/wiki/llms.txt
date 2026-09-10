@@ -1,0 +1,9 @@
+# commons-cli
+
+> commons-cli의 아키텍처 위키다. 페이지는 결정적 분석 결과에서 만들어졌고
+> 중요한 명제마다 `path:Lx-Ly` 근거가 붙어 있다.
+
+## 페이지
+
+- [토큰 해석과 실패 처리](concepts/2-defaultparser-unrecognizedoptionexception.md): 명령행 토큰을 옵션과 값으로 가르는 자리와, 가르지 못했을 때 던지는 예외 계층이다.
+- [commons-cli 구조 개요](overview/architecture.md): 명령행 인터페이스를 정의하고 파싱하고 보여 주는 세 갈래로 나뉜 단일 모듈 라이브러리다.

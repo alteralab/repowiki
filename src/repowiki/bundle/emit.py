@@ -223,6 +223,62 @@ def render_llms_txt(pages: list[tuple[str, Frontmatter]], repo_name: str) -> str
     return "\n".join(lines) + "\n"
 
 
+# repowiki 가 만든 시스템 인덱스라는 표식. 다시 낼 때 이 표식이 있는 파일만 덮어쓰거나 지운다 —
+# 사람이 같은 이름으로 써 둔 파일을 잃지 않기 위해서다.
+SYSTEM_MARK = "<!-- repowiki system index -->"
+
+
+def render_system_index(members: list[SystemMember], root_name: str) -> str:
+    """`system/index.md`. 위키가 하나여도 만든다 — 위키가 늘 때 인덱스를 새로 짓는 것이 아니라
+    처음부터 있는 자리에 줄이 더해진다. 표의 링크는 각 위키의 인덱스로 간다."""
+    lines = [
+        "---",
+        'okf_version: "0.2"',
+        f"title: {_quote(f'{root_name} 시스템 인덱스')}",
+        "---",
+        SYSTEM_MARK,
+        "",
+        f"# {root_name} 시스템 인덱스",
+        "",
+        "이 뿌리 아래의 위키 전부다. 질문이 어느 저장소의 것인지 여기서 고르고 그 위키의",
+        "`llms.txt` 로 간다. 저장소 사이의 관계 페이지는 이 인덱스가 아니라 별도 분석의 산출이다.",
+        "",
+        "| 저장소 | 무엇인가 | 쪽 | 분석 커밋 | 위키 |",
+        "|---|---|---|---|---|",
+    ]
+    for member in sorted(members, key=lambda m: m.name):
+        commit = member.analyzed_commit[:12]
+        # 링크는 이 파일(system/index.md)이 있는 자리 기준이다. 위키는 한 단계 위에 있다.
+        lines.append(
+            f"| {_cell(member.name)} | {_cell(member.description)} | {member.pages} | `{commit}` |"
+            f" [{_cell(member.path)}/index.md](../{member.path}/index.md) |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _cell(text: str) -> str:
+    """표 칸의 글. 세로줄과 줄바꿈이 있으면 표가 깨진다."""
+    return " ".join(text.replace("|", "\\|").split())
+
+
+def render_system_llms(members: list[SystemMember], root_name: str) -> str:
+    """`system/llms.txt`. 에이전트가 먼저 읽는 인덱스의 인덱스다. 한 줄이 위키 하나이고 링크는
+    그 위키의 `llms.txt` 다."""
+    lines = [
+        f"# {root_name}",
+        SYSTEM_MARK,
+        "",
+        f"> {root_name} 아래 저장소 위키들의 인덱스다. 저장소를 고르고 그 줄의 `llms.txt` 부터 읽는다.",
+        "",
+        "## 위키",
+        "",
+    ]
+    for member in sorted(members, key=lambda m: m.name):
+        # 링크는 이 파일(system/llms.txt) 기준이다. 조회 스크립트가 이 형식을 그대로 읽는다.
+        lines.append(f"- [{_cell(member.name)}](../{member.path}/llms.txt): {_cell(member.description)}")
+    return "\n".join(lines) + "\n"
+
+
 def render_llms_full(pages: list[tuple[str, str]]) -> str:
     """`llms-full.txt`. 페이지 원문을 한 파일에 잇는다."""
     chunks = [f"<!-- {path} -->\n{body.rstrip()}" for path, body in sorted(pages)]

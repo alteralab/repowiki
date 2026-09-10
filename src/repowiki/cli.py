@@ -15,11 +15,13 @@ from repowiki.gate.evidence import check_evidence
 from repowiki.gate.mermaid import check_limits
 from repowiki.pipeline.analyze_run import analyze_repo, load_limits, write_facts
 from repowiki.adapters.site import serve
+from repowiki.pipeline.system_run import MANIFEST, SystemIndexError, write_system
 from repowiki.pipeline.write_run import (
     Workspace,
     build_site,
     bundle,
     describe,
+    emit_query_skill,
     load_facts,
     next_job,
     prepare,
@@ -154,6 +156,25 @@ def _cmd_bundle(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_system(args: argparse.Namespace) -> int:
+    """뿌리 아래 위키들의 시스템 인덱스를 다시 낸다. 저장소가 늘었을 때 돌린다."""
+    root = Path(args.root).resolve()
+    if not root.is_dir():
+        print(f"오류: 디렉토리가 아니다: {root}", file=sys.stderr)
+        return 2
+    try:
+        system, count = write_system(root, args.name)
+    except SystemIndexError as error:
+        print(f"오류: {error}", file=sys.stderr)
+        return 1
+    if count == 0:
+        print(f"위키가 없다: {root} 나 그 바로 아래에 wiki/{MANIFEST} 가 있어야 한다", file=sys.stderr)
+        return 1
+    emit_query_skill(root)
+    print(f"위키 {count}개를 {system}/index.md 와 llms.txt 에 실었다. 조회 스킬은 {root}/skills/repowiki")
+    return 0
+
+
 def _cmd_site(args: argparse.Namespace) -> int:
     out = Path(args.out).resolve()
     facts = load_facts(out)
@@ -272,6 +293,11 @@ def main(argv: list[str] | None = None) -> int:
     bundle_cmd = sub.add_parser("bundle", help="제출된 페이지를 위키로 낸다")
     bundle_cmd.add_argument("--out", default="out")
     bundle_cmd.set_defaults(handler=_cmd_bundle)
+
+    system = sub.add_parser("system", help="한 뿌리 아래 위키들의 시스템 인덱스를 낸다")
+    system.add_argument("root", help="위키 산출 디렉토리들을 품은 뿌리")
+    system.add_argument("--name", default=None, help="시스템 이름(기본은 뿌리 디렉토리 이름)")
+    system.set_defaults(handler=_cmd_system)
 
     site = sub.add_parser("site", help="위키를 정적 사이트로 만들고 루프백에서 연다")
     site.add_argument("--out", default="out")
