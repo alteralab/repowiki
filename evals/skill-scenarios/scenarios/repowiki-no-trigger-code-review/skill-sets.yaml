@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=false
+sets:
+  - name: with-skill
+    skills:
+      - skills/repowiki
+    allowed_tools:
+      - Read
+      - Glob
+      - Grep
+      - Bash
+      - Skill

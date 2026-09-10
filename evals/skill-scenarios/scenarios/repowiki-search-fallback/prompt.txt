@@ -1,0 +1,1 @@
+./wiki 에서 RemoteLogMetadataSerde.deserialize 가 ApiMessageAndVersion 을 어떻게 쓰는지 찾아줘

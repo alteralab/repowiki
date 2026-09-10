@@ -11,6 +11,7 @@ LLM이 사실 밖을 보지 못하게 하는 장치는 둘이다. 작업 디렉�
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -317,7 +318,21 @@ def bundle(workspace: Workspace, out: Path, facts: RepoFacts) -> tuple[Path, int
     (schema / "frontmatter.json").write_text(
         json.dumps(Frontmatter.model_json_schema(), indent=2, ensure_ascii=False), encoding="utf-8"
     )
+    emit_query_skill(out)
     return wiki, len(entries)
+
+
+# 조회 스킬의 정본. 위키를 읽는 사람의 세션이 쓰는 절차라 위키와 함께 나간다.
+QUERY_SKILL = Path(__file__).resolve().parent.parent / "data" / "skills" / "repowiki"
+
+
+def emit_query_skill(out: Path) -> Path:
+    """조회 스킬을 `<out>/skills/repowiki/` 에 복사한다. 스크립트의 기본 위키 자리가 그 배치를 전제한다."""
+    target = out / "skills" / "repowiki"
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(QUERY_SKILL, target)
+    return target
 
 
 def build_site(
