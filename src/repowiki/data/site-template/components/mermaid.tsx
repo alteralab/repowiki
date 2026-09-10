@@ -49,6 +49,11 @@ export function Mermaid({ chart }: { chart: string }) {
     const container = containerRef.current;
     void (async () => {
       const { default: mermaid } = await import('mermaid');
+      // ELK 를 등록한다. 사실 층은 L0 와 AREA 를 `layout: elk` 로 그리고 가독성 사다리도 그것을
+      // 쟀는데, 등록이 없으면 Mermaid 가 소리 없이 dagre 로 그려 같은 그림이 더 넓어진다
+      // (kafka AREA-streams: 사다리 765px, 사이트 977px, 2026-09-10).
+      const { default: elkLayouts } = await import('@mermaid-js/layout-elk');
+      mermaid.registerLayoutLoaders(elkLayouts);
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: 'loose',

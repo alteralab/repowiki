@@ -9,6 +9,7 @@
     "types:check": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@mermaid-js/layout-elk": "^0.2.3",
     "cn": "^0.2.4",
     "fumadocs-core": "16.15.8",
     "fumadocs-mdx": "15.4.0",

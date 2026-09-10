@@ -1,10 +1,32 @@
 # 다이어그램 한도의 정본(PLAN §2.5). 값은 가독성 사다리 실측으로 정했다.
-# 측정: 1440px 뷰포트, 본문 폭 1100px, 실제 Chrome 렌더, 엣지 교차 10개 이하가 기준.
-# 실측(evals/ladder): L0를 ELK로 그리면 상한 6에서 kafka 1, dubbo 5, airflow 5로 통과한다.
-# 같은 상한을 dagre로 그리면 dubbo 11, airflow 20으로 떨어진다.
-# L1도 dagre로는 둘이 떨어졌다(dubbo-metrics 교차 11, airflow providers 17). ELK로 바꾸니
-# 각각 5와 3이 되고 나머지도 전부 통과한다(dubbo 17/17, airflow 24/24).
-# L2는 classDiagram이라 ELK 레이아웃의 대상이 아니고 dagre로 통과한다.
+# 측정: 1440px 뷰포트, 본문 폭 820px, 실제 Chrome 렌더, 엣지 교차 10개 이하가 기준.
+#
+# 본문 폭은 1,100이 아니다. 사이트(Fumadocs)의 도식 컨테이너는 1440px 에서 823px 이고
+# 1920px 에서도 834px 이다(2026-09-10 실측). 그리고 사다리는 그때까지 줄어든 뒤의 상자를
+# 재고 있어서 어떤 그림도 본문을 넘지 못했다 — 그래서 아래 상한 대부분이 실측 없이 들어와
+# 있었고, kafka `TYPE-Admin`은 원본 5,187px 이 823px 로 줄어 글자가 안 보였다. 지금 값은
+# 원본 폭(viewBox)으로 다시 잰 것이다. 표본은 kafka 이고 dubbo·airflow 는 이 판에서 다시
+# 재지 않았다.
+#
+# 실측(kafka, 2026-09-10, evals/ladder):
+#   L0    ELK 가로 6노드 1,119px → 세로(코드에서 TB) 459px.
+#   L1    ELK 가로는 connect(9노드, 접두어 뗀 뒤) 975px. dagre 가로면 765px, 전부 든다.
+#         이전 판의 근거였던 dubbo·airflow 의 dagre 교차(11·17)는 접두어를 떼기 전 값이라
+#         다시 재야 한다.
+#   L2    세로 classDiagram 은 8노드에 1,460px. 가로면 20노드 791px, 높이 12노드 1,574px.
+#   TYPE  세로는 25노드 6,848px. 이웃을 한쪽에 세우고 라벨 24자면 12노드에서 최대 706px,
+#         높이 1,440px. 상한 12는 폭이 아니라 높이로 정했다(16이면 1,976px). SC-1.6 에는
+#         높이 기준이 없으므로 이것은 사람이 정한 값이다.
+#   COLLAB ELK 는 엣지 라벨 자리 때문에 20노드 1,063px. dagre 면 707px.
+#   SEQ   기본 간격은 참가자 넷이 918px. 상자 100·간격 16에 이름을 열 자로 접으면 여섯이
+#         801px, 여덟은 넘친다. 상자 90이면 이름이 상자 밖으로 나간다.
+#   FLOW  같은 간격으로 열 장 최대 431px(참가자 셋). 상한은 SEQ 와 같은 기하로 정했다.
+#   TIME  timeline 은 분기당 200px 이라 아홉 분기가 2,190px. xychart 로 바꾸고 폭을 800에
+#         못 박았다.
+#   AREA  가로 다섯 상자가 1,894px. 세로 사슬 + 상자 안 가로 잎 셋(24자) + 제목 40자면
+#         ELK 로 12장 전부 든다(최대 765px). dagre 면 둘이 넘친다(977·859px). 사이트도
+#         ELK 를 등록한다 — 등록이 없으면 dagre 로 그려진다.
+#   ER    kafka 에 엔티티 그림이 없어 이 판에서 재지 못했다.
 levels:
   L0:
     max_nodes: 6
@@ -15,15 +37,15 @@ levels:
     max_nodes: 25
     max_source_chars: 2000
     max_blocks_per_page: 50
-    layout: elk
+    layout: dagre
   FLOW:
     # 참가자는 흐름이 지나는 모듈이다. 시퀀스는 세로로 길어지므로 노드보다 홉이 상한이다.
-    max_nodes: 8
+    max_nodes: 6
     max_source_chars: 2000
     max_blocks_per_page: 50
     layout: dagre
   TIME:
-    # timeline은 기간 수가 곧 노드 수다. 24개월 창이면 분기 여덟에서 아홉이다.
+    # 막대 하나가 분기 하나다. 24개월 창이면 분기 여덟에서 아홉이다.
     max_nodes: 12
     max_source_chars: 2000
     max_blocks_per_page: 50
@@ -35,20 +57,21 @@ levels:
     max_blocks_per_page: 50
     layout: dagre
   L2:
-    max_nodes: 25
+    # 가로 classDiagram. 폭은 스물까지 들지만 높이로 열둘에서 끊었다.
+    max_nodes: 12
     max_source_chars: 2000
     max_blocks_per_page: 50
     layout: dagre
   AREA:
-    # 1단 구성도. 자식 상자 안에 대표 타입이 들어가 노드가 많아 보이지만, 사람이 보는 것은
+    # 1단 구성도. 상자가 세로로 한 줄에 하나라 이 수가 곧 높이다. 사람이 보는 것은
     # 상자 사이의 화살표다.
     max_nodes: 12
     max_source_chars: 2600
     max_blocks_per_page: 50
     layout: elk
   TYPE:
-    # 한 타입의 상세. 상자 하나에 멤버가 들어가고 이웃이 둘러선다. classDiagram이라 dagre다.
-    max_nodes: 25
+    # 한 타입의 상세. 상자 하나에 멤버가 들어가고 이웃이 왼쪽에 선다. classDiagram이라 dagre다.
+    max_nodes: 12
     max_source_chars: 2400
     max_blocks_per_page: 50
     layout: dagre
@@ -57,10 +80,10 @@ levels:
     max_nodes: 20
     max_source_chars: 2000
     max_blocks_per_page: 50
-    layout: elk
+    layout: dagre
   SEQ:
     # 멤버 하나의 호출 순서. 참가자는 타입이고 세로로 길어지므로 참가자 수가 상한이다.
-    max_nodes: 8
+    max_nodes: 6
     max_source_chars: 2000
     max_blocks_per_page: 50
     layout: dagre

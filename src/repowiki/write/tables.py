@@ -171,6 +171,33 @@ def config_table(facts: RepoFacts, prefix: str | None = None) -> FactTable | Non
     )
 
 
+def period_table(facts: RepoFacts) -> FactTable | None:
+    """분기마다 커밋 수와 가장 많이 바뀐 파일. 이력 그림이 커밋 수만 그리므로 파일 이름은
+    이 표가 유일한 자리다(2026-09-10, timeline 을 막대그래프로 바꾸면서 옮겼다).
+
+    이력 사실에는 줄 범위가 없어 근거 칸이 없다. 값의 출처는 git 이력 자체다.
+    """
+    history = facts.history
+    if history is None or not history.periods:
+        return None
+    rows = [
+        [
+            str(period.get("label", "")),
+            str(period.get("commits", 0)),
+            f"`{period['top_path']}`" if period.get("top_path") else "",
+            str(period.get("top_revisions", "")) if period.get("top_path") else "",
+        ]
+        for period in history.periods[-_MAX_ROWS:]
+    ]
+    return FactTable(
+        id="history-periods",
+        title="분기별 커밋과 가장 많이 바뀐 파일",
+        columns=["분기", "커밋", "가장 많이 바뀐 파일", "그 파일의 변경 횟수"],
+        rows=rows,
+        note=f"최근 {history.window_months}개월 창의 분기다. 값은 git 이력에서 셌다.",
+    )
+
+
 def module_table(facts: RepoFacts) -> FactTable | None:
     """모듈 목록과 크기. 저장소가 무엇으로 나뉘는지 처음 보는 사람이 읽는 자리다."""
     if len(facts.modules) < 2:

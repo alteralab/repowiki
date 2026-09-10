@@ -792,6 +792,9 @@ def _history_job(facts: RepoFacts) -> PageJob | None:
         "hotspots": history.hotspots,
         "couplings": history.couplings,
         "issue_keys": history.issue_keys,
+        # 분기마다 커밋 수와 가장 많이 바뀐 파일. 그림은 커밋 수만 막대로 그리므로 파일 이름은
+        # 여기서만 쪽에 닿는다.
+        "periods": history.periods,
     }
     # 이력 사실에는 줄 범위가 없다. 핫스팟 파일의 대표 선언을 그 파일의 자리로 삼는다 —
     # "이 파일이 자주 바뀐다"는 주장의 근거는 그 파일 자체다.
@@ -829,7 +832,7 @@ def _history_job(facts: RepoFacts) -> PageJob | None:
         payload,
         evidence,
         _diagrams_for(facts, "TIME-"),
-        [],
+        [t for t in (fact_tables.period_table(facts),) if t is not None],
         "B1",
     )
 

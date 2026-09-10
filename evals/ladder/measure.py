@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import tempfile
 import sys
 from itertools import combinations
 from pathlib import Path
@@ -25,7 +26,10 @@ RENDERER = HERE / "render_measure.mjs"
 ROOT = HERE.parent.parent
 
 MAX_CROSSINGS = 10
-LADDER_LEVELS = {"L0", "L1"}
+# 잴 단. 처음에는 L0 과 L1 만 봤고, 그래서 나머지 단의 상한이 실측 없이 들어갔다.
+# kafka 위키에서 `TYPE` 도식이 노드 25개를 한 줄로 늘어놓아 글자가 안 보이는 것을 사람이
+# 짚었는데, 그 단은 이 자에 걸린 적이 없었다(2026-09-10). 전 단을 잰다.
+LADDER_LEVELS = {"L0", "L1", "L2", "TYPE", "COLLAB", "AREA", "SEQ", "FLOW", "TIME", "ER"}
 
 
 def _orientation(a: tuple[float, float], b: tuple[float, float], c: tuple[float, float]) -> float:
@@ -59,15 +63,21 @@ def count_crossings(edges: list[list[list[float]]]) -> int:
 
 def render(diagrams: list[dict]) -> list[dict]:
     """Chrome으로 렌더해 좌표를 받는다."""
-    payload = json.dumps(diagrams)
-    out = subprocess.run(  # noqa: S603
-        ["node", str(RENDERER)],
-        input=payload,
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
-        check=False,
-    )
+    # 파이프가 아니라 파일이다. node 의 `readFileSync(0)` 은 파이프 stdin 에서 EAGAIN 으로
+    # 죽는다(macOS, 43장짜리 입력에서도 났다, 2026-09-10).
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+        json.dump(diagrams, handle)
+        payload_path = handle.name
+    try:
+        out = subprocess.run(  # noqa: S603
+            ["node", str(RENDERER), payload_path],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=False,
+        )
+    finally:
+        Path(payload_path).unlink(missing_ok=True)
     if out.returncode != 0:
         raise RuntimeError(f"렌더 실패: {out.stderr.strip()[:400]}")
     return json.loads(out.stdout)
@@ -79,14 +89,17 @@ def _judge(measured: dict, engine: str, repo: str) -> tuple[tuple, bool]:
         return (repo, measured["id"], engine, -1, -1, -1, False, "렌더 실패"), False
     crossings = count_crossings(measured["edge_points"])
     truncated = measured["truncated_labels"]
-    hscroll = measured["hscroll"]
     reason = []
     if crossings > MAX_CROSSINGS:
         reason.append(f"교차 {crossings}")
     if truncated:
         reason.append(f"라벨 잘림 {truncated}")
-    if hscroll:
-        reason.append(f"가로 스크롤 {measured['width']}px > {measured['content_width']}px")
+    # 본문보다 넓은 원본은 두 가지로 나타난다. 가로 스크롤이거나, Mermaid 가 본문 폭으로 줄여
+    # 글자가 작아지는 것이다. 둘 다 SC-1.6 의 "사람이 읽는다"를 어긴다.
+    if measured["hscroll"]:
+        reason.append(f"가로 스크롤 {measured['scroll_width']}px > {measured['content_width']}px")
+    elif measured.get("shrunk"):
+        reason.append(f"원본 {measured['width']}px 이 본문 {measured['content_width']}px 으로 줄어듦")
     passed = not reason
     row = (
         repo,

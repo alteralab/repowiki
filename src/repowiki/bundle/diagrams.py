@@ -64,6 +64,74 @@ def _label(raw: str) -> str:
     return cleaned or "."
 
 
+# 라벨 글자 상한. 사이트 본문은 1440px 뷰포트에서 823px이고(2026-09-10 실측), 상자 하나의
+# 폭은 노드 수가 아니라 가장 긴 라벨이 정한다. kafka의 타입 상세 50장을 재니 라벨을 24자로
+# 자르면 전부 본문에 들고(최대 706px) 32자면 하나가 넘친다(826px). 전체 이름은 그 쪽의
+# 표에 있다.
+_MAX_LABEL = 24
+# 1단 구성도 상자의 제목 상한. 제목은 한 줄이라 잎보다 길어도 된다(같은 실측, 최대 983px은
+# 제목이 아니라 42자 잎 셋이 만든 폭이었다).
+_MAX_AREA_TITLE = 40
+# 시퀀스 참가자 이름을 접는 글자 수. 참가자 상자는 이름 폭이 아니라 아래 지시문의 `width`
+# 로 고정되므로, 한 줄이 그보다 길면 글자가 상자 밖으로 나가 이웃과 겹친다. 한 줄 11자는
+# 상자 100px 에 든다(kafka 60장 실측: 12자면 다섯 장이 넘치고 11자면 없다). 그래도 전체
+# 1,324장에서는 `CommandSpec` 처럼 넓은 글자의 11자가 1px 넘쳤다. 열 자다. 낱말이 이보다
+# 길면 낱말 안에서도 자른다.
+_WRAP_AT = 10
+# 시퀀스의 간격. Mermaid 기본(상자 150, 간격 50)으로는 참가자 넷이 918px이라 본문을 넘고,
+# 이 값이면 여섯까지 든다(같은 실측: 최대 801px). 소스에 싣는 이유는 사이트와 GitHub 이
+# 같은 그림을 보게 하려는 것이다.
+_SEQUENCE_DIRECTIVE = (
+    '%%{init: {"sequence": {"width": 100, "actorMargin": 16, "messageMargin": 20, '
+    '"wrap": true, "mirrorActors": false}}}%%'
+)
+# ast-grep-ignore: regex-on-structure — 어휘: 낙타 표기 이름을 낱말로 가르는 문자 판정이다.
+_WORD = re.compile(r"[A-Z][a-z0-9]*|[a-z0-9]+|[^A-Za-z0-9]+")
+
+
+def _short(raw: str, limit: int = _MAX_LABEL) -> str:
+    """상한 안의 라벨. 넘치면 말줄임표를 붙여 자른 것임을 보인다."""
+    text = _label(raw)
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _distinct(names: list[str], limit: int = _MAX_LABEL) -> dict[str, str]:
+    """이름마다 그림 안에서 서로 다른 짧은 라벨. 순서가 곧 번호라 결정적이다.
+
+    자른 라벨이 같아지면 화살표가 어느 타입을 뜻하는지 읽을 수 없다. 같은 접두어의 중첩
+    타입이 그렇다(`InMemoryWindowStore.Inner…` 둘). 그때만 번호를 붙인다.
+    """
+    labels = {name: _short(name, limit) for name in names}
+    seen: dict[str, int] = {}
+    for name, label in labels.items():
+        seen[label] = seen.get(label, 0) + 1
+    counted: dict[str, int] = {}
+    for name, label in labels.items():
+        if seen[label] > 1:
+            counted[label] = counted.get(label, 0) + 1
+            labels[name] = f"{label} #{counted[label]}"
+    return labels
+
+
+def _wrap_name(raw: str) -> str:
+    """참가자 이름을 접는다. 낱말 경계가 먼저이고, 낱말이 한 줄보다 길면 낱말 안에서도 자른다.
+
+    줄바꿈은 Mermaid 가 아는 `<br/>`다. 그래서 이름에 든 `<`·`>`·`&` 는 다른 글자로 바꾼다.
+    그대로 두면 삽입한 태그와 섞여 HTML 로 읽힌다.
+    """
+    text = _label(raw).replace("<", "‹").replace(">", "›").replace("&", "+")
+    pieces: list[str] = []
+    for word in _WORD.findall(text) or [text]:
+        pieces += [word[i : i + _WRAP_AT] for i in range(0, len(word), _WRAP_AT)]
+    lines = [""]
+    for word in pieces:
+        if lines[-1] and len(lines[-1]) + len(word) > _WRAP_AT:
+            lines.append(word)
+        else:
+            lines[-1] += word
+    return "<br/>".join(lines)
+
+
 def _render(plan: _Plan, shown: list[str]) -> tuple[str, int]:
     visible = set(shown)
     lines = [plan.header] if not plan.directive else [plan.directive, plan.header]
@@ -167,8 +235,10 @@ def subsystem_diagram(
     if not _is_informative(ordered, lines):
         return None
     entry_subsystems = {owner[m] for m in entry_modules if m in owner}
+    # 세로다. 가로로 여섯을 늘어놓으면 kafka 가 1,119px 로 본문(823px)을 넘고, 세로면
+    # 459px 이다(2026-09-10 실측).
     plan = _Plan(
-        header="flowchart LR",
+        header="flowchart TB",
         nodes=ordered,
         node_lines={name: f'  {_node_id("S", name)}["{_label(name)}"]' for name in ordered},
         edges=lines,
@@ -204,7 +274,7 @@ def module_diagram(
         header="flowchart LR",
         nodes=ordered,
         node_lines={
-            name: f'  {_node_id("M", name)}["{_label(_module_label(name, root_name))}"]'
+            name: f'  {_node_id("M", name)}["{_label(_module_label(name, root_name, subsystem.id))}"]'
             for name in ordered
         },
         edges=lines,
@@ -213,9 +283,17 @@ def module_diagram(
     return _compile(plan, limit, f"L1-{subsystem.id}", "L1")
 
 
-def _module_label(module_id: str, root_name: str) -> str:
-    """모듈의 라벨. 저장소 뿌리는 id가 `.`이라 그대로 쓰면 점 하나가 그려진다."""
-    return root_name or module_id if module_id in ("", ".") else module_id
+def _module_label(module_id: str, root_name: str, subsystem_id: str = "") -> str:
+    """모듈의 라벨. 저장소 뿌리는 id가 `.`이라 그대로 쓰면 점 하나가 그려진다.
+
+    묶음 안의 그림에서 묶음 이름은 접두어일 뿐이다. `connect/basic-auth-extension` 아홉을
+    그리면 그 접두어가 폭의 셋 중 하나를 먹어 1,221px 이 되고, 떼면 765px 이다
+    (kafka 2026-09-10 실측). 쪽 제목이 그 묶음이므로 잃는 정보는 없다.
+    """
+    if module_id in ("", "."):
+        return root_name or module_id
+    prefix = f"{subsystem_id}/"
+    return module_id[len(prefix) :] if subsystem_id and module_id.startswith(prefix) else module_id
 
 
 def _identity(declaration: Span | None, path: str | None, name: str) -> str:
@@ -228,19 +306,35 @@ def _identity(declaration: Span | None, path: str | None, name: str) -> str:
     return path or f"name:{name}"
 
 
+# 관계 종류마다의 화살표와, 그 화살표를 적을 때의 (앞, 뒤) 순서. Mermaid 의 `A <|-- B` 는
+# B 가 A 를 상속하고, `A ..> B` 는 A 가 B 에 기댄다(화살촉이 기대는 쪽을 가리킨다). 엣지의
+# src 가 dst 를 상속하거나 dst 를 필드·인자로 쓰므로 상속은 `dst <|-- src`, 의존은
+# `src ..> dst` 다. 의존을 `dst ..> src` 로 적으면 그림이 "설정이 Admin 에 기댄다"고
+# 말한다 — 실제로 그렇게 적혀 있었다(kafka `TYPE-Admin`, 2026-09-10).
 _EDGE_ARROW = {
-    TypeEdgeKind.EXTENDS: "<|--",
-    TypeEdgeKind.IMPLEMENTS: "<|..",
-    TypeEdgeKind.FIELD_TYPE: "..>",
-    TypeEdgeKind.PARAM_TYPE: "..>",
+    TypeEdgeKind.EXTENDS: ("<|--", "dst", "src"),
+    TypeEdgeKind.IMPLEMENTS: ("<|..", "dst", "src"),
+    TypeEdgeKind.FIELD_TYPE: ("..>", "src", "dst"),
+    TypeEdgeKind.PARAM_TYPE: ("..>", "src", "dst"),
 }
+_DEFAULT_ARROW = ("..>", "src", "dst")
+# 같은 관계를 반대편에서 적은 화살표. `A <|-- B` 와 `B --|> A` 는 같은 뜻이다.
+_EDGE_ARROW_FLIPPED = {"<|--": "--|>", "<|..": "..|>", "..>": "<.."}
+
+
+def _relation(edge: TypeEdge, src_id: str, dst_id: str) -> tuple[str, str, str]:
+    """관계 한 줄의 (앞 노드, 화살표, 뒤 노드). 뜻이 맞는 순서다."""
+    arrow, first, _ = _EDGE_ARROW.get(edge.kind, _DEFAULT_ARROW)
+    ids = {"src": src_id, "dst": dst_id}
+    return ids[first], arrow, ids["dst" if first == "src" else "src"]
 
 
 _MAX_HOPS = 12
 # 클래스 상자에 넣을 멤버 상한. 이보다 많으면 상자가 그림을 밀어낸다.
 _MAX_MEMBERS = 14
-# 1단 구성도의 한 상자에 넣을 대표 타입 수. 이보다 많으면 상자가 그림을 밀어낸다.
-_MAX_AREA_MEMBERS = 5
+# 1단 구성도의 한 상자에 넣을 대표 타입 수. 상자 안은 가로 한 줄이라 이 수가 곧 상자 폭이다.
+# 다섯이면 상자 하나가 1,000px 을 넘고, 셋이면 본문에 든다(kafka 2026-09-10 실측).
+_MAX_AREA_MEMBERS = 3
 
 
 def entity_diagram(entities: list[dict], relations: list[dict], limit: DiagramLimit) -> Diagram | None:
@@ -287,33 +381,48 @@ def entity_diagram(entities: list[dict], relations: list[dict], limit: DiagramLi
         edge_count=kept,
         degraded_reason="; ".join(reasons) or None,
     )
-_MAX_PERIODS = 12
+# 막대그래프의 크기. 폭은 본문(823px)보다 좁게 못 박는다. xychart 는 다른 그림과 달리
+# 내용이 아니라 이 값이 폭을 정한다.
+_CHART_WIDTH = 800
+_CHART_HEIGHT = 320
+# ast-grep-ignore: regex-on-structure — 어휘: xychart 문자열에 못 들어가는 문자의 판정이다.
+_CHART_UNSAFE = re.compile(r'["\[\]\\\n\r]')
+
+
+def _chart_text(raw: str) -> str:
+    """xychart 의 따옴표 문자열. 따옴표·대괄호·역슬래시·줄바꿈이 있으면 문법이 깨진다."""
+    return " ".join(_CHART_UNSAFE.sub(" ", raw).split()) or "."
 
 
 def history_diagram(periods: list[dict], limit: DiagramLimit) -> Diagram | None:
-    """이력을 timeline으로 그린다.
+    """이력을 분기별 커밋 수 막대그래프로 그린다.
 
-    분기마다 커밋 수와 그 분기에 가장 많이 바뀐 파일 이름을 적는다. 사람은 이 그림에서
-    "최근에 어디가 움직였는가"를 먼저 본다. 기간이 없으면 그리지 않는다.
+    사람은 이 그림에서 "언제 많이 움직였는가"를 먼저 본다. 기간이 없으면 그리지 않는다.
+
+    timeline 이 아니다. timeline 은 기간마다 한 칸을 가로로 늘어놓아 기간당 200px 이고,
+    kafka 아홉 분기가 2,190px 로 본문의 2.7배였다(2026-09-10 실측). 본문에 드는 것은
+    세 분기뿐이라 그림이 말할 것이 없다. 분기마다 가장 많이 바뀐 파일은 그림이 아니라
+    이력 쪽의 표(`periods`)에 있다.
     """
     if not periods:
         return None
-    shown = periods[-_MAX_PERIODS:]
-    lines = ["timeline", "  title 분기별 변경"]
-    for period in shown:
-        name = period.get("top_path", "").split("/")[-1]
-        detail = f"커밋 {period['commits']}건"
-        if name:
-            detail += f" : 최다 {_label(name)} {period['top_revisions']}회"
-        lines.append(f"  {period['label']} : {detail}")
+    shown = periods[-limit.max_nodes :]
+    labels = ", ".join(f'"{_chart_text(str(period["label"]))}"' for period in shown)
+    # 음수는 없는 값이다. 축은 0 에서 시작하고 위끝은 최소 1 이어야 한다 — 전부 0 이면
+    # `0 --> 0` 이 되어 축이 무너진다.
+    counts = [max(0, int(period["commits"])) for period in shown]
+    lines = [
+        f'%%{{init: {{"xyChart": {{"width": {_CHART_WIDTH}, "height": {_CHART_HEIGHT}}}}}}}%%',
+        "xychart-beta",
+        '  title "분기별 커밋"',
+        f"  x-axis [{labels}]",
+        f'  y-axis "커밋" 0 --> {max(counts, default=0) or 1}',
+        f"  bar [{', '.join(str(count) for count in counts)}]",
+    ]
     source = "\n".join(lines)
     reasons = []
-    if len(periods) > _MAX_PERIODS:
-        reasons.append(f"기간 {len(periods)}개가 상한 {_MAX_PERIODS}개를 넘어 최근만 그렸다")
-    while len(source) > limit.max_source_chars and len(lines) > 3:
-        lines.pop(2)
-        source = "\n".join(lines)
-        reasons.append("소스 상한을 맞추려고 앞 기간을 줄였다")
+    if len(periods) > limit.max_nodes:
+        reasons.append(f"기간 {len(periods)}개가 상한 {limit.max_nodes}개를 넘어 최근만 그렸다")
     return Diagram(
         id="TIME-history",
         level="TIME",
@@ -337,9 +446,9 @@ def flow_diagram(flow: CrossModuleFlow, limit: DiagramLimit) -> Diagram | None:
     participants = list(dict.fromkeys(flow.modules))[: limit.max_nodes]
     visible = set(participants)
     short = {name: f"P{position}" for position, name in enumerate(participants)}
-    lines = ["sequenceDiagram"]
+    lines = [_SEQUENCE_DIRECTIVE, "sequenceDiagram"]
     for name in participants:
-        lines.append(f'  participant {short[name]} as {_label(name)}')
+        lines.append(f'  participant {short[name]} as {_wrap_name(name)}')
     lines.append(f'  Note over {short[participants[0]]}: {_label(flow.entry.kind.value)} {_label(flow.entry.name)[:30]}')
     kept = 0
     for hop in flow.hops[:_MAX_HOPS]:
@@ -407,10 +516,13 @@ def type_diagram(
         if key in seen:
             continue
         seen.add(key)
-        arrow = _EDGE_ARROW.get(edge.kind, "..>")
-        edge_lines.append((src_key, dst_key, f"  {short[dst_key]} {arrow} {short[src_key]}"))
+        first, arrow, second = _relation(edge, short[src_key], short[dst_key])
+        edge_lines.append((src_key, dst_key, f"  {first} {arrow} {second}"))
+    # 왼쪽에서 오른쪽이다. 위에서 아래로 그리면 같은 층의 타입이 한 줄로 늘어서 노드 여덟에
+    # 1,460px 이고, 가로 방향이면 스물에 791px 이다(kafka 2026-09-10 실측). 대신 키가
+    # 자라므로 상한은 높이로 정했다(12에서 최대 1,574px).
     plan = _Plan(
-        header="classDiagram",
+        header="classDiagram\n  direction LR",
         nodes=ordered,
         node_lines={
             key: f'  class {short[key]}["{_label(label_of[key])}"]' for key in ordered
@@ -480,8 +592,8 @@ def member_sequence(
         return None
 
     def render(kept: list[CallEdge]) -> str:
-        lines = ["sequenceDiagram"]
-        lines += [f"  participant {short[name]} as {_label(name)}" for name in participants]
+        lines = [_SEQUENCE_DIRECTIVE, "sequenceDiagram"]
+        lines += [f"  participant {short[name]} as {_wrap_name(name)}" for name in participants]
         lines.append(f"  Note over {short[type_name]}: {_label(member_name)}")
         for edge in kept:
             arrow = "->>" if edge.dst_type != type_name else "-->>"
@@ -522,7 +634,10 @@ def collaboration_diagram(
     weight: Counter[str] = Counter(e.dst_type for e in outgoing)
     ordered = [type_name] + [name for name, _ in weight.most_common()]
     short = {name: _node_id("C", name) for name in ordered}
-    node_lines = {name: f'  {short[name]}["{_label(name)}"]' for name in ordered}
+    # 라벨은 자른다. 두 층뿐이라 폭은 중심과 가장 긴 이웃의 이름이 정하는데,
+    # `MeteredTimestampedKeyValueStoreWithHeaders` 는 그것만으로 824px 이었다(2026-09-10).
+    shown_label = _distinct(ordered)
+    node_lines = {name: f'  {short[name]}["{shown_label[name]}"]' for name in ordered}
     edges = [
         (type_name, name, f"  {short[type_name]} -->|{count}| {short[name]}")
         for name, count in weight.most_common()
@@ -549,18 +664,27 @@ def _detail_edges(
 
     관계 종류가 달라도 화살표가 같으면 줄이 같아진다. 같은 줄을 두 번 그리면 사람은 관계가
     둘이라고 읽는다.
+
+    줄마다 이웃이 먼저 온다. dagre 는 줄의 첫 노드를 앞 층에 두므로, 이웃을 늘 먼저 적으면
+    이웃 전부가 중심 상자의 한쪽에 서고 그림은 두 층이다. 관계 방향에 따라 양쪽에 서게 두면
+    세 층이 되어 같은 그림이 939px 로 본문을 넘겼다(kafka 2026-09-10 실측, 한쪽이면 706px).
     """
     drawn: list[str] = []
+    centre = _safe_class(type_name)
     for edge in related:
         src_key = _identity(None, edge.src_path, edge.src)
         dst_key = _identity(None, edge.dst_path, edge.dst)
         other = dst_key if edge.src == type_name else src_key
         if other not in limited:
             continue
-        arrow = _EDGE_ARROW.get(edge.kind, "..>")
-        head = _safe_class(type_name) if edge.dst == type_name else short[dst_key]
-        tail = _safe_class(type_name) if edge.src == type_name else short[src_key]
-        line = f"  {head} {arrow} {tail}"
+        first, arrow, second = _relation(
+            edge,
+            centre if edge.src == type_name else short[src_key],
+            centre if edge.dst == type_name else short[dst_key],
+        )
+        if first == centre:
+            first, arrow, second = second, _EDGE_ARROW_FLIPPED[arrow], first
+        line = f"  {first} {arrow} {second}"
         if line not in drawn:
             drawn.append(line)
     return drawn
@@ -577,6 +701,11 @@ def type_detail_diagram(
 
     빈 상자만 있는 클래스 다이어그램은 이름 목록과 다르지 않다. 멤버를 넣어야 사람이
     "이 타입이 무엇을 할 수 있는가"를 그림에서 읽는다.
+
+    모양은 가로 두 층이다. 위에서 아래로 그리면 이웃이 한 줄로 늘어서 노드 25에 5,187px
+    이 되고, 사이트는 그것을 본문 폭으로 줄여 글자가 21% 크기가 된다(kafka `Admin`,
+    2026-09-10 실측). 이웃을 왼쪽 한 층에 세우고 라벨을 `_MAX_LABEL` 로 자르면 노드 16
+    까지 전부 본문에 든다.
 
     이웃의 정체는 선언 파일이다. 이름만으로 묶으면 `Option.Builder`와 `TextStyle.Builder`가
     한 상자가 되고, 서로 다른 두 관계가 같은 화살표로 겹쳐 그려진다.
@@ -595,19 +724,20 @@ def type_detail_diagram(
             key = _identity(None, path, name)
             neighbours.setdefault(key, label_of.get(f"{path}#{name}", name))
     limited = dict(list(neighbours.items())[: max(0, limit.max_nodes - 1)])
+    shown_label = _distinct(list(limited.values()))
     short = {key: f"N{position}" for position, key in enumerate(limited)}
-    shown_members = sorted(mine, key=lambda s: (s.kind.value, s.name))[:_MAX_MEMBERS]
+    shown_members = list({(s.kind, s.name): s for s in mine}.values())
     drawn = _detail_edges(type_name, related, limited, short)
 
     def render(kept: list[str]) -> str:
-        lines = ["classDiagram", *_member_box(type_name, shown_members)]
-        lines += [f'  class {short[key]}["{_label(label)}"]' for key, label in limited.items()]
+        lines = ["classDiagram", "  direction LR", *_member_box(type_name, shown_members)]
+        lines += [f'  class {short[key]}["{shown_label[label]}"]' for key, label in limited.items()]
         lines += kept
         return "\n".join(lines)
 
     reasons: list[str] = []
-    if len(mine) > _MAX_MEMBERS:
-        reasons.append(f"멤버 {len(mine)}개가 상한 {_MAX_MEMBERS}개를 넘어 앞쪽만 그렸다")
+    if len(shown_members) > _MAX_MEMBERS:
+        reasons.append(f"멤버 {len(shown_members)}개가 상한 {_MAX_MEMBERS}개를 넘어 앞쪽만 그렸다")
     if len(neighbours) > len(limited):
         reasons.append(f"이웃 {len(neighbours)}개가 상한 {limit.max_nodes - 1}개를 넘었다")
     source, kept = _fit(render, drawn, limit, reasons)
@@ -622,12 +752,17 @@ def type_detail_diagram(
 
 
 def _member_box(type_name: str, members: list[Symbol]) -> list[str]:
-    """클래스 상자 하나. 필드는 `-`, 호출 가능한 것은 `+`로 적는다."""
+    """클래스 상자 하나. 필드는 `-`, 호출 가능한 것은 `+`로 적는다.
+
+    같은 이름은 한 줄이다. 오버로드는 심볼이 여럿이지만 사람이 상자에서 읽는 것은 "무엇을
+    할 수 있는가"이고, kafka `Admin`은 오버로드 때문에 14줄에 이름이 일곱뿐이었다(2026-09-10).
+    """
     lines = [f"  class {_safe_class(type_name)} {{"]
-    for symbol in sorted(members, key=lambda s: (s.kind.value, s.name))[:_MAX_MEMBERS]:
+    unique = {(s.kind, s.name): s for s in members}.values()
+    for symbol in sorted(unique, key=lambda s: (s.kind.value, s.name))[:_MAX_MEMBERS]:
         marker = "-" if symbol.kind == SymbolKind.FIELD else "+"
         suffix = "" if symbol.kind == SymbolKind.FIELD else "()"
-        lines.append(f"    {marker}{_label(symbol.name)}{suffix}")
+        lines.append(f"    {marker}{_short(symbol.name)}{suffix}")
     lines.append("  }")
     return lines
 
@@ -662,8 +797,14 @@ def area_diagram(
     # 자리 번호를 id 로 쓴다. 이름을 id 로 만들면 한 줄이 100자를 넘어 소스 상한을 그림이
     # 아니라 식별자가 다 쓴다(kafka 실측: 상자만 2,888자로 상한 2,000자를 넘겼다).
     short = {group: f"A{position}" for position, group in enumerate(shown)}
-    lines = [line for line in (_directive_for(limit), "flowchart LR") if line]
+    # 상자는 세로로 한 줄에 하나다. 레이아웃은 서로 부르지 않는 상자를 같은 층에 나란히
+    # 놓으므로 그냥 두면 상자 넷이 한 줄에 서서 1,265px 이 된다. 보이지 않는 사슬
+    # (`~~~`)로 층을 강제하면 가장 넓은 상자 하나의 폭이 그림의 폭이다(kafka 12장 실측:
+    # 최대 983px 은 42자 잎이 만든 것이고 잎을 자르면 든다).
+    lines = [line for line in (_directive_for(limit), "flowchart TB") if line]
     lines += _area_boxes(children, visible, short)
+    if len(shown) > 1:
+        lines.append("  " + " ~~~ ".join(short[group] for group in shown))
     drawn = [
         f"  {short[src]} -->|{count}| {short[dst]}"
         for (src, dst), count in weight.most_common()
@@ -715,9 +856,10 @@ def _area_boxes(
     for group, members in children:
         if group not in visible:
             continue
-        lines.append(f'  subgraph {short[group]}["{_label(group)}"]')
+        lines.append(f'  subgraph {short[group]}["{_short(group, _MAX_AREA_TITLE)}"]')
+        lines.append("    direction LR")
         lines += [
-            f'    {short[group]}_{position}["{_label(name)}"]'
+            f'    {short[group]}_{position}["{_short(name)}"]'
             for position, name in enumerate(members[:_MAX_AREA_MEMBERS])
         ]
         lines.append("  end")
